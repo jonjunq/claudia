@@ -86,6 +86,7 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 | `bin/clear-context.sh` | `/clear` desde Telegram: conversación nueva a media jornada, después de apuntar lo pendiente |
 | `bin/permission-watch.sh` | Te avisa por Telegram cuando se queda parado en un aviso de permiso de su terminal |
 | `bin/transcribe.sh`, `bin/speak.sh` | Notas de voz de entrada (Whisper en Groq, con respaldo local) y de salida (ElevenLabs) |
+| `templates/tools/vet-skill.sh` | Revisa una skill de terceros con SkillSpector antes de instalarla |
 
 ## Documentación (en inglés)
 
@@ -95,6 +96,8 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 - [Ciclo diario, rutinas y comandos](docs/daily-cycle.md): cierre del día, resumen matutino, `/usage`, `/clear`.
 - [Voz](docs/voice.md): notas de voz, respuestas habladas y una llamada experimental por Discord.
 - [Aislamiento](docs/isolation.md): dónde ejecutarlo y cómo cerrarlo.
+- [Ojos en tu servidor, sin manos](docs/homelab-read-access.md): acceso de solo lectura a Proxmox, copias y paneles, con seguridad.
+- [Revisar skills](docs/vetting-skills.md): comprobar skills de terceros antes de instalarlas (SkillSpector, skill a skill).
 - [Problemas frecuentes](docs/troubleshooting.md): los que nos encontramos de verdad.
 - [Comparación](docs/comparison.md): Hermes Agent, un Proyecto de claude.ai y esto.
 

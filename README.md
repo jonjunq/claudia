@@ -85,6 +85,7 @@ Then write to your bot. Step by step, with every gotcha we hit: [docs/setup.md](
 | `bin/clear-context.sh` | `/clear` from Telegram: fresh conversation mid-day, after saving what's pending |
 | `bin/permission-watch.sh` | Tells you on Telegram when it is stuck on a prompt in its terminal |
 | `bin/transcribe.sh`, `bin/speak.sh` | Voice notes in (Groq Whisper, local fallback) and out (ElevenLabs) |
+| `templates/tools/vet-skill.sh` | Scans a third-party skill with SkillSpector before you install it |
 
 ## Documentation
 
@@ -94,6 +95,8 @@ Then write to your bot. Step by step, with every gotcha we hit: [docs/setup.md](
 - [Daily cycle, routines and commands](docs/daily-cycle.md): end of day, morning summary, `/usage`, `/clear`.
 - [Voice](docs/voice.md): voice notes, spoken replies and an experimental Discord voice call.
 - [Isolation](docs/isolation.md): where to run it and how to fence it.
+- [Eyes on your server, no hands](docs/homelab-read-access.md): read-only access to Proxmox, backups and dashboards, safely.
+- [Vetting skills](docs/vetting-skills.md): checking third-party skills before installing them (SkillSpector, per skill).
 - [Troubleshooting](docs/troubleshooting.md): the real problems we hit.
 - [Comparison](docs/comparison.md): Hermes Agent, a claude.ai Project, and this.
 

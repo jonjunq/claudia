@@ -8,7 +8,7 @@ ok() { echo "ok   $1"; pass=$((pass + 1)); }
 ko() { echo "FAIL $1"; fail=$((fail + 1)); }
 check() { local name=$1; shift; if "$@" >/dev/null 2>&1; then ok "$name"; else ko "$name"; fi; }
 
-SCRIPTS=(install.sh tests/run-tests.sh templates/system/assistant-daily-restart templates/workspace/bin/*.sh)
+SCRIPTS=(install.sh tests/run-tests.sh templates/system/assistant-daily-restart templates/workspace/bin/*.sh templates/tools/*.sh)
 check "shellcheck" shellcheck -S warning -x "${SCRIPTS[@]}"
 for s in "${SCRIPTS[@]}"; do check "bash -n $s" bash -n "$s"; done
 check "settings.json is valid JSON" jq -e . templates/settings.json
@@ -97,6 +97,21 @@ timeout 3 "$H/assistant/bin/start.sh" >/dev/null 2>&1
 check "resume uses --continue" bash -c "grep '^claude ' '$FAKE_LOG' | head -1 | grep -q -- '--continue$'"
 check "fast --continue failure falls back to a new conversation" bash -c "grep '^claude ' '$FAKE_LOG' | sed -n 2p | grep -qv -- '--continue'"
 check "start.sh logs to restarts.log" grep -q "continue failed at once" "$H/assistant/restarts.log"
+
+# vet-skill.sh with a fake SkillSpector: one report per skill folder, plus the whole repo.
+cat > "$B/skillspector" <<'EOF'
+#!/bin/bash
+out=""; while [ $# -gt 0 ]; do [ "$1" = --output ] && out=$2; shift; done
+printf '| Score | 7/100 |\n| Severity | LOW |\n| Recommendation | SAFE |\n### LOW: X1\n' > "$out"
+EOF
+chmod +x "$B/skillspector"
+mkdir -p "$T/repo/skills/one" "$T/repo/skills/two"
+touch "$T/repo/skills/one/SKILL.md" "$T/repo/skills/two/SKILL.md"
+vet=$(VET_REPORTS="$T/reports" templates/tools/vet-skill.sh "$T/repo" 2>&1)
+check "vet-skill lists each skill" grep -qE '^skills/one +7/100 +LOW +SAFE' <<<"$vet"
+check "vet-skill lists every skill folder" grep -q '^skills/two ' <<<"$vet"
+check "vet-skill writes per-skill reports" test -e "$(find "$T/reports" -name skill-skills_one.md | head -1)"
+check "vet-skill scans the whole repo too" grep -q "Whole repo (indicative" <<<"$vet"
 
 rm -rf "$T"
 echo; echo "passed $pass, failed $fail"
