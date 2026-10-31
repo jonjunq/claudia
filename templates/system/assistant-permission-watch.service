@@ -1,0 +1,12 @@
+[Unit]
+Description=Tell the owner on Telegram when the assistant waits on a permission prompt
+After=assistant.service
+
+[Service]
+User=__USER__
+ExecStart=__HOME__/assistant/bin/permission-watch.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

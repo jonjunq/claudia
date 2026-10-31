@@ -1,0 +1,41 @@
+#!/bin/bash
+# Daily end-of-day + clean conversation for the assistant. Run by cron as root (see assistant.cron).
+#  1. Asks the assistant to save everything important (the "End of day" section of its CLAUDE.md).
+#  2. Waits until it rewrites notes/yesterday.md (up to 12 minutes).
+#  3. Marks the next start as a new conversation, updates Claude Code and restarts the service.
+# Memory and notes/ survive; only the conversation context is dropped.
+# It runs as root, outside the assistant's reach, so the assistant cannot change or skip it.
+# Usage: assistant-daily-restart <user>
+set -u
+unset TMUX TMUX_PANE   # if run by hand from inside tmux, talk to the user's tmux server, not ours
+U="${1:?usage: $0 <user>}"
+H=$(getent passwd "$U" | cut -d: -f6)
+A="$H/assistant"
+S=assistant
+[ -f "$A/assistant.env" ] && S=$(sed -n 's/^TMUX_SESSION=//p' "$A/assistant.env" | tail -1)
+S="${S:-assistant}"
+SUMMARY="$A/notes/yesterday.md"
+LOG="$A/restarts.log"
+mtime() { stat -c %Y "$SUMMARY" 2>/dev/null || echo 0; }
+
+before=$(mtime)
+# -l types the text literally; Enter goes separately, or the line stays typed but unsent.
+runuser -u "$U" -- tmux send-keys -t "$S" -l "END OF DAY (automatic, do not message the owner): a new conversation starts in a few minutes and you will lose this context. Follow the End of day section of CLAUDE.md."
+sleep 2
+runuser -u "$U" -- tmux send-keys -t "$S" Enter
+for _ in $(seq 1 72); do
+  sleep 10
+  [ "$(mtime)" -gt "$before" ] && break
+done
+sleep 45   # room to finish saving memory after the summary
+if [ "$(mtime)" -gt "$before" ]; then state=OK; else state="NOT updated"; fi
+echo "[$(date)] end of day: summary $state" >> "$LOG"
+runuser -u "$U" -- touch "$A/.new-session"
+
+# Update Claude Code (applied by the restart below).
+v1=$(runuser -l "$U" -c "claude --version" 2>/dev/null | cut -d" " -f1)
+out=$(timeout 300 runuser -l "$U" -c "claude update" 2>&1 | tail -3 | tr "\n" " ")
+v2=$(runuser -l "$U" -c "claude --version" 2>/dev/null | cut -d" " -f1)
+echo "[$(date)] claude update: $v1 -> $v2 ($out)" >> "$LOG"
+chown "$U": "$LOG"
+systemctl restart assistant

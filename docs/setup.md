@@ -1,0 +1,123 @@
+# Setup
+
+About an hour the first time. Everything runs as one normal user on one isolated machine.
+
+## 1. The machine
+
+Any always-on Linux box you are happy to dedicate: a VM, an LXC container, a mini PC or a small cloud VM. Debian or
+Ubuntu make the commands below work as written. Without local voice models, 2 cores, 2-4 GB of RAM and 10 GB of disk
+are plenty. Fence it off from the rest of your network before you give it your email: [isolation.md](isolation.md).
+
+Set the time zone (`timedatectl set-timezone Europe/London`): reminders, routines and the daily restart all use it.
+
+```bash
+apt install -y tmux jq curl git ffmpeg     # ffmpeg only for voice
+adduser --disabled-password --gecos "" assistant
+```
+
+## 2. The workspace and services
+
+```bash
+git clone https://github.com/jonjunq/claudia && cd claudia
+./install.sh assistant --name Claudia --owner Alex --language English --timezone Europe/London
+```
+
+It creates, without overwriting anything that exists:
+
+| Path | What |
+|---|---|
+| `~assistant/assistant/` | The workspace: `CLAUDE.md`, `assistant.env`, `notes/`, `bin/` |
+| `~assistant/.claude/settings.json` | Permissions, plugin, status line (if a settings file exists it writes `settings.assistant.json` for you to merge) |
+| `~assistant/.config/assistant/keys.env` | API keys for the optional voice scripts (mode 600) |
+| `/etc/systemd/system/assistant.service` | Runs `bin/start.sh` inside a tmux session called `assistant` |
+| `/etc/systemd/system/assistant-permission-watch.service` | The permission-prompt watcher |
+| `/usr/local/sbin/assistant-daily-restart` + `/etc/cron.d/assistant` | The nightly end of day (05:45 by default) |
+
+Nothing starts yet.
+
+## 3. Claude Code and Bun, as the assistant's user
+
+```bash
+su - assistant
+curl -fsSL https://claude.ai/install.sh | bash      # Claude Code (native installer, auto-updates)
+curl -fsSL https://bun.sh/install | bash            # the channel plugins are Bun scripts
+exec bash -l
+cd ~/assistant && claude
+```
+
+Log in with your Claude account (the subscription, not an API key) and accept the workspace trust prompt for
+`~/assistant`. Then pick the model: `MODEL=` in `assistant.env`. We use Opus: the largest model is slower on a phone
+and spends more of your limits, and Sonnet falls short on longer errands. `start.sh` passes the model explicitly
+because a resumed conversation otherwise keeps the model it was created with.
+
+## 4. Telegram
+
+1. In Telegram, talk to [@BotFather](https://t.me/BotFather), send `/newbot`, pick a name and a username ending in
+   `bot`, copy the token. Never paste that token into a chat (including with the assistant); if you do, regenerate it.
+2. In Claude Code:
+   ```
+   /plugin install telegram@claude-plugins-official      (choose user scope)
+   /telegram:configure <token>
+   ```
+   The token is saved in `~/.claude/channels/telegram/.env`.
+3. Exit and start once by hand with the channel:
+   ```bash
+   claude --channels plugin:telegram@claude-plugins-official
+   ```
+4. Send any message to your bot. It answers with a pairing code. In Claude Code:
+   ```
+   /telegram:access pair <code>
+   /telegram:access policy allowlist
+   ```
+   From now on only your Telegram account reaches the session; everyone else is silently dropped. The allowlist lives
+   in `~/.claude/channels/telegram/access.json`. Anyone on it can also approve permission prompts, so keep it to you.
+5. Say hello from Telegram and check that it answers. Exit Claude Code.
+
+The plugin's own commands (`/start`, `/help`, `/status`) are for pairing; `/status` is taken by the plugin, which is
+why the assistant's usage command is `/usage`. To show your commands in the bot's menu:
+
+```bash
+TOKEN=...; CHAT=...   # your bot token and your numeric chat id (the id in access.json)
+curl -s "https://api.telegram.org/bot$TOKEN/setMyCommands" -H 'Content-Type: application/json' -d '{
+  "commands": [{"command":"usage","description":"Context and plan usage"},
+               {"command":"clear","description":"Start a fresh conversation"}],
+  "scope": {"type":"chat","chat_id":'"$CHAT"'}}'
+```
+
+## 5. Email, calendar and Drive (optional)
+
+Connect Gmail, Google Calendar and Google Drive in claude.ai (Settings → Connectors) with the same Claude account.
+Claude Code picks the connectors up as `mcp__claude_ai_Gmail__*` and so on. `settings.json` already lets the
+assistant read, search, draft, label and manage the calendar alone, and makes it ask you (on Telegram) before
+sending, forwarding, trashing, marking spam or sharing. Adjust it in [permissions.md](permissions.md).
+
+## 6. Make it yours
+
+Edit `~/assistant/CLAUDE.md` ([personality-and-memory.md](personality-and-memory.md)). Write it in the language you
+want it to speak. Put your morning summary and other recurring tasks in `notes/routines.md`.
+
+## 7. Run it for good
+
+```bash
+exit                                                    # back to root
+systemctl enable --now assistant assistant-permission-watch
+sudo -u assistant tmux attach -t assistant              # watch it; detach with Ctrl+B D, never Ctrl+C
+```
+
+What happens from now on:
+
+- `assistant.service` starts tmux, and `bin/start.sh` runs Claude Code in it with the Telegram channel.
+- If Claude Code exits, `start.sh` relaunches it in 10 s with `--continue`, so the conversation goes on. If
+  `--continue` fails within 30 s (there is nothing to continue), it starts a new conversation instead; if it fails
+  after a while, the next round resumes again rather than throwing the conversation away.
+- Every night the daily restart asks it to save the day, updates Claude Code and starts a clean conversation
+  ([daily-cycle.md](daily-cycle.md)).
+
+One gotcha baked into `start.sh`: when you pass a first prompt to `claude`, put it **before** `--channels`.
+`--channels` takes several values and swallows a prompt placed after it.
+
+## Updating
+
+`git pull` in your clone shows what changed in `templates/`. Your workspace files are yours: copy over the scripts in
+`bin/` you want (they hold no personal data) and merge `CLAUDE.md` changes by hand. Claude Code itself updates every
+night.

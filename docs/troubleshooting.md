@@ -1,0 +1,54 @@
+# Troubleshooting
+
+Problems we actually hit, roughly in order of how often.
+
+**It does not answer on Telegram**
+Attach to the session: `sudo -u <user> tmux attach -t assistant` (detach with Ctrl+B D). Usual causes: a permission
+prompt or a dialog is waiting (see below), Claude Code logged out (run `claude` and `/login` inside the session),
+you hit your plan's usage limit, or the service is down (`systemctl status assistant`, `~/assistant/restarts.log`).
+
+**A dialog sits on the screen and blocks everything**
+Unattended sessions stall on any interactive dialog. Ones we met: the development-channel confirmation at each start
+(handled by `bin/accept-dev-channel.sh`) and "Teach auto mode about your environment?", which appeared out of the
+blue; answer it once with "Don't show again". After big Claude Code updates, attach and look.
+
+**Permission prompts that never reach Telegram**
+Some classifier decisions are shown only in the terminal and are denied after a timeout; from the phone it just
+looks like silence. `assistant-permission-watch` tells you on Telegram when that happens. If it is something you
+always want to allow, add an `allow` rule ([permissions.md](permissions.md)).
+
+**It retried a blocked action over and over**
+Add (it is in the template): "if the permission system blocks a tool, stop at the first block and tell the owner".
+
+**Typing into the session from a script does nothing**
+`tmux send-keys -t assistant "text" Enter` can leave the text typed but unsent. Send the text with `-l` (literal) and
+the Enter as a separate `send-keys` a second later, as `bin/lib.sh` does. And check the prompt is idle first: grey
+text in the input box is only a suggestion, not a queued message.
+
+**The first prompt was ignored at start**
+The prompt must come before `--channels`, which takes several values and swallows it.
+
+**After a crash it started a brand-new conversation**
+If `--continue` fails right away there is nothing to continue and a new conversation is the right call; if it fails
+after a while (Claude Code exited mid-conversation), starting fresh would lose the day. `start.sh` tells the two apart
+by how long the attempt lasted (30 s).
+
+**`/status` from Telegram does not reach the assistant**
+The plugin uses `/status` for pairing. Use `/usage`.
+
+**`/usage` shows old numbers**
+`state.json` is written by the status line after each reply. Rate limits only exist on subscription plans.
+
+**Scheduled reminders vanished**
+Session-scoped scheduled tasks die with the session. Anything that must happen later belongs in `notes/todo.md` or
+`notes/routines.md` too, and is rescheduled each morning ([daily-cycle.md](daily-cycle.md)).
+
+**The end of day logged "summary NOT updated"**
+The assistant was busy or the session was not idle at the time. The restart happens anyway after 12 minutes; the
+summary from the previous day stays. Check the time is one when you never use it.
+
+**Voice notes come out in the wrong language or garbled**
+Leave language detection on (the scripts do). Locally, use `large-v3` for hard audio.
+
+**It answered in the terminal instead of Telegram**
+The channel message must be answered with the `reply` tool. Keep that line near the top of `CLAUDE.md`.

@@ -1,0 +1,3 @@
+# End of day + clean conversation for the assistant (installed as /etc/cron.d/assistant).
+# Pick a time when you are asleep; the new conversation starts about 2-15 minutes later.
+45 5 * * * root /usr/local/sbin/assistant-daily-restart __USER__

@@ -1,0 +1,17 @@
+[Unit]
+Description=Personal assistant: Claude Code + Telegram channel (tmux session "assistant")
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+User=__USER__
+WorkingDirectory=__HOME__/assistant
+Environment=LANG=C.UTF-8
+ExecStart=/usr/bin/tmux new-session -d -s assistant -x 200 -y 50 __HOME__/assistant/bin/start.sh
+ExecStop=/usr/bin/tmux kill-session -t assistant
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target
