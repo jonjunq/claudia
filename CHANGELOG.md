@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 — 2026-10-31
 
 - `docs/homelab-read-access.md`: giving the assistant read-only visibility of Proxmox VE (`PVEAuditor` token),
   Proxmox Backup Server (`DatastoreAudit`) and dashboards, with a per-service firewall hole, credentials and
