@@ -84,7 +84,7 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 | `settings.json` | Modo auto y una lista de permisos: leer y preparar borradores lo hace solo; enviar y borrar te lo pregunta por Telegram |
 | `bin/statusline.sh` | Guarda el contexto y el uso del plan para que pueda responder a `/usage` desde Telegram |
 | `bin/clear-context.sh` | `/clear` desde Telegram: conversación nueva a media jornada, después de apuntar lo pendiente |
-| `bin/permission-watch.sh` | Te avisa por Telegram cuando se queda parado en un aviso de permiso de su terminal |
+| `bin/permission-watch.sh` | Te avisa por Telegram cuando se queda parado en un aviso de permiso de su terminal o cambia de modelo tras un freno de seguridad |
 | `bin/transcribe.sh`, `bin/speak.sh` | Notas de voz de entrada (Whisper en Groq, con respaldo local) y de salida (ElevenLabs) |
 | `templates/tools/vet-skill.sh` | Revisa una skill de terceros con SkillSpector antes de instalarla |
 

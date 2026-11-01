@@ -17,6 +17,16 @@ Some classifier decisions are shown only in the terminal and are denied after a 
 looks like silence. `assistant-permission-watch` tells you on Telegram when that happens. If it is something you
 always want to allow, add an `allow` rule ([permissions.md](permissions.md)).
 
+**It went silent after "This model's safeguards flagged this message"**
+The safeguards behind Claude's newest models are intentionally broad and sometimes flag normal work (we hit it with
+an errand about installing an app on a smart TV, flagged as `[cyber]`). By default the session then pauses on a
+"Model switch" dialog in the terminal, and from the phone it looks dead. `"switchModelsOnFlag": true` (in the
+template `settings.json`) moves it to another model and carries on; `assistant-permission-watch` tells you when the
+model changes, and the next start goes back to `MODEL`. Switching model does not help if the errand itself keeps
+being flagged: the trigger is the **words in the context**, not the model, so it repeats every turn while the topic
+is in the conversation, even in a note telling it to stay away from it. Start a fresh conversation (`/clear` or
+`.new-session`) and reword whatever it rereads at start (`notes/todo.md`, `yesterday.md`) in neutral terms.
+
 **It retried a blocked action over and over**
 Add (it is in the template): "if the permission system blocks a tool, stop at the first block and tell the owner".
 

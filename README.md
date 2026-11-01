@@ -83,7 +83,7 @@ Then write to your bot. Step by step, with every gotcha we hit: [docs/setup.md](
 | `settings.json` | Auto mode, plus an allowlist: reads and drafts run alone, sending and deleting ask you on Telegram |
 | `bin/statusline.sh` | Saves context and plan usage so it can answer `/usage` from Telegram |
 | `bin/clear-context.sh` | `/clear` from Telegram: fresh conversation mid-day, after saving what's pending |
-| `bin/permission-watch.sh` | Tells you on Telegram when it is stuck on a prompt in its terminal |
+| `bin/permission-watch.sh` | Tells you on Telegram when it is stuck on a prompt in its terminal, or switches model after a safeguard flag |
 | `bin/transcribe.sh`, `bin/speak.sh` | Voice notes in (Groq Whisper, local fallback) and out (ElevenLabs) |
 | `templates/tools/vet-skill.sh` | Scans a third-party skill with SkillSpector before you install it |
 

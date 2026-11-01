@@ -64,6 +64,7 @@
       "mcp__claude_ai_Google_Drive__trash_file"
     ]
   },
+  "switchModelsOnFlag": true,
   "enabledPlugins": {
     "telegram@claude-plugins-official": true
   },

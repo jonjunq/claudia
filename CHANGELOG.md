@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `settings.json`: `switchModelsOnFlag: true`, so a reply flagged by the model's safeguards moves the session to
+  another model instead of pausing it on a dialog nobody sees.
+- `bin/permission-watch.sh`: also tells you on Telegram when the session changes model (read from `state.json`).
+- Troubleshooting: safeguard flags, why switching model does not fix a flagged errand, and how to clear it.
+
 ## 1.1.0 — 2026-10-31
 
 - `docs/homelab-read-access.md`: giving the assistant read-only visibility of Proxmox VE (`PVEAuditor` token),

@@ -80,6 +80,14 @@ timeout 7 "$H/assistant/bin/permission-watch.sh" >/dev/null 2>&1
 check "permission-watch sends one Telegram message" test "$(grep -c 'api.telegram.org/bot123:abc/sendMessage' "$FAKE_LOG")" = 1
 check "permission-watch names the tool" grep -q "gmail send_message" "$FAKE_LOG"
 
+# permission-watch.sh notices a model switch in state.json, once
+: > "$FAKE_SCREEN"; : > "$FAKE_LOG"
+echo '{"model":"Opus 5.5"}' > "$H/assistant/state.json"
+( sleep 3; echo '{"model":"Opus 4.8"}' > "$H/assistant/state.json" ) &
+timeout 12 "$H/assistant/bin/permission-watch.sh" >/dev/null 2>&1
+wait
+check "permission-watch reports a model switch once" test "$(grep -c 'switched from Opus 5.5 to Opus 4.8' "$FAKE_LOG")" = 1
+
 # start.sh: fresh conversation when .new-session exists, prompt before --channels; fallback when --continue fails fast
 cat > "$B/claude" <<'EOF'
 #!/bin/bash
