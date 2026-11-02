@@ -75,4 +75,6 @@ binary signed in with your own subscription, which is the use the terms describe
 | Just want to steer a Claude Code session from your phone, no assistant persona | Claude Code's [Remote Control](https://code.claude.com/docs/en/remote-control) |
 
 We kept Hermes for a while alongside, for its free buttons, and moved day-to-day use to the Claude Code assistant.
+Two of its ideas we copied after reading its code: searching old conversations (`session_search`) and a background
+review that improves skills and memory; see [memory.md](memory.md).
 (For "a company of agents" we also tried other tools; that is a different problem and not covered here.)

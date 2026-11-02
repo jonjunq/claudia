@@ -68,6 +68,14 @@ for f in "$SRC"/telegram/*.py; do
   case "$f" in */tg.py) mode=644 ;; *) mode=755 ;; esac
   put "$f" "/usr/local/lib/assistant-telegram/$(basename "$f")" "$mode"
 done
+# Memory tools (recall, nightly review, git history): root-owned too, so the assistant cannot change what reviews it.
+for f in "$SRC"/memory/*; do
+  case "$f" in *.py|*.sh) mode=755 ;; *) mode=644 ;; esac
+  put "$f" "/usr/local/lib/assistant-memory/$(basename "$f")" "$mode"
+done
+put "$SRC/system/recall" /usr/local/bin/recall 755
+put "$SRC/system/assistant-history.service" /etc/systemd/system/assistant-history.service 644
+put "$SRC/system/assistant-history.timer" /etc/systemd/system/assistant-history.timer 644
 [ -z "$D" ] && systemctl daemon-reload
 
 cat <<EOF
@@ -79,6 +87,6 @@ Next steps (details in docs/setup.md):
      exit, run: claude --channels plugin:telegram@claude-plugins-official
      message your bot, then: /telegram:access pair <code>   and   /telegram:access policy allowlist
   2. Read and adapt $H/assistant/CLAUDE.md
-  3. As root: systemctl enable --now assistant assistant-permission-watch
+  3. As root: systemctl enable --now assistant assistant-permission-watch assistant-history.timer
   4. Attach to watch it: sudo -u $U tmux attach -t assistant   (detach: Ctrl+B D)
 EOF

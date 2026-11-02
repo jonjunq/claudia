@@ -8,8 +8,10 @@
 2. The assistant follows the "End of day" section of `CLAUDE.md`: saves lasting facts to memory, cleans up
    `notes/todo.md`, writes `notes/diary/<date>.md` and, last, overwrites `notes/yesterday.md`.
 3. The script waits until `yesterday.md` changes (up to 12 minutes) plus 45 seconds, and logs whether it did.
-4. It creates `~/assistant/.new-session`, runs `claude update` as the user, and restarts the service.
-5. `start.sh` sees `.new-session` and starts a fresh conversation with a first prompt that tells it to schedule
+4. It runs the nightly review, a separate `claude -p` that improves skills and memory with what the end of day
+   missed ([memory.md](memory.md)). If the review fails, the restart goes on.
+5. It creates `~/assistant/.new-session`, runs `claude update` as the user, and restarts the service.
+6. `start.sh` sees `.new-session` and starts a fresh conversation with a first prompt that tells it to schedule
    today's routines and wait quietly.
 
 It runs as root on purpose: the assistant cannot change or skip it. Everything is logged to

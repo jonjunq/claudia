@@ -67,7 +67,7 @@ nano ~/assistant/CLAUDE.md               # make it yours
 exit
 
 # As root: run it for good
-systemctl enable --now assistant assistant-permission-watch
+systemctl enable --now assistant assistant-permission-watch assistant-history.timer
 ```
 
 Then write to your bot. Step by step, with every gotcha we hit: [docs/setup.md](docs/setup.md).
@@ -86,6 +86,7 @@ Then write to your bot. Step by step, with every gotcha we hit: [docs/setup.md](
 | `bin/permission-watch.sh` | Tells you on Telegram when it is stuck on a prompt in its terminal, or switches model after a safeguard flag |
 | `bin/transcribe.sh`, `bin/speak.sh` | Voice notes in (Groq Whisper, local fallback) and out (ElevenLabs) |
 | `templates/telegram/` + hooks in `settings.json` | "⏳ Working" message while it works, quoted messages reach it, permission requests with Allow / Deny buttons |
+| `templates/memory/` + `recall` skill | Searches old conversations (`recall`), reviews skills and memory every night, keeps a git history to undo |
 | `.claude/skills/browser` | Uses websites through agent-browser instead of improvised scripts |
 | `templates/tools/vet-skill.sh` | Scans a third-party skill with SkillSpector before you install it |
 
@@ -96,6 +97,8 @@ Then write to your bot. Step by step, with every gotcha we hit: [docs/setup.md](
 - [Permissions](docs/permissions.md): auto mode, the allowlist, why not `bypassPermissions`, and teaching the
   classifier which devices and services are yours.
 - [Daily cycle, routines and commands](docs/daily-cycle.md): end of day, morning summary, `/usage`, `/clear`.
+- [Recall, nightly review and history](docs/memory.md): searching old conversations, improving skills and memory
+  every night, and undoing it, with what it costs.
 - [Telegram extras](docs/telegram-extras.md): a live "working" status, quoted messages and approving permissions with buttons.
 - [Browser](docs/browser.md): agent-browser for websites without an API, set up in a container, with measurements.
 - [Voice](docs/voice.md): voice notes, spoken replies and an experimental Discord voice call.

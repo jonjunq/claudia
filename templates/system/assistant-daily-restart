@@ -2,7 +2,8 @@
 # Daily end-of-day + clean conversation for the assistant. Run by cron as root (see assistant.cron).
 #  1. Asks the assistant to save everything important (the "End of day" section of its CLAUDE.md).
 #  2. Waits until it rewrites notes/yesterday.md (up to 12 minutes).
-#  3. Marks the next start as a new conversation, updates Claude Code and restarts the service.
+#  3. Runs the nightly review of skills and memory (/usr/local/lib/assistant-memory/nightly-review.py).
+#  4. Marks the next start as a new conversation, updates Claude Code and restarts the service.
 # Memory and notes/ survive; only the conversation context is dropped.
 # It runs as root, outside the assistant's reach, so the assistant cannot change or skip it.
 # Usage: assistant-daily-restart <user>
@@ -30,6 +31,13 @@ done
 sleep 45   # room to finish saving memory after the summary
 if [ "$(mtime)" -gt "$before" ]; then state=OK; else state="NOT updated"; fi
 echo "[$(date)] end of day: summary $state" >> "$LOG"
+
+# Nightly review: improves skills and memory with what the end of day missed. If it fails, the restart goes on.
+REVIEW=/usr/local/lib/assistant-memory/nightly-review.py
+if [ -x "$REVIEW" ]; then
+  timeout 1500 "$REVIEW" "$U" >> /var/log/assistant-review.log 2>&1 \
+    || echo "[$(date)] nightly review: FAILED (see /var/log/assistant-review.log)" >> "$LOG"
+fi
 runuser -u "$U" -- touch "$A/.new-session"
 
 # Update Claude Code (applied by the restart below).

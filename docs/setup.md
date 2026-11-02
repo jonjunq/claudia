@@ -100,7 +100,7 @@ want it to speak. Put your morning summary and other recurring tasks in `notes/r
 
 ```bash
 exit                                                    # back to root
-systemctl enable --now assistant assistant-permission-watch
+systemctl enable --now assistant assistant-permission-watch assistant-history.timer
 sudo -u assistant tmux attach -t assistant              # watch it; detach with Ctrl+B D, never Ctrl+C
 ```
 
@@ -110,14 +110,16 @@ What happens from now on:
 - If Claude Code exits, `start.sh` relaunches it in 10 s with `--continue`, so the conversation goes on. If
   `--continue` fails within 30 s (there is nothing to continue), it starts a new conversation instead; if it fails
   after a while, the next round resumes again rather than throwing the conversation away.
-- Every night the daily restart asks it to save the day, updates Claude Code and starts a clean conversation
-  ([daily-cycle.md](daily-cycle.md)).
+- Every night the daily restart asks it to save the day, reviews its skills and memory, updates Claude Code and
+  starts a clean conversation ([daily-cycle.md](daily-cycle.md), [memory.md](memory.md)).
+- Every hour `assistant-history.timer` commits its notes, skills and memory to a root-owned git history.
 
 One gotcha baked into `start.sh`: when you pass a first prompt to `claude`, put it **before** `--channels`.
 `--channels` takes several values and swallows a prompt placed after it.
 
 ## Updating
 
-`git pull` in your clone shows what changed in `templates/`. Your workspace files are yours: copy over the scripts in
-`bin/` you want (they hold no personal data) and merge `CLAUDE.md` changes by hand. Claude Code itself updates every
-night.
+`git pull` in your clone shows what changed in `templates/`. Re-running `./install.sh <user>` adds files that are new
+(it never overwrites), then `systemctl daemon-reload` and enable any new unit it lists. Your workspace files are
+yours: copy over the scripts in `bin/` you want (they hold no personal data) and merge `CLAUDE.md` and
+`settings.json` changes by hand. Claude Code itself updates every night.

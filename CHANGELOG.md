@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- Memory tools (`templates/memory/`, installed root-owned to `/usr/local/lib/assistant-memory/`,
+  [docs/memory.md](docs/memory.md)), two ideas taken from Hermes Agent:
+  - `recall`: search old conversations and the diary through a SQLite FTS5 index (BM25, no model calls,
+    incremental), with a `recall` skill and `Bash(recall *)` allowed. Replaces opening `.jsonl` transcripts by hand.
+  - Nightly review: after the end of day, `assistant-daily-restart` runs a separate `claude -p` in a workshop (no
+    settings, hooks, MCP, shell or network; deny rules outside it) that patches skills and memory with what the end
+    of day missed. Changes are copied back only if they carry no secrets or invisible Unicode and the assistant did
+    not touch the file meanwhile; never deletes; summary in `notes/last-review.md` (a silent Telegram message only
+    with `REVIEW_NOTIFY=yes`). It picks up from the last message it read, so nothing written during a review is
+    skipped. `REVIEW_MODEL` in `assistant.env`, `--dry-run` to try it. Measured cost in the docs.
+  - Git history of `CLAUDE.md`, notes, skills and memory, owned by root (`assistant-history.timer`, hourly, and
+    around each review), to undo any change.
+- `CLAUDE.md` template: use `recall` for earlier days, and what the nightly review is.
+- Setup: re-running `install.sh` adds new files without overwriting yours.
+
 ## 1.2.0 — 2026-11-02
 
 - Telegram extras (`templates/telegram/`, installed root-owned to `/usr/local/lib/assistant-telegram/`, hooks in

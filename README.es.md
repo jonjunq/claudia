@@ -68,7 +68,7 @@ nano ~/assistant/CLAUDE.md               # hazlo tuyo (escríbelo en castellano 
 exit
 
 # Como root: déjalo funcionando
-systemctl enable --now assistant assistant-permission-watch
+systemctl enable --now assistant assistant-permission-watch assistant-history.timer
 ```
 
 Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/setup.md](docs/setup.md).
@@ -87,6 +87,7 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 | `bin/permission-watch.sh` | Te avisa por Telegram cuando se queda parado en un aviso de permiso de su terminal o cambia de modelo tras un freno de seguridad |
 | `bin/transcribe.sh`, `bin/speak.sh` | Notas de voz de entrada (Whisper en Groq, con respaldo local) y de salida (ElevenLabs) |
 | `templates/telegram/` + hooks en `settings.json` | Mensaje «⏳ Trabajando» mientras trabaja, le llegan los mensajes que citas y las peticiones de permiso con botones Permitir / Denegar |
+| `templates/memory/` + skill `recall` | Busca en conversaciones antiguas (`recall`), repasa skills y memoria cada noche y guarda un historial git para deshacer |
 | `.claude/skills/browser` | Usa webs con agent-browser en vez de scripts improvisados |
 | `templates/tools/vet-skill.sh` | Revisa una skill de terceros con SkillSpector antes de instalarla |
 
@@ -97,6 +98,8 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 - [Permisos](docs/permissions.md): modo auto, la lista de permisos, por qué no `bypassPermissions` y cómo explicarle
   al clasificador qué aparatos y servicios son tuyos.
 - [Ciclo diario, rutinas y comandos](docs/daily-cycle.md): cierre del día, resumen matutino, `/usage`, `/clear`.
+- [Recordar, repaso nocturno e historial](docs/memory.md): buscar en conversaciones antiguas, mejorar skills y memoria
+  cada noche y deshacerlo, con lo que cuesta.
 - [Extras de Telegram](docs/telegram-extras.md): estado «trabajando» en directo, mensajes citados y aprobar permisos con botones.
 - [Navegador](docs/browser.md): agent-browser para webs sin API, instalado en un contenedor, con mediciones.
 - [Voz](docs/voice.md): notas de voz, respuestas habladas y una llamada experimental por Discord.

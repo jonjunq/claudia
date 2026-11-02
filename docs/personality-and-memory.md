@@ -39,8 +39,11 @@ days fills its context and gets slower and more expensive. What survives:
      context.
    - `routines.md`: recurring tasks ([daily-cycle.md](daily-cycle.md)).
    - `diary/YYYY-MM-DD.md`: one page per day, not imported, searched when you ask about the past.
-3. **Old transcripts**, `~/.claude/projects/<workspace>/*.jsonl`: the last resort when you ask "what did I tell you
-   about X last month?".
+3. **Old transcripts**, `~/.claude/projects/<workspace>/*.jsonl`, searched with `recall` when you ask "what did I
+   tell you about X last month?" ([memory.md](memory.md)).
+
+A nightly review catches what the end of day missed and patches skills and memory, and a root-owned git history lets
+you undo any change: both in [memory.md](memory.md).
 
 The rule that makes it work is in `CLAUDE.md`: **write it down at the moment, not at the end of the day.** An
 end-of-day summary catches what is left, but a reminder you asked for at 10:00 must be in `todo.md` at 10:00, because

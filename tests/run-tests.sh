@@ -8,12 +8,12 @@ ok() { echo "ok   $1"; pass=$((pass + 1)); }
 ko() { echo "FAIL $1"; fail=$((fail + 1)); }
 check() { local name=$1; shift; if "$@" >/dev/null 2>&1; then ok "$name"; else ko "$name"; fi; }
 
-SCRIPTS=(install.sh tests/run-tests.sh templates/system/assistant-daily-restart templates/workspace/bin/*.sh templates/tools/*.sh)
+SCRIPTS=(install.sh tests/run-tests.sh templates/system/assistant-daily-restart templates/system/recall templates/workspace/bin/*.sh templates/tools/*.sh templates/memory/*.sh)
 check "shellcheck" shellcheck -S warning -x "${SCRIPTS[@]}"
 for s in "${SCRIPTS[@]}"; do check "bash -n $s" bash -n "$s"; done
 check "settings.json is valid JSON" jq -e . templates/settings.json
 check "settings.json has the Telegram hooks" jq -e '.hooks.PermissionRequest[0].hooks[0].timeout == 600 and (.hooks.PreToolUse[0].hooks[0].async == true)' templates/settings.json
-for p in templates/telegram/*.py tests/*.py; do check "python compiles $p" python3 -m py_compile "$p"; done
+for p in templates/telegram/*.py templates/memory/*.py tests/*.py; do check "python compiles $p" python3 -m py_compile "$p"; done
 find templates tests -name __pycache__ -exec rm -rf {} +
 
 # No EXIT trap for the cleanup: bash runs it in the subshells of pipelines inside functions, too early.
@@ -28,6 +28,11 @@ done
 check "scripts are executable" test -x "$H/assistant/bin/start.sh"
 check "browser skill installed" test -e "$H/assistant/.claude/skills/browser/SKILL.md"
 check "Telegram extras installed" test -x "$T/usr/local/lib/assistant-telegram/permission-hook.py" -a -e "$T/usr/local/lib/assistant-telegram/tg.py"
+check "memory tools installed" test -x "$T/usr/local/lib/assistant-memory/nightly-review.py" -a -x "$T/usr/local/bin/recall" -a -e "$T/usr/local/lib/assistant-memory/review-prompt.txt"
+check "recall skill installed" test -e "$H/assistant/.claude/skills/recall/SKILL.md"
+check "history timer installed" grep -q "history.sh alex hourly" "$T/etc/systemd/system/assistant-history.service"
+check "review prompt filled in" grep -q "of Ada, Alex's personal assistant" "$T/usr/local/lib/assistant-memory/review-prompt.txt"
+check "recall allowed in settings" jq -e '.permissions.allow | index("Bash(recall *)")' "$H/.claude/settings.json"
 check "keys.env is private" test "$(stat -c %a "$H/.config/assistant/keys.env")" = 600
 check "units installed" test -e "$T/etc/systemd/system/assistant.service" -a -e "$T/etc/cron.d/assistant"
 check "no placeholders left" bash -c "! grep -rq '__[A-Z]*__' '$H' '$T/etc' '$T/usr'"
@@ -215,6 +220,62 @@ check "vet-skill lists each skill" grep -qE '^skills/one +7/100 +LOW +SAFE' <<<"
 check "vet-skill lists every skill folder" grep -q '^skills/two ' <<<"$vet"
 check "vet-skill writes per-skill reports" test -e "$(find "$T/reports" -name skill-skills_one.md | head -1)"
 check "vet-skill scans the whole repo too" grep -q "Whole repo (indicative" <<<"$vet"
+
+# recall: indexes a transcript and the diary, finds what the owner said, skips its own searches
+WSP=$(readlink -m "$H/assistant" | sed 's/[^A-Za-z0-9]/-/g')
+PRJ="$H/.claude/projects/$WSP"; mkdir -p "$PRJ/memory" "$H/assistant/notes/diary"
+NOW=$(date -u +%FT%T.000Z)
+cat > "$PRJ/s1.jsonl" <<EOF2
+{"type":"user","timestamp":"$NOW","message":{"content":"<channel source=\"telegram\" chat_id=\"42\">Book the dentist for Thursday</channel>"}}
+{"type":"assistant","timestamp":"$NOW","message":{"content":[{"type":"tool_use","id":"t1","name":"mcp__plugin_telegram_telegram__reply","input":{"text":"Done, Thursday at 10"}}]}}
+{"type":"assistant","timestamp":"$NOW","message":{"content":[{"type":"tool_use","id":"t2","name":"Bash","input":{"command":"recall search dentist"}}]}}
+EOF2
+echo "Talked about the plumber." > "$H/assistant/notes/diary/2026-10-01.md"
+export RECALL_DB="$T/recall.db"
+check "recall finds the owner's message" bash -c "python3 -I templates/memory/recall.py search dentist | grep -q 'owner · s1'"
+check "recall finds the assistant's reply" bash -c "python3 -I templates/memory/recall.py search thursday | grep -q 'assistant · s1'"
+check "recall searches the diary" bash -c "python3 -I templates/memory/recall.py search plumb | grep -q 'diary'"
+check "recall leaves its own searches out" bash -c "! python3 -I templates/memory/recall.py search dentist --all | grep -q 'recall search'"
+check "recall show gives the context" bash -c "python3 -I templates/memory/recall.py show s1 0 | grep -q '>> \[0\]'"
+
+# nightly review with a fake claude: applies a new skill, rejects a secret, commits history, tells the owner
+mkdir -p "$H/.local/bin" "$H/assistant/.claude/skills"
+printf -- '- [Owner](owner.md)\n' > "$PRJ/memory/MEMORY.md"
+cat > "$H/.local/bin/claude" <<'EOF2'
+#!/bin/bash
+mkdir -p skills/demo
+printf -- '---\nname: demo\ndescription: d\n---\nPress the blue button first.\n' > skills/demo/SKILL.md
+printf 'api_key = abc123456789\n' >> memory/MEMORY.md
+echo '{"result":"· skills/demo: new","num_turns":3,"usage":{"cache_read_input_tokens":10,"output_tokens":5},"is_error":false}'
+EOF2
+chmod +x "$H/.local/bin/claude"
+API_LOG="$T/api2.log"; : > "$API_LOG"; : > "$T/port"
+python3 -I tests/fake-telegram.py 0 "$API_LOG" > "$T/port" &
+FAKE_PID=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$T/port" ] && break; sleep 0.3; done
+TELEGRAM_API="http://127.0.0.1:$(cat "$T/port")"
+export TELEGRAM_API ASSISTANT_HOME="$H" REVIEW_STATE_DIR="$T/review" \
+       ASSISTANT_HISTORY_DIR="$T/history" TG_EXTRAS="$PWD/templates/telegram" RECALL_DB="$H/.cache/assistant-recall.db"
+echo "REVIEW_NOTIFY=yes" >> "$H/assistant/assistant.env"
+review=$(python3 -I templates/memory/nightly-review.py alex 2>&1)
+check "review runs" grep -q "applied \['skills/demo/SKILL.md'\]" <<<"$review"
+check "review applies the new skill" grep -q "blue button" "$H/assistant/.claude/skills/demo/SKILL.md"
+check "review rejects a secret" bash -c "! grep -q api_key '$PRJ/memory/MEMORY.md' && grep -q 'key or password' '$H/assistant/notes/last-review.md'"
+check "review commits the history" bash -c "git --git-dir='$T/history' log --oneline | grep -q 'nightly review'"
+check "review tells the owner" grep -q 'Nightly review' "$API_LOG"
+check "review saves its state" jq -e '.last' "$T/review/state.json"
+review=$(python3 -I templates/memory/nightly-review.py alex 2>&1)
+check "review with nothing new does nothing" grep -q "nothing to review" <<<"$review"
+# A new message arrives: reviewed from where the last one stopped; with REVIEW_NOTIFY off, no message to the owner
+echo "{\"type\":\"user\",\"timestamp\":\"$(date -u +%FT%T.999Z)\",\"message\":{\"content\":\"<channel source=\\\"telegram\\\">Also the vet</channel>\"}}" >> "$PRJ/s1.jsonl"
+sed -i 's/^REVIEW_NOTIFY=yes$/REVIEW_NOTIFY=no/' "$H/assistant/assistant.env"
+rm -rf "$H/assistant/.claude/skills/demo"; : > "$API_LOG"
+review=$(python3 -I templates/memory/nightly-review.py alex 2>&1)
+check "review picks up the new message" grep -q "applied \['skills/demo/SKILL.md'\]" <<<"$review"
+check "review is silent by default" test "$(grep -c sendMessage "$API_LOG")" = 0
+kill "$FAKE_PID" 2>/dev/null
+unset TELEGRAM_API ASSISTANT_HOME REVIEW_STATE_DIR ASSISTANT_HISTORY_DIR TG_EXTRAS RECALL_DB
+find templates tests -name __pycache__ -exec rm -rf {} +
 
 rm -rf "$T"
 echo; echo "passed $pass, failed $fail"

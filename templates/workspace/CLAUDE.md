@@ -77,8 +77,11 @@ Your conversation is wiped every day by the daily restart. Whatever is not writt
   line in the terminal, without messaging __OWNER__.
 - Scheduled reminders are lost at restarts too: also write them in `notes/todo.md` with date and time, and
   reschedule the ones still due when the day starts.
-- If asked about earlier days and you do not have it, look in `notes/diary/` and, if needed, in old conversations
-  (`~/.claude/projects/*assistant*/*.jsonl`).
+- If asked about earlier days and you do not have it, search with `recall search "words"` (skill `recall`: old
+  conversations + `notes/diary/`, instant). Do not open the `.jsonl` transcripts by hand unless `recall` misses it.
+- Every night, after your end of day, an automatic review (not you) goes over the conversation and improves your
+  skills and memory with what slipped through; what changed is in `notes/last-review.md`. If you see such a change
+  in your skills or memory, that is where it came from.
 
 ### End of day (when you receive "END OF DAY")
 1. Go over the whole conversation of the day.

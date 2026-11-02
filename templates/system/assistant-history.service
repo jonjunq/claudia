@@ -1,0 +1,6 @@
+[Unit]
+Description=Git history of the assistant's notes, skills and memory
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/assistant-memory/history.sh __USER__ hourly
