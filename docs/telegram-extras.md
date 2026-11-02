@@ -1,6 +1,6 @@
-# Telegram extras: status, quoted messages, permission buttons
+# Telegram extras: status, quoted messages, permission buttons, rich messages
 
-Three things the official Telegram plugin does not do well enough for an assistant you only see through your phone,
+Four things the official Telegram plugin does not do well enough for an assistant you only see through your phone,
 and how this repo adds them. They live in [`templates/telegram/`](../templates/telegram/), which `install.sh` copies to
 `/usr/local/lib/assistant-telegram/` owned by root, plus a `hooks` block in `settings.json`. None of it calls the
 model: it is plain Python against the Telegram Bot API, so it costs nothing from your plan.
@@ -104,6 +104,27 @@ since the terminal dialog and the hook run side by side. If the countdown wins, 
 - The hooks act only when the session's working directory is the assistant's (`~/assistant`), so other Claude Code
   sessions of the same user are left alone.
 
+## 4. Rich messages: headings, tables, collapsible blocks
+
+Since Bot API 10.1 (June 2026) bots can send [rich messages](https://core.telegram.org/bots/api#rich-message-formatting-options)
+with `sendRichMessage`: real headings, tables, lists, task lists, quotes, collapsible `<details>` blocks, footnotes
+and formulas, which Telegram draws and fits to the phone screen. The plugin's `reply` tool only sends plain
+messages, so `send-rich.py` sends the Markdown (or HTML) the assistant writes:
+
+```bash
+python3 -I /usr/local/lib/assistant-telegram/send-rich.py summary.md      # or: ... < summary.md
+```
+
+The `CLAUDE.md` template tells the assistant when to use it (tables, comparisons, long summaries) and to keep
+`reply` for normal answers. If Telegram rejects the message, the script prints the error and exits 1, and the
+assistant falls back to `reply`. Two things worth knowing about the Markdown:
+
+- A single line break does **not** start a new line: lines join into one paragraph. Leave a blank line between
+  paragraphs, or end the line with two spaces or a backslash.
+- Raw `<tags>` are read as HTML and vanish; write them as `&lt;` or put them in `code`.
+
+Limits: 32,768 characters, 500 blocks and 20 table columns per message.
+
 ## Check it
 
 - Status: ask it for something that takes a minute ("summarise today's email"); `~/.cache/assistant-telegram/log`
@@ -111,3 +132,5 @@ since the terminal dialog and the hook run side by side. If the countdown wins, 
 - Quotes: reply to one of its old messages with "what was this about?".
 - Permissions: add the `ask` rule above, ask it to run `echo permission-test`, tap Allow, then remove the rule. The
   log shows `permission asked …` and `permission … allow`.
+- Rich messages: `printf '# Test\n\n| a | b |\n|---|---|\n| 1 | 2 |\n' | python3 -I /usr/local/lib/assistant-telegram/send-rich.py`
+  shows a heading and a small table.

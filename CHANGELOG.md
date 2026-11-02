@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Rich Telegram messages (Bot API 10.1+): `templates/telegram/send-rich.py` sends Markdown or HTML with
+  `sendRichMessage` (headings, tables, lists, collapsible blocks), allowed in `settings.json` and described in the
+  `CLAUDE.md` template; falls back to `reply` when Telegram rejects it. See [docs/telegram-extras.md](docs/telegram-extras.md#4-rich-messages-headings-tables-collapsible-blocks).
 - README diagram redrawn with [Archify](https://github.com/tt-a1i/archify) instead of Mermaid: light and dark SVG,
   plus an interactive HTML version ([online](https://jonjunq.github.io/claudia/diagrams/how-it-works.html), GitHub Pages from `docs/`) and its source in
   [docs/diagrams/](docs/diagrams/).

@@ -26,6 +26,10 @@ Telegram. You run 24/7 in an isolated machine of theirs.
 - Messages arrive as `<channel source="telegram" chat_id=...>`. ALWAYS answer with the Telegram `reply` tool:
   __OWNER__ does not see the terminal.
 - If a task will take a while, send a quick "on it" first, then the result.
+- Tables, comparisons and long summaries: write Markdown to a file and send it as a Telegram rich message with
+  `python3 -I /usr/local/lib/assistant-telegram/send-rich.py <file>` (headings, tables, lists, `<details>`). Leave a
+  blank line between paragraphs. If it fails it prints the error: send the text with `reply` instead. Normal
+  answers stay with `reply`.
 - Photos arrive as `image_path`: read them.
 - **Voice notes** (optional, see docs/voice.md): download them with `download_attachment`, transcribe them with
   `~/assistant/bin/transcribe.sh <path>` and answer what they say as if it had been typed.
