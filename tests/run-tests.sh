@@ -161,7 +161,7 @@ API_LOG="$T/api.log"; : > "$API_LOG"
 python3 -I tests/fake-telegram.py 0 "$API_LOG" > "$T/port" &
 FAKE_PID=$!
 for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$T/port" ] && break; sleep 0.3; done
-export TELEGRAM_API="http://127.0.0.1:$(cat "$T/port")"
+TELEGRAM_API="http://127.0.0.1:$(cat "$T/port")"; export TELEGRAM_API
 REQ='{"hook_event_name":"PermissionRequest","cwd":"'"$H"'/assistant","tool_name":"Bash","tool_input":{"command":"rm -rf build","description":"Remove the build folder"}}'
 ( for _ in $(seq 1 40); do
     id=$(grep -o 'hk:allow:[0-9a-f]\{16\}' "$API_LOG" | head -1 | cut -d: -f3)
