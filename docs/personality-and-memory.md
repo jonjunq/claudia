@@ -12,6 +12,7 @@ The template in `templates/workspace/CLAUDE.md` has the sections that mattered i
 | Section | Why it is there |
 |---|---|
 | How you talk | Phone screen: short, result first, no wide tables. Without it you get desktop-sized answers. |
+| Quality first | Best effort the first time, check facts before stating them and say what was not checked. Without it you get a fast first draft and have to ask "do it properly" from the phone. Format stays short: quality is in the content. |
 | How you answer | Messages arrive as `<channel source="telegram">` and must be answered with the `reply` tool, because you never see the terminal. Long tasks get an "on it" first. |
 | Being proactive | The difference between a chatbot and a secretary: mention the clash in the calendar, offer the draft, follow up. |
 | One question for vague errands | For "organise the trip", one question with its best guess so a "yes" is enough; small things are decided and the assumption stated. |

@@ -77,7 +77,7 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 
 | Pieza | Qué hace |
 |---|---|
-| `templates/workspace/CLAUDE.md` | Personalidad y normas: respuestas para móvil, proactividad, qué hace solo y qué te pregunta antes, disciplina de memoria |
+| `templates/workspace/CLAUDE.md` | Personalidad y normas: respuestas para móvil, calidad ante todo, proactividad, qué hace solo y qué te pregunta antes, disciplina de memoria |
 | `notes/todo.md`, `yesterday.md`, `routines.md` | La libreta que lleva de un día a otro, importada en cada conversación |
 | `bin/start.sh` + `assistant.service` | Ejecuta Claude Code en tmux y lo recupera con `--continue` si se cierra |
 | `assistant-daily-restart` + cron | Cada noche: le pide que guarde el día, actualiza Claude Code y empieza una conversación limpia |
@@ -92,7 +92,8 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 
 - [Instalación](docs/setup.md): máquina, usuario, Claude Code, plugin de Telegram, servicio, primer arranque.
 - [Personalidad y memoria](docs/personality-and-memory.md): cómo escribir el `CLAUDE.md`, las notas y la memoria.
-- [Permisos](docs/permissions.md): modo auto, la lista de permisos y por qué no `bypassPermissions`.
+- [Permisos](docs/permissions.md): modo auto, la lista de permisos, por qué no `bypassPermissions` y cómo explicarle
+  al clasificador qué aparatos y servicios son tuyos.
 - [Ciclo diario, rutinas y comandos](docs/daily-cycle.md): cierre del día, resumen matutino, `/usage`, `/clear`.
 - [Voz](docs/voice.md): notas de voz, respuestas habladas y una llamada experimental por Discord.
 - [Aislamiento](docs/isolation.md): dónde ejecutarlo y cómo cerrarlo.

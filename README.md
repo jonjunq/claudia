@@ -76,7 +76,7 @@ Then write to your bot. Step by step, with every gotcha we hit: [docs/setup.md](
 
 | Piece | What it does |
 |---|---|
-| `templates/workspace/CLAUDE.md` | Personality and rules: phone-sized answers, proactive, what it may do alone vs. ask first, memory discipline |
+| `templates/workspace/CLAUDE.md` | Personality and rules: phone-sized answers, quality first, proactive, what it may do alone vs. ask first, memory discipline |
 | `notes/todo.md`, `yesterday.md`, `routines.md` | The notebook it carries across days, imported into every conversation |
 | `bin/start.sh` + `assistant.service` | Runs Claude Code in tmux and brings it back with `--continue` if it exits |
 | `assistant-daily-restart` + cron | Every night: asks it to save the day, updates Claude Code, starts a fresh conversation |
@@ -91,7 +91,8 @@ Then write to your bot. Step by step, with every gotcha we hit: [docs/setup.md](
 
 - [Setup](docs/setup.md): machine, user, Claude Code, Telegram plugin, service, first run.
 - [Personality and memory](docs/personality-and-memory.md): writing `CLAUDE.md`, the notes, the memory.
-- [Permissions](docs/permissions.md): auto mode, the allowlist, why not `bypassPermissions`.
+- [Permissions](docs/permissions.md): auto mode, the allowlist, why not `bypassPermissions`, and teaching the
+  classifier which devices and services are yours.
 - [Daily cycle, routines and commands](docs/daily-cycle.md): end of day, morning summary, `/usage`, `/clear`.
 - [Voice](docs/voice.md): voice notes, spoken replies and an experimental Discord voice call.
 - [Isolation](docs/isolation.md): where to run it and how to fence it.

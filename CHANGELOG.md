@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `CLAUDE.md` template: "Quality first" section (best effort the first time, check facts before stating them and say
+  what was not checked, "on it" when it takes longer, messages stay short).
+- `docs/permissions.md`: teaching the auto-mode classifier about your setup with `autoMode.environment` and
+  `autoMode.allow` (`"$defaults"` first, how to write the sentences, examples for home devices, an own server and
+  creating accounts with an e-mail alias but never payments), and why only the admin edits them.
 - `settings.json`: `switchModelsOnFlag: true`, so a reply flagged by the model's safeguards moves the session to
   another model instead of pausing it on a dialog nobody sees.
 - `bin/permission-watch.sh`: also tells you on Telegram when the session changes model (read from `state.json`).
