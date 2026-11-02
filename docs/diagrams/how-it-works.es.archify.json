@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "claudia: un asistente personal sobre Claude Code",
+    "locale": "es",
+    "quality_profile": "showcase",
+    "output": "docs/diagrams/how-it-works.es.html"
+  },
+  "components": [
+    {
+      "id": "you",
+      "type": "external",
+      "label": "Tú",
+      "sublabel": "desde el móvil",
+      "pos": [
+        40,
+        240
+      ],
+      "size": [
+        130,
+        60
+      ]
+    },
+    {
+      "id": "telegram",
+      "type": "cloud",
+      "label": "Bot de Telegram",
+      "sublabel": "plugin oficial de canal",
+      "pos": [
+        250,
+        240
+      ],
+      "size": [
+        160,
+        60
+      ]
+    },
+    {
+      "id": "session",
+      "type": "backend",
+      "label": "Sesión de Claude Code",
+      "sublabel": "en tmux, modo auto",
+      "pos": [
+        500,
+        230
+      ],
+      "size": [
+        180,
+        80
+      ]
+    },
+    {
+      "id": "memory",
+      "type": "database",
+      "label": "CLAUDE.md + memoria",
+      "sublabel": "todo, yesterday, routines",
+      "pos": [
+        500,
+        90
+      ],
+      "size": [
+        180,
+        60
+      ]
+    },
+    {
+      "id": "tools",
+      "type": "backend",
+      "label": "Web, scripts",
+      "sublabel": "voz de entrada / salida",
+      "pos": [
+        770,
+        110
+      ],
+      "size": [
+        160,
+        60
+      ]
+    },
+    {
+      "id": "systemd",
+      "type": "security",
+      "label": "systemd",
+      "sublabel": "lo mantiene vivo, --continue",
+      "pos": [
+        500,
+        450
+      ],
+      "size": [
+        180,
+        60
+      ]
+    },
+    {
+      "id": "cron",
+      "type": "backend",
+      "label": "cron nocturno",
+      "sublabel": "cierre, actualiza, sesión limpia",
+      "pos": [
+        770,
+        450
+      ],
+      "size": [
+        180,
+        60
+      ]
+    },
+    {
+      "id": "connectors",
+      "type": "cloud",
+      "label": "Gmail / Calendar / Drive",
+      "sublabel": "conectores de claude.ai",
+      "pos": [
+        1010,
+        240
+      ],
+      "size": [
+        190,
+        60
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "Máquina Linux aislada, siempre encendida",
+      "wraps": [
+        "session",
+        "memory",
+        "tools",
+        "systemd",
+        "cron"
+      ],
+      "pad": 22
+    }
+  ],
+  "connections": [
+    {
+      "from": "you",
+      "to": "telegram",
+      "label": "chat",
+      "variant": "emphasis"
+    },
+    {
+      "from": "telegram",
+      "to": "session",
+      "label": "canal",
+      "variant": "emphasis"
+    },
+    {
+      "from": "session",
+      "to": "memory",
+      "label": "lee + escribe"
+    },
+    {
+      "from": "session",
+      "to": "tools",
+      "label": "ejecuta"
+    },
+    {
+      "from": "session",
+      "to": "connectors",
+      "label": "usa"
+    },
+    {
+      "from": "systemd",
+      "to": "session",
+      "label": "lo reinicia",
+      "variant": "dashed"
+    },
+    {
+      "from": "cron",
+      "to": "session",
+      "label": "cada noche",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Tu suscripción, tu cuenta",
+      "items": [
+        "Claude Code sin modificar, con tu propio plan",
+        "La lista de Telegram solo te deja entrar a ti"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Pregunta antes de actuar",
+      "items": [
+        "Leer y hacer borradores, lo hace solo",
+        "Enviar y borrar te lo pregunta, con botones Permitir / Denegar"
+      ]
+    }
+  ]
+}

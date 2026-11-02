@@ -10,16 +10,14 @@ sends a morning summary, transcribes your voice notes and can answer with its ow
 
 [Leer en castellano](README.es.md)
 
-```mermaid
-flowchart LR
-  P[You, on your phone<br/>Telegram] <--> B[Telegram bot<br/>official channel plugin]
-  B <--> C[Claude Code session<br/>in tmux, auto mode]
-  C --- M[CLAUDE.md + memory<br/>notes/todo, yesterday, routines]
-  C --> G[Gmail / Calendar / Drive<br/>claude.ai connectors]
-  C --> W[Web, scripts<br/>voice in / out]
-  S[systemd: keep alive,<br/>resume with --continue] --> C
-  R[cron, daily:<br/>end of day, update, fresh session] --> C
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/how-it-works-dark.svg">
+    <img src="docs/diagrams/how-it-works-light.svg" width="100%" alt="How the assistant is put together: you chat with a Telegram bot on your phone; the official channel plugin connects it to a Claude Code session in tmux in auto mode, on an isolated always-on Linux machine. The session reads and writes CLAUDE.md and its notes, runs web tools, scripts and voice, and uses the claude.ai Gmail, Calendar and Drive connectors. systemd restarts it with --continue and a nightly cron saves the day, updates Claude Code and starts a fresh session.">
+  </picture>
+</p>
+
+<sub>Interactive version (zoom, light/dark, trace a path): [docs/diagrams/how-it-works.html](docs/diagrams/how-it-works.html), download it and open it in a browser. Drawn with [Archify](https://github.com/tt-a1i/archify).</sub>
 
 > Unofficial project, not affiliated with or endorsed by Anthropic. Read [Is this allowed?](#is-this-allowed) first.
 
