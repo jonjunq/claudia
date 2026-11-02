@@ -3,7 +3,8 @@
 ## Unreleased
 
 - README diagram redrawn with [Archify](https://github.com/tt-a1i/archify) instead of Mermaid: light and dark SVG,
-  plus an interactive HTML version and its source in [docs/diagrams/](docs/diagrams/).
+  plus an interactive HTML version ([online](https://jonjunq.github.io/claudia/diagrams/how-it-works.html), GitHub Pages from `docs/`) and its source in
+  [docs/diagrams/](docs/diagrams/).
 - Memory tools (`templates/memory/`, installed root-owned to `/usr/local/lib/assistant-memory/`,
   [docs/memory.md](docs/memory.md)), two ideas taken from Hermes Agent:
   - `recall`: search old conversations and the diary through a SQLite FTS5 index (BM25, no model calls,

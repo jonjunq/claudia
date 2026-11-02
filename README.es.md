@@ -11,13 +11,15 @@ manda un resumen por la mañana, entiende tus notas de voz y puede contestarte c
 [Read in English](README.md)
 
 <p align="center">
+  <a href="https://jonjunq.github.io/claudia/diagrams/how-it-works.es.html">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/how-it-works-dark.es.svg">
     <img src="docs/diagrams/how-it-works-light.es.svg" width="100%" alt="Cómo está montado el asistente: hablas desde el móvil con un bot de Telegram; el plugin oficial de canal lo conecta con una sesión de Claude Code en tmux, en modo auto, en una máquina Linux aislada y siempre encendida. La sesión lee y escribe CLAUDE.md y sus notas, ejecuta web, scripts y voz, y usa los conectores de Gmail, Calendar y Drive de claude.ai. systemd la reinicia con --continue y un cron nocturno cierra el día, actualiza Claude Code y abre una sesión limpia.">
   </picture>
+  </a>
 </p>
 
-<sub>Versión interactiva (zoom, claro/oscuro, seguir un camino): [docs/diagrams/how-it-works.es.html](docs/diagrams/how-it-works.es.html), descárgala y ábrela en el navegador. Dibujado con [Archify](https://github.com/tt-a1i/archify).</sub>
+<sub>Versión interactiva (zoom, claro/oscuro, seguir un camino): [ábrela en el navegador](https://jonjunq.github.io/claudia/diagrams/how-it-works.es.html). Dibujado con [Archify](https://github.com/tt-a1i/archify).</sub>
 
 > Proyecto no oficial, sin relación con Anthropic. Lee antes [¿Esto está permitido?](#esto-está-permitido).
 
