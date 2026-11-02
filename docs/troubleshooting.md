@@ -14,8 +14,28 @@ blue; answer it once with "Don't show again". After big Claude Code updates, att
 
 **Permission prompts that never reach Telegram**
 Some classifier decisions are shown only in the terminal and are denied after a timeout; from the phone it just
-looks like silence. `assistant-permission-watch` tells you on Telegram when that happens. If it is something you
-always want to allow, add an `allow` rule ([permissions.md](permissions.md)).
+looks like silence. The plugin's own permission relay did not cover them in our setup. The `PermissionRequest` hook
+sends them to you with buttons ([telegram-extras.md](telegram-extras.md)), and `assistant-permission-watch` covers
+whatever slips through. If it is something you always want to allow, add an `allow` rule ([permissions.md](permissions.md)).
+If no request arrives at all, check `~/.cache/assistant-telegram/log`, and that `start.sh` ran the patcher
+(`restarts.log`) since the last plugin update.
+
+**You cannot tell whether it is working or hung**
+That is what the "⏳ Working" message is for ([telegram-extras.md](telegram-extras.md)). If it never shows, look at
+`~/.cache/assistant-telegram/log` and check that the `hooks` block is in `~/.claude/settings.json`.
+
+**It does not know which message you replied to**
+The official plugin drops quoted messages; the patch adds them. After a plugin update, the patch is re-applied at
+the next start; if the plugin changed too much, `start.sh` tells you on Telegram.
+
+**A command is missing from the bot's menu**
+Telegram shows the most specific menu: one set for your chat (`scope` `chat`) hides the default one. The plugin sets
+`/start`, `/help`, `/status` for all private chats; put every command you want in the chat-scoped call of
+[setup.md](setup.md), in a single list. We once added `/clear` to the default scope only and it never appeared.
+
+**The browser takes forever on a form**
+Without a browser tool the assistant improvises Playwright scripts with guessed selectors, and custom dropdowns
+make clicks time out. Install agent-browser and the browser skill ([browser.md](browser.md)).
 
 **It went silent after "This model's safeguards flagged this message"**
 The safeguards behind Claude's newest models are intentionally broad and sometimes flag normal work (we hit it with

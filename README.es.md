@@ -86,6 +86,8 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 | `bin/clear-context.sh` | `/clear` desde Telegram: conversación nueva a media jornada, después de apuntar lo pendiente |
 | `bin/permission-watch.sh` | Te avisa por Telegram cuando se queda parado en un aviso de permiso de su terminal o cambia de modelo tras un freno de seguridad |
 | `bin/transcribe.sh`, `bin/speak.sh` | Notas de voz de entrada (Whisper en Groq, con respaldo local) y de salida (ElevenLabs) |
+| `templates/telegram/` + hooks en `settings.json` | Mensaje «⏳ Trabajando» mientras trabaja, le llegan los mensajes que citas y las peticiones de permiso con botones Permitir / Denegar |
+| `.claude/skills/browser` | Usa webs con agent-browser en vez de scripts improvisados |
 | `templates/tools/vet-skill.sh` | Revisa una skill de terceros con SkillSpector antes de instalarla |
 
 ## Documentación (en inglés)
@@ -95,6 +97,8 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 - [Permisos](docs/permissions.md): modo auto, la lista de permisos, por qué no `bypassPermissions` y cómo explicarle
   al clasificador qué aparatos y servicios son tuyos.
 - [Ciclo diario, rutinas y comandos](docs/daily-cycle.md): cierre del día, resumen matutino, `/usage`, `/clear`.
+- [Extras de Telegram](docs/telegram-extras.md): estado «trabajando» en directo, mensajes citados y aprobar permisos con botones.
+- [Navegador](docs/browser.md): agent-browser para webs sin API, instalado en un contenedor, con mediciones.
 - [Voz](docs/voice.md): notas de voz, respuestas habladas y una llamada experimental por Discord.
 - [Aislamiento](docs/isolation.md): dónde ejecutarlo y cómo cerrarlo.
 - [Ojos en tu servidor, sin manos](docs/homelab-read-access.md): acceso de solo lectura a Proxmox, copias y paneles, con seguridad.

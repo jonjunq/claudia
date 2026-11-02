@@ -1,7 +1,7 @@
 #!/bin/bash
 # Tells you on Telegram when the assistant is stuck on a permission prompt in its terminal.
-# Some prompts (e.g. actions the auto-mode classifier sends to the terminal) are not relayed to
-# Telegram and are denied by themselves after a while; without this you only see a silent assistant.
+# Most prompts reach you on Telegram with buttons (permission-hook.py); this is the fallback for any that do not
+# (Telegram down, hook not installed). Without it you would only see a silent assistant.
 # It also tells you when the session changes model on its own: with "switchModelsOnFlag" in settings.json,
 # a reply flagged by the model's safeguards moves the session to another model instead of pausing it.
 # The model is read from state.json, which the status line writes after each reply.
@@ -13,16 +13,20 @@ last=""
 model_prev=""
 while true; do
   screen=$(tmux capture-pane -t "$TMUX_SESSION" -p 2>/dev/null)
-  if echo "$screen" | grep -q "Do you want to proceed?"; then
-    key=$(echo "$screen" | sed -n "/Tool use/,/Do you want/p" | md5sum | cut -c1-12)
+  # A request that permission-hook.py already sent you with buttons is not reported twice.
+  if echo "$screen" | grep -q "Do you want to proceed?" && [ ! -e "$HOME/.cache/assistant-telegram/permission-pending.json" ]; then
+    # The dialog: from the last border line (────) down to "Do you want to proceed?".
+    block=$(echo "$screen" | awk '/^ *─{20,}/{b=""; next} {b=b"\n"$0} /Do you want to proceed\?/{print b; exit}' | sed '/^\s*$/d')
+    key=$(echo "$block" | md5sum | cut -c1-12)
     if [ "$key" != "$last" ]; then
       last=$key
-      what=$(echo "$screen" | sed -n "/Tool use/{n;p;q}" | sed "s/ Tool: (MCP)//; s/^ *//")
-      why=$(echo "$screen" | grep -o "Latest blocked action: \[[^]]*\]" | sed "s/Latest blocked action: //")
-      tg_send "⏸️ The assistant is waiting for permission in its terminal: ${what:-a tool} ${why}. If nobody answers it will be denied. To allow it for good, add a rule to ~/.claude/settings.json."
-      echo "[$(date)] prompt: $what $why" >> "$ASSISTANT_DIR/permission-watch.log"
+      # First two lines: kind of tool and its description ("Bash command" / "Merge two PDFs").
+      what=$(echo "$block" | grep -v "^ *Tip:" | head -2 | sed "s/^ *//; s/ Tool: (MCP)//" | paste -sd ":" | sed "s/:/: /")
+      why=$(echo "$block" | grep -oE "Latest blocked action: \[[^]]*\]|[A-Z][^│]*manual approval required[^│]*" | head -1 | sed "s/Latest blocked action: //; s/ *$//")
+      tg_send "⏸️ The assistant is waiting for permission in its terminal: ${what:-a tool}${why:+ ($why)}. If nobody answers it will be denied. To allow it for good, add a rule to ~/.claude/settings.json."
+      echo "[$(date)] prompt: $what | $why" >> "$ASSISTANT_DIR/permission-watch.log"
     fi
-  else
+  elif ! echo "$screen" | grep -q "Do you want to proceed?"; then
     last=""
   fi
   model=$(jq -r '.model // empty' "$ASSISTANT_DIR/state.json" 2>/dev/null)

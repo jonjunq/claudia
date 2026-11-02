@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Telegram extras (`templates/telegram/`, installed root-owned to `/usr/local/lib/assistant-telegram/`, hooks in
+  `settings.json`, [docs/telegram-extras.md](docs/telegram-extras.md)):
+  - A "⏳ Working · 2 min 35 s / Now: <step>" message while a turn runs, edited every 5 s and deleted at the end, with
+    ⚠️ when it waits for permission, sits on a dialog, makes no progress for 10 min or the session exits. Hooks plus
+    a small daemon; no model calls.
+  - Quoted and replied-to messages reach the assistant (`reply_to_text`, `reply_to_from`, `reply_quote`), via an
+    idempotent patch of the official plugin that `start.sh` re-applies at every start and reports when it no longer fits.
+  - Permission requests on Telegram with ✅ Allow / ❌ Deny buttons through a `PermissionRequest` hook that waits up to
+    9½ minutes; the plugin's native relay is logged and silenced to avoid duplicates.
+- `bin/permission-watch.sh`: reads the current permission dialog layout (the old one left the message empty) and
+  does not repeat a request the hook already sent.
+- Browser: `.claude/skills/browser` and [docs/browser.md](docs/browser.md) (agent-browser instead of improvised
+  Playwright scripts; setup in an unprivileged LXC with Playwright's Chromium; measured on a real form: 0 failed calls
+  instead of 13 of 40, about half the usage per step).
+- Troubleshooting: chat-scoped bot menus hide the default one.
 - `CLAUDE.md` template: "Quality first" section (best effort the first time, check facts before stating them and say
   what was not checked, "on it" when it takes longer, messages stay short).
 - `docs/permissions.md`: teaching the auto-mode classifier about your setup with `autoMode.environment` and

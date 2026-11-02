@@ -39,13 +39,16 @@ annoy you, add specific `allow` rules for the actions you approve every time, ra
 
 Sometimes the classifier sends a decision to the **terminal** instead of to Telegram. Nobody is there, the prompt
 times out, and from your phone the assistant just looks silent. We once lost about ten minutes this way while it
-tried to delete a batch of calendar events one by one. Two defences, both in the templates:
+tried to delete a batch of calendar events one by one. Three defences, all in the templates:
 
-1. `CLAUDE.md`: "if the permission system blocks a tool, do not retry in a loop: stop at the first block and tell
+1. A `PermissionRequest` hook sends every permission request to Telegram with ✅ Allow / ❌ Deny buttons and waits up
+   to 9½ minutes for you ([telegram-extras.md](telegram-extras.md#3-approving-permissions-from-telegram)).
+2. `CLAUDE.md`: "if the permission system blocks a tool, do not retry in a loop: stop at the first block and tell
    the owner what you wanted to do".
-2. `bin/permission-watch.sh` (service `assistant-permission-watch`): every 5 seconds it looks at the tmux screen
-   and, when it sees "Do you want to proceed?", sends you a Telegram message saying which tool is waiting. It uses
-   the bot's `sendMessage`, which does not interfere with the plugin's polling.
+3. `bin/permission-watch.sh` (service `assistant-permission-watch`), the fallback: every 5 seconds it looks at the
+   tmux screen and, when it sees "Do you want to proceed?" for a request the hook did not already send you, sends
+   you a Telegram message saying which tool is waiting. It uses the bot's `sendMessage`, which does not interfere
+   with the plugin's polling.
 
 If the same block keeps happening for something you always want, add an `allow` rule for it yourself, or describe
 it to the classifier ([below](#teaching-the-auto-mode-classifier-about-your-setup)). Do not let the assistant edit

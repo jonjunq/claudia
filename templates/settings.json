@@ -79,5 +79,65 @@
   "statusLine": {
     "type": "command",
     "command": "__HOME__/assistant/bin/statusline.sh"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I /usr/local/lib/assistant-telegram/status-hook.py",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I /usr/local/lib/assistant-telegram/status-hook.py",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I /usr/local/lib/assistant-telegram/status-hook.py",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I /usr/local/lib/assistant-telegram/status-hook.py",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I /usr/local/lib/assistant-telegram/permission-hook.py",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
   }
 }

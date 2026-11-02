@@ -62,6 +62,12 @@ put "$SRC/system/assistant.service" /etc/systemd/system/assistant.service 644
 put "$SRC/system/assistant-permission-watch.service" /etc/systemd/system/assistant-permission-watch.service 644
 put "$SRC/system/assistant-daily-restart" /usr/local/sbin/assistant-daily-restart 755
 put "$SRC/system/assistant.cron" /etc/cron.d/assistant 644
+# Telegram extras (status message, permission buttons, plugin patch): root-owned, so the assistant cannot edit
+# the code that decides its own permissions.
+for f in "$SRC"/telegram/*.py; do
+  case "$f" in */tg.py) mode=644 ;; *) mode=755 ;; esac
+  put "$f" "/usr/local/lib/assistant-telegram/$(basename "$f")" "$mode"
+done
 [ -z "$D" ] && systemctl daemon-reload
 
 cat <<EOF

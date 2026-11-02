@@ -12,6 +12,9 @@ SCRIPTS=(install.sh tests/run-tests.sh templates/system/assistant-daily-restart 
 check "shellcheck" shellcheck -S warning -x "${SCRIPTS[@]}"
 for s in "${SCRIPTS[@]}"; do check "bash -n $s" bash -n "$s"; done
 check "settings.json is valid JSON" jq -e . templates/settings.json
+check "settings.json has the Telegram hooks" jq -e '.hooks.PermissionRequest[0].hooks[0].timeout == 600 and (.hooks.PreToolUse[0].hooks[0].async == true)' templates/settings.json
+for p in templates/telegram/*.py tests/*.py; do check "python compiles $p" python3 -m py_compile "$p"; done
+find templates tests -name __pycache__ -exec rm -rf {} +
 
 # No EXIT trap for the cleanup: bash runs it in the subshells of pipelines inside functions, too early.
 T=$(mktemp -d)
@@ -23,6 +26,8 @@ for f in assistant/CLAUDE.md assistant/assistant.env assistant/notes/todo.md ass
   check "installed $f" test -e "$H/$f"
 done
 check "scripts are executable" test -x "$H/assistant/bin/start.sh"
+check "browser skill installed" test -e "$H/assistant/.claude/skills/browser/SKILL.md"
+check "Telegram extras installed" test -x "$T/usr/local/lib/assistant-telegram/permission-hook.py" -a -e "$T/usr/local/lib/assistant-telegram/tg.py"
 check "keys.env is private" test "$(stat -c %a "$H/.config/assistant/keys.env")" = 600
 check "units installed" test -e "$T/etc/systemd/system/assistant.service" -a -e "$T/etc/cron.d/assistant"
 check "no placeholders left" bash -c "! grep -rq '__[A-Z]*__' '$H' '$T/etc' '$T/usr'"
@@ -88,6 +93,93 @@ timeout 12 "$H/assistant/bin/permission-watch.sh" >/dev/null 2>&1
 wait
 check "permission-watch reports a model switch once" test "$(grep -c 'switched from Opus 5.5 to Opus 4.8' "$FAKE_LOG")" = 1
 
+# permission-watch.sh reads the current dialog layout, and stays quiet when the hook already sent the request
+cat > "$FAKE_SCREEN" <<'EOF2'
+────────────────────────────────────────────────────────────
+ Bash command
+ Merge two PDFs into one
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ │ cd /tmp && pdfunite a.pdf b.pdf c.pdf
+ │ Compound command contains cd with write operation - manual approval required to prevent path resolution bypass
+ Do you want to proceed?
+ ❯ 1. Yes
+EOF2
+: > "$FAKE_LOG"
+timeout 7 "$H/assistant/bin/permission-watch.sh" >/dev/null 2>&1
+check "permission-watch names tool and description (new layout)" grep -q "Bash command: Merge two PDFs into one" "$FAKE_LOG"
+check "permission-watch gives the reason (new layout)" grep -q "manual approval required" "$FAKE_LOG"
+mkdir -p "$H/.cache/assistant-telegram"; echo '{}' > "$H/.cache/assistant-telegram/permission-pending.json"
+: > "$FAKE_LOG"
+timeout 7 "$H/assistant/bin/permission-watch.sh" >/dev/null 2>&1
+check "permission-watch skips a request the hook already sent" test "$(grep -c sendMessage "$FAKE_LOG")" = 0
+rm -f "$H/.cache/assistant-telegram/permission-pending.json"
+
+# patch-telegram-plugin.py on a stand-in with the plugin's anchors: patches once, then leaves it alone
+P="$T/plugin/0.0.7"; mkdir -p "$P"
+cat > "$P/server.ts" <<'EOF2'
+import { homedir } from 'os'
+    instructions: [
+      "Telegram's Bot API exposes no history or search — you only see messages as they arrive.",
+    ],
+    for (const chat_id of access.allowFrom) {
+      void bot.api.sendMessage(chat_id, text, { reply_markup: keyboard }).catch(() => {})
+    }
+bot.on('callback_query:data', async ctx => {
+  const data = ctx.callbackQuery.data
+  const m = /^perm:(allow|deny|more):([a-km-z]{5})$/.exec(data)
+})
+async function handleInbound(
+      meta: {
+        ...(imagePath ? { image_path: imagePath } : {}),
+      },
+EOF2
+export TG_PLUGIN_GLOB="$T/plugin/*/server.ts"
+check "patcher patches" bash -c "python3 -I templates/telegram/patch-telegram-plugin.py | grep -q ': patched$'"
+check "patch adds reply context" grep -q '\.\.\.replyMeta(ctx),' "$P/server.ts"
+check "patch adds the hook buttons" grep -q 'hk:(allow|deny)' "$P/server.ts"
+check "patch keeps the original" test -e "$P/server.ts.orig"
+check "patcher is idempotent" bash -c "python3 -I templates/telegram/patch-telegram-plugin.py | grep -q 'already patched' && test \$(grep -c replyMeta '$P/server.ts') = 2"
+grep -v handleInbound "$P/server.ts.orig" > "$P/server.ts"
+if python3 -I templates/telegram/patch-telegram-plugin.py >/dev/null; then ko "patcher fails on a changed plugin"; else ok "patcher fails on a changed plugin"; fi
+check "a failed patch changes nothing" bash -c "! grep -q 'ASSISTANT-PATCH' '$P/server.ts'"
+unset TG_PLUGIN_GLOB
+
+# status-hook.py records the step and the end of the turn, only for the assistant's session
+TURN="$H/.cache/assistant-telegram/turn.json"; rm -f "$TURN"
+hook() { echo "$1" | ASSISTANT_TG_NO_DAEMON=1 python3 -I templates/telegram/status-hook.py; }
+hook '{"hook_event_name":"PreToolUse","cwd":"/tmp","tool_name":"Bash","tool_input":{"description":"x"}}'
+check "status-hook ignores other sessions" test ! -e "$TURN"
+hook '{"hook_event_name":"PreToolUse","cwd":"'"$H"'/assistant","tool_name":"Bash","tool_input":{"command":"ls","description":"List files"}}'
+check "status-hook records the step" test "$(jq -r .step "$TURN")" = "List files"
+hook '{"hook_event_name":"PreToolUse","cwd":"'"$H"'/assistant","tool_name":"mcp__claude_ai_Gmail__search_threads","tool_input":{}}'
+check "status-hook describes MCP tools" test "$(jq -r .step "$TURN")" = "Gmail · search threads"
+hook '{"hook_event_name":"Stop","cwd":"'"$H"'/assistant"}'
+check "status-hook marks the end of the turn" jq -e '.end > 0' "$TURN"
+
+# permission-hook.py against a fake Telegram API: Allow from a button -> allow decision; no answer -> no decision
+API_LOG="$T/api.log"; : > "$API_LOG"
+python3 -I tests/fake-telegram.py 0 "$API_LOG" > "$T/port" &
+FAKE_PID=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$T/port" ] && break; sleep 0.3; done
+export TELEGRAM_API="http://127.0.0.1:$(cat "$T/port")"
+REQ='{"hook_event_name":"PermissionRequest","cwd":"'"$H"'/assistant","tool_name":"Bash","tool_input":{"command":"rm -rf build","description":"Remove the build folder"}}'
+( for _ in $(seq 1 40); do
+    id=$(grep -o 'hk:allow:[0-9a-f]\{16\}' "$API_LOG" | head -1 | cut -d: -f3)
+    if [ -n "$id" ]; then mkdir -p "$H/.claude/channels/telegram/verdicts"; echo allow > "$H/.claude/channels/telegram/verdicts/$id"; break; fi
+    sleep 0.25
+  done ) &
+out=$(echo "$REQ" | ASSISTANT_PERMISSION_WAIT=15 python3 -I templates/telegram/permission-hook.py)
+wait $!
+check "permission-hook sends the request with buttons" bash -c "grep '\"method\": \"sendMessage\"' '$API_LOG' | grep -q 'Remove the build folder'"
+check "permission-hook returns the button's verdict" bash -c "echo '$out' | jq -e '.hookSpecificOutput.decision.behavior == \"allow\"'"
+check "permission-hook edits the message with the outcome" grep -q 'Allowed from Telegram' "$API_LOG"
+out=$(echo "$REQ" | ASSISTANT_PERMISSION_WAIT=1 python3 -I templates/telegram/permission-hook.py)
+check "permission-hook without an answer leaves the decision to the terminal" test -z "$out"
+check "permission-hook clears its pending flag" test ! -e "$H/.cache/assistant-telegram/permission-pending.json"
+kill "$FAKE_PID" 2>/dev/null; unset TELEGRAM_API
+
+# start.sh also re-applies the plugin patch (here it no longer fits: it must say so) and flags the permission hook
+export TG_EXTRAS="$T/usr/local/lib/assistant-telegram" TG_PLUGIN_GLOB="$T/plugin/*/server.ts"
 # start.sh: fresh conversation when .new-session exists, prompt before --channels; fallback when --continue fails fast
 cat > "$B/claude" <<'EOF'
 #!/bin/bash
@@ -105,6 +197,9 @@ timeout 3 "$H/assistant/bin/start.sh" >/dev/null 2>&1
 check "resume uses --continue" bash -c "grep '^claude ' '$FAKE_LOG' | head -1 | grep -q -- '--continue$'"
 check "fast --continue failure falls back to a new conversation" bash -c "grep '^claude ' '$FAKE_LOG' | sed -n 2p | grep -qv -- '--continue'"
 check "start.sh logs to restarts.log" grep -q "continue failed at once" "$H/assistant/restarts.log"
+check "start.sh flags the permission hook to the plugin" test -e "$H/.claude/channels/telegram/permission-hook-enabled"
+check "start.sh reports a patch that no longer fits" grep -q "no longer fits" "$FAKE_LOG"
+unset TG_EXTRAS TG_PLUGIN_GLOB
 
 # vet-skill.sh with a fake SkillSpector: one report per skill folder, plus the whole repo.
 cat > "$B/skillspector" <<'EOF'

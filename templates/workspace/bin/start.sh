@@ -9,11 +9,23 @@
 export PATH="$HOME/.local/bin:$HOME/.bun/bin:$PATH"
 cd "$ASSISTANT_DIR" || exit 1
 LOG="$ASSISTANT_DIR/restarts.log"
+TG_EXTRAS="${TG_EXTRAS:-/usr/local/lib/assistant-telegram}"
 
 FIRST_PROMPT="New conversation after the daily restart. notes/todo.md, notes/yesterday.md and notes/routines.md are already loaded: schedule today's routines. Do not message the owner about this; wait until they write."
 
 while true; do
   load_env
+  # Telegram extras (docs/telegram-extras.md): re-apply the plugin patch at every start, because a plugin update
+  # replaces it, and tell the plugin whether permission-hook.py handles permission requests.
+  if [ -x "$TG_EXTRAS/patch-telegram-plugin.py" ]; then
+    python3 -I "$TG_EXTRAS/patch-telegram-plugin.py" >> "$LOG" 2>&1 ||
+      tg_send "⚠️ The Telegram plugin changed and the assistant's patch no longer fits: quoted messages and permission buttons are off until patch-telegram-plugin.py is adapted."
+    if grep -q permission-hook.py "$HOME/.claude/settings.json" 2>/dev/null; then
+      touch "$TG_DIR/permission-hook-enabled"
+    else
+      rm -f "$TG_DIR/permission-hook-enabled"
+    fi
+  fi
   MODEL="${MODEL:-opus}"
   CHANNELS=(--channels plugin:telegram@claude-plugins-official)
   if [ -n "${DEV_CHANNELS:-}" ]; then
