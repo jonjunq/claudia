@@ -8,6 +8,8 @@
 # It runs as root, outside the assistant's reach, so the assistant cannot change or skip it.
 # Usage: assistant-daily-restart <user>
 set -u
+# cron's PATH is only /usr/bin:/bin: without this, runuser (in /usr/sbin) is not found and every step fails.
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 unset TMUX TMUX_PANE   # if run by hand from inside tmux, talk to the user's tmux server, not ours
 U="${1:?usage: $0 <user>}"
 H=$(getent passwd "$U" | cut -d: -f6)

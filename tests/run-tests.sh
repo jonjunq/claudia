@@ -181,6 +181,19 @@ check "permission-hook edits the message with the outcome" grep -q 'Allowed from
 out=$(echo "$REQ" | ASSISTANT_PERMISSION_WAIT=1 python3 -I templates/telegram/permission-hook.py)
 check "permission-hook without an answer leaves the decision to the terminal" test -z "$out"
 check "permission-hook clears its pending flag" test ! -e "$H/.cache/assistant-telegram/permission-pending.json"
+# Under cron the PATH is only /usr/bin:/bin and runuser lives in /usr/sbin: both entry points must not depend on it
+check "assistant.cron sets a PATH with /usr/sbin" grep -q '^PATH=.*/usr/sbin' templates/system/assistant.cron
+check "assistant-daily-restart exports a PATH with /usr/sbin" grep -q '^export PATH=.*/usr/sbin' templates/system/assistant-daily-restart
+cat > "$T/runuser-check.py" <<'PY'
+import importlib.util, sys
+sys.argv = ["nightly-review.py", "root"]
+spec = importlib.util.spec_from_file_location("nr", "templates/memory/nightly-review.py")
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+m.ROOT = True
+print(m.as_user(["true"])[0])
+PY
+check "nightly-review finds runuser without /usr/sbin in PATH" bash -c "PATH=/usr/bin:/bin python3 -I '$T/runuser-check.py' | grep -q '^/'"
+
 # send-rich.py: Markdown from stdin goes out with sendRichMessage; an empty message is refused
 printf '# Week\n\n| a | b |\n|---|---|\n| 1 | 2 |\n' | python3 -I templates/telegram/send-rich.py > "$T/rich.out"
 check "send-rich sends a rich message" bash -c "grep '\"method\": \"sendRichMessage\"' '$API_LOG' | grep -q '| a | b |'"

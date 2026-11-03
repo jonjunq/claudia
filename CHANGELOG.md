@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Fix: the daily restart and the nightly review failed when run by cron, whose PATH is only `/usr/bin:/bin`
+  while `runuser` lives in `/usr/sbin` (it only worked when started by hand). `assistant.cron` and
+  `assistant-daily-restart` now set the PATH, and `nightly-review.py` falls back to `/usr/sbin/runuser`. Tests added.
 - Rich Telegram messages (Bot API 10.1+): `templates/telegram/send-rich.py` sends Markdown or HTML with
   `sendRichMessage` (headings, tables, lists, collapsible blocks), allowed in `settings.json` and described in the
   `CLAUDE.md` template; falls back to `reply` when Telegram rejects it. See [docs/telegram-extras.md](docs/telegram-extras.md#4-rich-messages-headings-tables-collapsible-blocks).

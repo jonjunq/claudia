@@ -44,7 +44,9 @@ def log(text):
 
 
 def as_user(cmd):
-    return ["runuser", "-u", USER, "--", *cmd] if ROOT else cmd
+    # Absolute fallback: under cron the PATH is only /usr/bin:/bin and runuser lives in /usr/sbin.
+    runuser = shutil.which("runuser") or "/usr/sbin/runuser"
+    return [runuser, "-u", USER, "--", *cmd] if ROOT else cmd
 
 
 def give(path):
