@@ -4,9 +4,16 @@
   ⚠️ … when it is stuck: waiting for permission, on a dialog, no progress for a while, or the session exited.
 Pure script, no model calls. Telegram asks bots for at most about one message per second per chat, and edits
 count; the typing action every 4 s plus an edit every 5 s stays well under that, leaving room for the replies."""
-import os, subprocess, sys, time
+import fcntl, os, subprocess, sys, time
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 import tg
+
+# One daemon only: when two hooks start it at the same moment, the second one leaves (it used to post two messages).
+_lock = open(os.path.join(tg.STATE, "daemon.lock"), "w")
+try:
+    fcntl.flock(_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except OSError:
+    sys.exit(0)
 
 TURN = os.path.join(tg.STATE, "turn.json")
 PENDING = os.path.join(tg.STATE, "permission-pending.json")

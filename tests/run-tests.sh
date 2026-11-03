@@ -160,6 +160,18 @@ hook '{"hook_event_name":"PreToolUse","cwd":"'"$H"'/assistant","tool_name":"mcp_
 check "status-hook describes MCP tools" test "$(jq -r .step "$TURN")" = "Gmail · search threads"
 hook '{"hook_event_name":"Stop","cwd":"'"$H"'/assistant"}'
 check "status-hook marks the end of the turn" jq -e '.end > 0' "$TURN"
+# Background runs (e.g. the suggested reply) fire hooks but are not in the transcript: they must not open a turn
+TR="$T/transcript.jsonl"; echo '{"type":"user","promptId":"real-1"}' > "$TR"; rm -f "$TURN"
+ev() { hook '{"hook_event_name":"'"$1"'","cwd":"'"$H"'/assistant","prompt_id":"'"$2"'","transcript_path":"'"$TR"'","tool_name":"Bash","tool_input":{"description":"'"$3"'"}}'; }
+ev PreToolUse real-1 "Step one"; ev Stop real-1 ""
+ev PreToolUse real-1 "Late event"
+check "status-hook ignores late events of a finished turn" jq -e '.end > 0 and .step == "Step one"' "$TURN"
+ev PreToolUse ghost "No action"
+check "status-hook ignores prompts that are not in the transcript" jq -e '.end > 0 and .step == "Step one"' "$TURN"
+echo '{"type":"user","promptId":"real-2"}' >> "$TR"; ev PreToolUse real-2 "Step two"
+check "status-hook opens a turn for a new real prompt" jq -e '(.end | not) and .step == "Step two" and .prompt == "real-2"' "$TURN"
+ev PreToolUse ghost-2 "No action"
+check "status-hook ignores background runs during a real turn" test "$(jq -r .step "$TURN")" = "Step two"
 
 # permission-hook.py against a fake Telegram API: Allow from a button -> allow decision; no answer -> no decision
 API_LOG="$T/api.log"; : > "$API_LOG"

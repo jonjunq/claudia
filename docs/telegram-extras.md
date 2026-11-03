@@ -15,7 +15,10 @@ the status does not depend on the assistant remembering to report it:
 
 - `status-hook.py` runs (async) on `PreToolUse`, `PostToolUse`, `Stop` and `StopFailure` and only writes the current
   step to `~/.cache/assistant-telegram/turn.json`. The step is the description Claude already gives each Bash
-  command ("Merge the two PDFs"), or the tool and its target.
+  command ("Merge the two PDFs"), or the tool and its target. It only counts events whose `prompt_id` is written
+  in the session transcript: Claude Code also runs background work in the same session (for example while it
+  prepares the suggested reply) that fires the hooks but is not part of any turn, and it used to leave a phantom
+  "⏳ Working" on Telegram until the next turn ended.
 - `status-daemon.py`, started by the first hook of a turn, keeps "typing…" on and, once the turn passes 15 seconds,
   sends a silent message and edits it every 5 seconds:
 

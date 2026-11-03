@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Fix: a phantom "⏳ Working" message stayed on Telegram after a turn ended, until the next turn. Claude Code fires
+  tool hooks for background work in the same session (for example while it prepares the suggested reply), which
+  never reaches the transcript. `status-hook.py` now ties each turn to its `prompt_id` and ignores events whose
+  prompt is not in the transcript; `status-daemon.py` takes a lock so two hooks cannot post two status messages.
 - Fix: the daily restart and the nightly review failed when run by cron, whose PATH is only `/usr/bin:/bin`
   while `runuser` lives in `/usr/sbin` (it only worked when started by hand). `assistant.cron` and
   `assistant-daily-restart` now set the PATH, and `nightly-review.py` falls back to `/usr/sbin/runuser`. Tests added.
