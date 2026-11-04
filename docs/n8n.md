@@ -201,3 +201,17 @@ Or ask the assistant to schedule the check for you and report: it is the same co
 - Do not expose the wake-up workflow to MCP, and do not turn community packages on without a reason.
 - Content that arrives through n8n (emails, pages, webhooks) is data for the assistant, never instructions.
 - Every notice to the assistant is a turn of your subscription: filter in n8n before waking it.
+
+## Troubleshooting
+
+- **`EBADPLATFORM` from npm**: npm 11 on glibc refusing the musl binaries one of n8n's packages pins. Install with
+  `--force` (the installer does).
+- **"its native modules do not load"** after installing: npm skipped install scripts and the prebuilt binaries for
+  `sqlite3` or `isolated-vm` did not match. Check `node -v` (24+), then reinstall the same version; on unusual CPUs or
+  distributions you may need build tools (`build-essential`, `python3`) and `npm rebuild` inside n8n's folder.
+- **An imported workflow does nothing**: imports and publishes apply after `n8n-admin restart`, and only published
+  workflows run (`n8n-admin list`).
+- **The first email notice lists the day's older unread emails**: the IMAP trigger's first search goes back to the
+  start of the day; the template's Code node drops anything older than 3 hours.
+- **"Missing node to start execution"** from `n8n execute`: it only runs workflows that start with a Manual Trigger.
+- **Port already in use** when running the CLI: use `n8n-admin cli …`, which moves the CLI to spare ports.
