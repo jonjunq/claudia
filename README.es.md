@@ -24,6 +24,49 @@ manda un resumen por la mañana, entiende tus notas de voz y puede contestarte c
 
 > Proyecto no oficial, sin relación con Anthropic. Lee antes [¿Esto está permitido?](#esto-está-permitido).
 
+## Qué le puedes pedir
+
+Le escribes (o le mandas una nota de voz) como a una persona. Algunas cosas que le puedes decir:
+
+**Lo que la nuestra hace a diario**
+
+- 🎙️ Yendo por la calle: *«Recuérdame mañana a las diez llamar al fontanero.»* Entiende la nota de voz en un
+  segundo y mañana tienes el aviso.
+- ☀️ Sin pedírselo: cada mañana, tu día en un mensaje (citas, lo que vence, los correos que importan).
+- 📧 *«Avísame si entra algo importante.»* Con [n8n](docs/n8n.md) vigila tu correo día y noche y solo te dice algo
+  cuando un correo te necesita, sin gastar nada mientras no llega nada.
+- 📺 *«Pon YouTube en la tele.»* *«Abre la app de pelis en el proyector.»*
+- 🎬 *«Bájame la temporada nueva de esa serie.»* Se lo pide a tu servidor de pelis de casa y te avisa cuando está.
+- 💻 *«Apaga el ordenador del despacho.»*
+- 🖥️ *«¿Ha salido bien la copia de esta noche?»* Vigila tu servidor de casa, sin poder tocar nada, y te avisa si
+  algo falla.
+- 🧾 *«Rellena este formulario de la Administración con mis datos.»* Se pelea ella con las webs complicadas; si
+  sale un captcha o te piden entrar, te manda un enlace y lo resuelves desde el móvil.
+- 🔎 *«¿Qué te dije el mes pasado de la caldera?»* Busca en vuestras conversaciones antiguas.
+
+**Lo que puede hacer si se lo montas** (posible con lo que hay aquí; no todo lo hemos probado nosotros)
+
+- 💡 *«Apaga las luces del salón.»* Con [Home Assistant](https://www.home-assistant.io) y un acceso limitado a los
+  aparatos que tú elijas.
+- ✈️ *«Queremos irnos a la costa el finde del 14.»* Busca opciones, te enseña dos o tres con precio y, cuando le
+  dices que sí, paga con una [tarjeta virtual con su propio límite pequeño](docs/permissions.md#optional-paying-with-a-limited-card).
+  Las piezas están; aún no hemos hecho una compra real con ella.
+- 📣 Sus propias cuentas en redes sociales: prepara las publicaciones, las sube cuando apruebas cada una y contesta
+  comentarios.
+- 📮 *«Reclama a la aerolínea el reembolso.»* Busca el formulario, lo rellena, guarda la referencia, vigila tu
+  correo esperando la respuesta y te avisa si no contestan.
+- 💬 Su propio número de WhatsApp o, para una tienda, un agente que contesta a tus clientes (horarios, stock,
+  pedidos, citas) y te pasa lo que no sepa. Por la vía oficial, WhatsApp Business Platform: automatizar un WhatsApp
+  normal va contra sus normas y te pueden cerrar el número. Y el agente que habla con desconocidos, mejor uno aparte
+  y limitado, sin tu correo, tu tarjeta ni tu casa, porque cualquiera le puede escribir.
+- 👷 *«¿Qué están haciendo mis operarios?»* En vez de llamar a treinta personas, les escribe a cada una, repregunta
+  si la respuesta es vaga y te da un resumen: quién está en qué, qué va retrasado, qué está bloqueado. Avisa a tu
+  equipo de que hablan con un asistente y para qué se usa lo que dicen, respeta su horario y dale acceso solo a lo
+  del trabajo.
+
+No hace falta que te acuerdes de nada de esto: en sus primeras semanas te lo ofrece ella, de una en una y cuando
+viene a cuento ([cómo](templates/workspace/.claude/skills/first-days/SKILL.md)). O pregúntale *«¿qué sabes hacer?»*.
+
 ## ¿Por qué no un framework de agentes?
 
 Nuestro primer asistente fue [Hermes Agent](https://github.com/NousResearch/hermes-agent), y nos gustaba: está hecho
@@ -86,25 +129,39 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 
 ## Novedades
 
-Lo último (lista completa en [CHANGELOG.md](CHANGELOG.md), en inglés):
+Lo último (lista completa en [CHANGELOG.md](CHANGELOG.md), en inglés).
 
-- **Las notas de voz llegan ya transcritas** (aún sin versión publicada; [docs/voice.md](docs/voice.md)): el parche
+**1.4.0** (05/11/2026)
+
+- **Sus primeras semanas, proactiva** ([la skill](templates/workspace/.claude/skills/first-days/SKILL.md)): te
+  ofrece lo que sabe hacer o montarte (el correo vigilado con n8n, notas de voz, actualizaciones, el navegador…), de
+  una en una y cuando viene a cuento, en sencillo y con lo que cuesta, y no vuelve a preguntar lo que le dijiste que
+  no. Esa fase termina sola a las cuatro semanas.
+- **Se mantiene al día, con tu OK** ([docs/updating.md](docs/updating.md)): un flujo de n8n le avisa de las
+  versiones nuevas; te explica qué traen, revisa antes los cambios y, si te parece bien, actualiza con
+  `install.sh --upgrade`, que nunca pisa lo que cambiaste (deja un `.new` fusionado). Solo versiones publicadas,
+  nunca sola.
+- **Ejemplos de qué pedirle**, [arriba](#qué-le-puedes-pedir).
+- **Las notas de voz llegan ya transcritas** ([docs/voice.md](docs/voice.md)): el parche
   del plugin de Telegram las descarga y transcribe antes de que las vea el asistente, lo que ahorra dos turnos
   (unos 5 s) por nota; las descargas tienen tiempo máximo; `transcribe.sh` pasa de Groq a Cloudflare Workers AI y a
   Parakeet en la CPU, con tu lista de nombres para que salgan bien escritos.
-- **Un navegador de verdad** (aún sin versión publicada; [docs/browser.md](docs/browser.md)): Chromium completo con
+- **Un navegador de verdad** ([docs/browser.md](docs/browser.md)): Chromium completo con
   ventana en una pantalla virtual en vez del headless shell que rechazan las protecciones antibots, dos perfiles y una
   ventana remota opcional para que resuelvas captchas e inicios de sesión desde el móvil en la misma sesión del
   asistente. Sin trucos de camuflaje.
-- **Opcional: pagar con una tarjeta limitada** (aún sin versión publicada; [docs/permissions.md](docs/permissions.md#optional-paying-with-a-limited-card)):
+- **Opcional: pagar con una tarjeta limitada** ([docs/permissions.md](docs/permissions.md#optional-paying-with-a-limited-card)):
   una tarjeta virtual con su propio saldo pequeño, tu «sí» a cada compra, la tarjeta nunca en el chat y las reglas
   de `autoMode` que solo permiten eso.
-- **Dispositivos fuera de casa** por Tailscale (aún sin versión publicada; [docs/remote-devices.md](docs/remote-devices.md)):
+- **Dispositivos fuera de casa** por Tailscale ([docs/remote-devices.md](docs/remote-devices.md)):
   el asistente llega a un dispositivo por dos puertos, y el dispositivo no llega a nada.
-- **Menos contexto** (aún sin versión publicada; [docs/memory.md](docs/memory.md#keeping-the-context-small)): la
+- **Menos contexto** ([docs/memory.md](docs/memory.md#keeping-the-context-small)): la
   conversación se compacta a los 300k tokens en vez de cerca del millón, la lista de pendientes que se carga en cada
   conversación se mantiene corta, el repaso nocturno poda las skills en vez de solo añadir, y
   `templates/tools/token-usage.py` enseña dónde se van tus tokens y tu contexto.
+
+**1.3.0** (04/11/2026)
+
 - **Avisos que no gastan tokens, con n8n** ([docs/n8n.md](docs/n8n.md)): un instalador que deja n8n endurecido,
   plantillas de flujo (correo nuevo → despierta al asistente; vigilar una web → te avisa a ti, y se apaga sola al
   terminar), actualizaciones con copia y vuelta atrás automática, y el propio asistente creando los flujos por el
@@ -144,13 +201,15 @@ Las piezas, agrupadas por para qué sirven. Todo menos lo básico es opcional.
 |---|---|
 | `templates/telegram/` + hooks en `settings.json` | Mensaje «⏳ Trabajando» mientras trabaja, le llegan los mensajes que citas, peticiones de permiso con botones Permitir / Denegar, aprobar una vez lo que bloqueó el clasificador, mensajes ricos (títulos, tablas) con `send-rich.py` y notas de voz transcritas antes de llegarle |
 | `templates/memory/` + skill `recall` | Busca en conversaciones antiguas (`recall`), repasa skills y memoria cada noche y guarda un historial git para deshacer |
+| skill `first-days` + `notes/first-days.md` | Sus primeras semanas: ofrece lo que sabe hacer, de una en una, y recuerda lo que contestaste |
+| skill `updating` + `install.sh --upgrade` | Actualiza a una versión nueva con tu OK, fusionando las plantillas con tus cambios en vez de pisarlos |
 
 **Reaccionar sin gastar tokens**
 
 | Pieza | Qué hace |
 |---|---|
 | `templates/wakeup/` (`assistant-wakeup`) | Escribe un aviso de una línea en la sesión solo cuando un log vigilado o n8n traen algo; junta los que llegan seguidos, espera si hay un diálogo de permiso abierto y nunca pasa por Telegram |
-| `templates/n8n/` (`install-n8n.sh`, `n8n-admin`, flujos) | Instala n8n endurecido, importa y publica flujos desde la terminal, lo actualiza con copia y vuelta atrás; plantillas de correo nuevo → asistente y vigilar una web → tú |
+| `templates/n8n/` (`install-n8n.sh`, `n8n-admin`, flujos) | Instala n8n endurecido, importa y publica flujos desde la terminal, lo actualiza con copia y vuelta atrás; plantillas de correo nuevo → asistente, versión nueva → asistente y vigilar una web → tú |
 
 **Extras**
 
@@ -183,6 +242,8 @@ Las piezas, agrupadas por para qué sirven. Todo menos lo básico es opcional.
 - [n8n](docs/n8n.md): avisos y automatizaciones que no gastan tokens, montados por el propio asistente y al día.
 - [Ojos en tu servidor, sin manos](docs/homelab-read-access.md): acceso de solo lectura a Proxmox, copias y paneles, con seguridad.
 - [Revisar skills](docs/vetting-skills.md): comprobar skills de terceros antes de instalarlas (SkillSpector, skill a skill).
+- [Actualizar](docs/updating.md): enterarse de las versiones nuevas y aplicarlas con tu OK sin perder tus cambios, y
+  por qué nunca sola.
 - [Problemas frecuentes](docs/troubleshooting.md): los que nos encontramos de verdad.
 - [Comparación](docs/comparison.md): Hermes Agent, un Proyecto de claude.ai y esto.
 

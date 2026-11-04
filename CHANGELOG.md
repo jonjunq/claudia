@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+- **First weeks, proactive** (`templates/workspace/.claude/skills/first-days/`): a new owner should not need the
+  docs to find out what the assistant can do. While `notes/first-days.md` says `phase: active`, the assistant offers
+  the things in the skill's catalog (connectors, the morning summary, voice notes, email watched by n8n instead of
+  by its own turns, release notices, page watches, the browser and errands, TV and media, a home server, payments
+  with a limited card, accounts of its own, and, as possibilities, Home Assistant, a WhatsApp Business agent and
+  team check-ins): it checks first what is already set up, offers one thing a day at most at a natural moment, in
+  plain words with what it costs and risks, never asks again after a no, and asks once more after a "later". The
+  phase ends by itself after four weeks or when everything has an answer. A new `CLAUDE.md` section points to it.
+- **Release notices with n8n** ([docs/updating.md](docs/updating.md)):
+  `templates/n8n/workflows/release-watch-to-wakeup.json` asks GitHub once a day for the latest release (no token
+  needed; drafts and pre-releases skipped) and, if it is newer than the installed version, wakes the assistant with
+  one line: the version and a link built from the tag, so no release text reaches its terminal. Each release is
+  reported once. Without n8n: GitHub's Watch → Releases email, or a weekly routine.
+- **The `updating` skill**: only tagged releases, never `main`; the changelog and the diff of `install.sh` and
+  `templates/` read first, as a reviewer (new destinations, code downloads, hooks, permissions, root); a short
+  plain-words summary with options; nothing without the owner's yes; backup, `install.sh --upgrade`, the `.new`
+  files reviewed, restarts with the session last, checks, and a report with how to undo it. Why: if the repo were
+  compromised, every installation that updates itself would run the bad code.
+- **`install.sh --upgrade`**: a file you never changed is replaced (old copy as `<file>.bak-<date>`); a file you
+  changed is left alone and gets `<file>.new` with both sets of changes merged by `git merge-file` (`CONFLICT` with
+  `<<<<<<<` markers when both touched the same lines). The wake-up token and your install settings are kept, the n8n
+  kit copies, `n8n-admin` and the guides are refreshed. Without `--upgrade` it still only adds what is missing.
+- `install.sh` writes `/usr/local/share/assistant/install.conf` on every run (version from `git describe`, or from
+  `CHANGELOG.md` without git; the source repo; `--name`, `--owner`, `--language`, `--timezone`, which later runs
+  now reuse), keeps the base copies in `/usr/local/share/assistant/installed/`, and copies every guide and the
+  changelog to `/usr/local/share/assistant/docs/` (the template `CLAUDE.md` points there now; the old
+  `assistant-n8n/docs/` copies stay for older `CLAUDE.md` files).
+- README and README.es: **what you can ask it**, everyday examples in plain words, with what we use daily separated
+  from what is possible if you set it up.
+- Tests: the upgrade cases (untouched, merged, conflict, no base, token kept, nothing to merge the second time, the
+  version without git) and the release watch's Code node (numbers compared as numbers, pre-releases, once per
+  release, no release text passed on); the workflow was also run against GitHub's real API in n8n.
+
 - **Devices away from home** ([docs/remote-devices.md](docs/remote-devices.md), optional): the assistant on Tailscale
   in userspace mode with its own tag, a policy whose grants only let it open specific ports on a tagged device (which
   can open nothing), tests in the policy, `tailscale nc` as SSH `ProxyCommand`, a one-off pre-authorised tagged key;
