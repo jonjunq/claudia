@@ -36,6 +36,8 @@ check "browser skill installed" test -e "$H/assistant/.claude/skills/browser/SKI
 check "Telegram extras installed" test -x "$T/usr/local/lib/assistant-telegram/permission-hook.py" -a -e "$T/usr/local/lib/assistant-telegram/tg.py"
 check "memory tools installed" test -x "$T/usr/local/lib/assistant-memory/nightly-review.py" -a -x "$T/usr/local/bin/recall" -a -e "$T/usr/local/lib/assistant-memory/review-prompt.txt"
 check "recall skill installed" test -e "$H/assistant/.claude/skills/recall/SKILL.md"
+check "first-days and updating skills installed, filled in" bash -c "grep -q 'show Alex what you can do' '$H/assistant/.claude/skills/first-days/SKILL.md' && grep -q \"Alex's yes\" '$H/assistant/.claude/skills/updating/SKILL.md'"
+check "first-days state starts active" grep -q '^phase: active$' "$H/assistant/notes/first-days.md"
 check "history timer installed" grep -q "history.sh alex hourly" "$T/etc/systemd/system/assistant-history.service"
 check "review prompt filled in" grep -q "of Ada, Alex's personal assistant" "$T/usr/local/lib/assistant-memory/review-prompt.txt"
 check "recall allowed in settings" jq -e '.permissions.allow | index("Bash(recall *)")' "$H/.claude/settings.json"

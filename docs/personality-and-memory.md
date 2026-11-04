@@ -15,6 +15,7 @@ The template in `templates/workspace/CLAUDE.md` has the sections that mattered i
 | Quality first | Best effort the first time, check facts before stating them and say what was not checked. Without it you get a fast first draft and have to ask "do it properly" from the phone. Format stays short: quality is in the content. |
 | How you answer | Messages arrive as `<channel source="telegram">` and must be answered with the `reply` tool, because you never see the terminal. Long tasks get an "on it" first. |
 | Being proactive | The difference between a chatbot and a secretary: mention the clash in the calendar, offer the draft, follow up. |
+| First weeks | While `notes/first-days.md` says `phase: active`, the `first-days` skill has it offer what it can do or set up (email watch, voice, the morning summary, updates…), one thing at a time at a natural moment, in plain words with what it costs, and remember every no. It ends by itself after four weeks or when everything has an answer. |
 | One question for vague errands | For "organise the trip", one question with its best guess so a "yes" is enough; small things are decided and the assumption stated. |
 | Commands | `/usage` and `/clear` (see [daily-cycle.md](daily-cycle.md)). |
 | Email, calendar and files | What it does alone and what it must confirm. This repeats `settings.json` on purpose: the rules enforce, the text explains. |
