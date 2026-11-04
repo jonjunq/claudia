@@ -7,8 +7,10 @@ you already have, root on a machine that is all its own, a cloud VM).
 ## 1. The machine
 
 Any always-on Linux box: a VM, an LXC container, a mini PC, a home server or a small cloud VM. Debian or Ubuntu make
-the commands below work as written. Without local voice models, 2 cores, 2-4 GB of RAM and 10 GB of disk are
-plenty. Decide how much of your network it should see before you give it your email: [isolation.md](isolation.md).
+the commands below work as written. 2 cores, 2-4 GB of RAM and 10 GB of disk are plenty for the assistant itself;
+the full browser ([browser.md](browser.md)) adds about 1.2 GB of RAM while it is open, and the local Parakeet
+fallback for voice notes ([voice.md](voice.md)) up to 2.4 GB while it transcribes and about 1 GB of disk (we use
+6 GB of RAM with both). Decide how much of your network it should see before you give it your email: [isolation.md](isolation.md).
 
 Set the time zone (`timedatectl set-timezone Europe/London`): reminders, routines and the daily restart all use it.
 

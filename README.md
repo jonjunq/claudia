@@ -88,6 +88,18 @@ Then write to your bot. Step by step, with every gotcha we hit: [docs/setup.md](
 
 The latest changes (full list in [CHANGELOG.md](CHANGELOG.md)):
 
+- **Voice notes arrive already transcribed** (not yet in a release; [docs/voice.md](docs/voice.md)): the Telegram
+  plugin patch downloads and transcribes them before the assistant sees them, which saves two turns (about 5 s) per
+  note; downloads have timeouts; `transcribe.sh` falls back from Groq to Cloudflare Workers AI to Parakeet on the
+  CPU, with your list of names so they come out right.
+- **A real browser** (not yet in a release; [docs/browser.md](docs/browser.md)): a full Chromium with a window on a
+  virtual screen instead of the headless shell that bot protection rejects, two profiles, and an optional remote
+  window so you solve captchas and sign-ins in the assistant's own session from your phone. No stealth tricks.
+- **Optional: paying with a limited card** (not yet in a release; [docs/permissions.md](docs/permissions.md#optional-paying-with-a-limited-card)):
+  a virtual card with its own small balance, your yes to every purchase, the card never in the chat, and the
+  `autoMode` rules that allow only that.
+- **Devices away from home** over Tailscale (not yet in a release; [docs/remote-devices.md](docs/remote-devices.md)):
+  the assistant reaches one device on two ports, and the device reaches nothing.
 - **Smaller context** (not yet in a release; [docs/memory.md](docs/memory.md#keeping-the-context-small)): the
   conversation compacts at 300k tokens instead of near 1M, the to-do list loaded into every conversation stays short,
   the nightly review prunes skills instead of only adding, and `templates/tools/token-usage.py` shows where your
@@ -103,8 +115,6 @@ The latest changes (full list in [CHANGELOG.md](CHANGELOG.md)):
 - **Writes for the phone**: Telegram rich messages with a title, emoji signposts, a quote for the main idea and
   numbered options to answer with a number ([an example](docs/telegram-extras.md#writing-for-the-phone)).
 - **Approve from Telegram what the classifier blocks**, one time, for that exact call.
-- **Memory tools**: `recall` over old conversations, a nightly review of skills and memory, and a git history to
-  undo it.
 - **Run it your way**: the docs no longer assume an isolated container; they compare the options.
 - Fixes: a phantom "⏳ Working" after turns without tools, and the nightly jobs under cron.
 
@@ -130,7 +140,7 @@ The pieces, grouped by what they are for. Everything except the core is optional
 
 | Piece | What it does |
 |---|---|
-| `templates/telegram/` + hooks in `settings.json` | "⏳ Working" message while it works, quoted messages reach it, permission requests with Allow / Deny buttons, one-time approval of what the classifier blocked, rich messages (headings, tables) with `send-rich.py` |
+| `templates/telegram/` + hooks in `settings.json` | "⏳ Working" message while it works, quoted messages reach it, permission requests with Allow / Deny buttons, one-time approval of what the classifier blocked, rich messages (headings, tables) with `send-rich.py`, voice notes transcribed before they reach it |
 | `templates/memory/` + `recall` skill | Searches old conversations (`recall`), reviews skills and memory every night, keeps a git history to undo |
 
 **Reacting to the world without spending tokens**
@@ -144,8 +154,9 @@ The pieces, grouped by what they are for. Everything except the core is optional
 
 | Piece | What it does |
 |---|---|
-| `bin/transcribe.sh`, `bin/speak.sh` | Voice notes in (Groq Whisper, local fallback) and out (ElevenLabs) |
-| `.claude/skills/browser` | Uses websites through agent-browser instead of improvised scripts |
+| `bin/transcribe.sh`, `bin/speak.sh` | Voice notes in (transcribed by the plugin on arrival: Groq, then Cloudflare, then Parakeet locally) and out (ElevenLabs) |
+| `.claude/skills/browser` + `templates/browser/` | Uses websites through agent-browser and a full Chromium with a window instead of improvised scripts; optional remote window (noVNC) for captchas and sign-ins |
+| `templates/tools/card-fill.sh` | Stores a limited virtual card for optional payments, without it passing through the chat |
 | `templates/tools/vet-skill.sh` | Scans a third-party skill with SkillSpector before you install it |
 
 ## Documentation
@@ -157,9 +168,13 @@ The pieces, grouped by what they are for. Everything except the core is optional
 - [Daily cycle, routines and commands](docs/daily-cycle.md): end of day, morning summary, `/usage`, `/clear`.
 - [Recall, nightly review and history](docs/memory.md): searching old conversations, improving skills and memory
   every night, and undoing it, with what it costs.
-- [Telegram extras](docs/telegram-extras.md): a live "working" status, quoted messages, approving permissions with buttons and rich messages with tables.
-- [Browser](docs/browser.md): agent-browser for websites without an API, set up in a container, with measurements.
-- [Voice](docs/voice.md): voice notes, spoken replies and an experimental Discord voice call.
+- [Telegram extras](docs/telegram-extras.md): a live "working" status, quoted messages, approving permissions with
+  buttons, rich messages with tables, and voice notes transcribed on arrival.
+- [Browser](docs/browser.md): agent-browser and a full Chromium for websites without an API, two profiles, a remote
+  window for captchas and sign-ins, with measurements.
+- [Voice](docs/voice.md): voice notes transcribed on arrival (a chain of engines, with measurements), spoken replies
+  and an experimental Discord voice call.
+- [Devices away from home](docs/remote-devices.md): reaching one remote device over Tailscale, and nothing else.
 - [Run it your way](docs/isolation.md): where to run it (its own container, a user, root on its own machine, a cloud
   VM), what each option risks, and how to fence it if you want to.
 - [Wake-up](docs/wakeup.md): reacting to logs and n8n with one-line notices instead of Monitors.
