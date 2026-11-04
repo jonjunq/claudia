@@ -2,6 +2,45 @@
 
 ## Unreleased
 
+- **Run it your way**: the README and [docs/isolation.md](docs/isolation.md) no longer present an isolated container
+  as the only way. They compare the options (its own container or VM, a user on a machine you already have, root on
+  a machine that is all its own, a cloud VM) with what each one risks; fencing is described as a choice.
+- **Wake-up** (`templates/wakeup/`, installed root-owned to `/usr/local/lib/assistant-wakeup/`, not started by
+  default; [docs/wakeup.md](docs/wakeup.md)): `assistant-wakeup` watches log files (`label | regex | path` rules) and
+  takes `POST /wake` with a bearer token from allowed addresses, and types a one-line notice into the session only
+  when something happened: batched, capped, marked as data, waiting while a permission dialog is open or the session
+  is restarting, never through Telegram. It replaces a Claude Code Monitor that expired every 30 minutes and cost
+  about 48 empty turns a day to re-arm. Tests with a fake tmux.
+- **n8n kit** (`templates/n8n/`, copied to `/usr/local/share/assistant-n8n/`, nothing installed by default;
+  [docs/n8n.md](docs/n8n.md)) for alerts and automations that cost no tokens:
+  - `install-n8n.sh`: n8n from npm without Docker (Node 24+, `--force` and why), a system user, `n8n.service`,
+    a hardened `/etc/n8n.env` (no Execute Command / SSH / Local File Trigger nodes, no community packages, Code nodes
+    cannot read the environment, no telemetry, executions pruned), localhost by default, owner account without a
+    browser.
+  - `n8n-admin`: import, publish and unpublish workflows and credentials from a shell, and `update`: backs up the data
+    folder, updates, checks health, version and workflow count, and rolls back on failure; `--tell` reports the
+    outcome to the assistant through the wake-up.
+  - Workflow templates: new email over IMAP → wake the assistant (Gmail app password; excludes Promotions, Social and
+    Forums because Gmail's IMAP ignores `category:primary`; not marked as read; skips old and repeated emails;
+    decodes encoded subjects), and watch a page → Telegram only when it changes, which **switches itself off** at its
+    final state or after N days without a change. Their Code nodes run in the tests with Node.
+  - How the assistant builds workflows itself through n8n's instance-level MCP server (2.13+), enabled without a
+    browser, with the rules it follows.
+- `settings.json`: `autoMode.hard_deny` with `"$defaults"` plus a hard block on payments and money. "Never payments"
+  inside an `allow` sentence narrows that exception but blocks nothing; [docs/permissions.md](docs/permissions.md)
+  explains the difference.
+- `CLAUDE.md` template: "Writing for the phone", a style principle for Telegram (a short title with an emoji, little
+  text per block, emojis as signposts, bold for the key word, a quote for the main idea, warnings that stand out, an
+  example of how to ask, numbered options to answer with a number, emoji progress bars of at most 10 squares), and
+  rich messages for anything with structure, never edited afterwards. A real example in
+  [docs/telegram-extras.md](docs/telegram-extras.md#writing-for-the-phone).
+- `CLAUDE.md` template: "Automatic notices" (what the wake-up types and how to treat new-email notices) and "Alerts
+  and repetitive checks: n8n first" (n8n for what needs no thinking, the wake-up for what does, no long Monitors,
+  rules for building workflows).
+- Fix: a phantom "⏳ Working" message could still appear after a turn that used no tools: the suggested reply Claude
+  Code prepares afterwards reuses that turn's `prompt_id`, which is in the transcript. `status-hook.py` now records
+  every ended prompt on `Stop`, even when the turn never opened a status, and ignores later events for it. Test added
+  for that sequence.
 - Approve from Telegram what the auto-mode classifier blocks: `denied-hook.py` (`PermissionDenied`) sends the
   blocked call with Approve / Keep blocked buttons; an approval is one-time, for that exact call, valid 5 minutes,
   and `approved-hook.py` (synchronous `PreToolUse`) lets it through when the model retries. Without it, a call the

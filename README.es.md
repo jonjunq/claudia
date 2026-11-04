@@ -2,11 +2,12 @@
 
 **Un asistente personal con el que hablas por Telegram, hecho con [Claude Code](https://code.claude.com/docs) tal
 cual, funcionando 24/7 con tu suscripción de Claude.** Sin frameworks de agentes y sin factura de API: una sesión de
-Claude Code en una máquina aislada, el plugin oficial de Telegram, un `CLAUDE.md` que le da personalidad, unas notas
+Claude Code en una máquina tuya, el plugin oficial de Telegram, un `CLAUDE.md` que le da personalidad, unas notas
 que sobreviven al reinicio diario y unos pocos scripts que lo mantienen vivo sin que nadie lo vigile.
 
 Te lee el correo y te prepara borradores, te lleva la agenda y el Drive, apunta tus pendientes, te recuerda cosas, te
-manda un resumen por la mañana, entiende tus notas de voz y puede contestarte con voz.
+manda un resumen por la mañana, entiende tus notas de voz y puede contestarte con voz. Con el kit opcional de
+[n8n](docs/n8n.md) se entera de tus correos nuevos en segundos y te monta avisos que no gastan tokens.
 
 [Read in English](README.md)
 
@@ -37,13 +38,23 @@ comparación sincera, incluido lo que Hermes sigue haciendo mejor, está en
 
 - Una **suscripción de Claude** (Pro o Max; Max si además programas con Claude, porque el asistente comparte tus
   límites de uso).
-- Una **máquina Linux siempre encendida que puedas aislar**: una VM, un contenedor LXC, un mini PC, una VM barata en
-  la nube. Sin modelos de voz locales, 2 núcleos, 2-4 GB de RAM y 10 GB de disco van sobrados. Mira
-  [docs/isolation.md](docs/isolation.md).
+- Una **máquina Linux siempre encendida**: una VM, un contenedor LXC, un mini PC, un servidor de casa, una VM barata
+  en la nube. Sin modelos de voz locales, 2 núcleos, 2-4 GB de RAM y 10 GB de disco van sobrados. Cuánto la aíslas
+  lo decides tú: [Móntala como quieras](#móntala-como-quieras).
 - `tmux`, `jq`, `curl`, `git`, [Bun](https://bun.sh) (el plugin de Telegram funciona con él) y Claude Code.
 - Un **bot de Telegram**: el token te lo da [@BotFather](https://t.me/BotFather).
 - Opcional: Gmail / Google Calendar / Google Drive conectados en claude.ai (Ajustes → Conectores); una clave de
   [Groq](https://console.groq.com) para las notas de voz; una de [ElevenLabs](https://elevenlabs.io) para que hable.
+
+## Móntala como quieras
+
+Es código abierto y no hay una única forma buena de desplegarla. Nosotros la tenemos como usuario normal en su propio
+contenedor, con la red cerrada y con el administrador instalando los servicios del sistema, porque se pasa el día
+leyendo correos de desconocidos. Tú puedes preferirla como usuario en el servidor de casa que ya tienes, en una VM en
+la nube, o como **root de una máquina que sea solo suya**, «su casa», para que instale y cuide ella misma todo lo que
+necesite (n8n incluido) sin que tengas que tocar nada. Todo eso funciona con los mismos ficheros. El equilibrio (más
+alcance = más útil = más en juego si la engañan o se equivoca) y lo que protege cada opción están en
+[docs/isolation.md](docs/isolation.md). Quédate con lo que te encaje y cambia el resto.
 
 ## Empezar
 
@@ -73,7 +84,32 @@ systemctl enable --now assistant assistant-permission-watch assistant-history.ti
 
 Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/setup.md](docs/setup.md).
 
+## Novedades
+
+Lo último, todavía sin versión publicada (lista completa en [CHANGELOG.md](CHANGELOG.md), en inglés):
+
+- **Avisos que no gastan tokens, con n8n** ([docs/n8n.md](docs/n8n.md)): un instalador que deja n8n endurecido,
+  plantillas de flujo (correo nuevo → despierta al asistente; vigilar una web → te avisa a ti, y se apaga sola al
+  terminar), actualizaciones con copia y vuelta atrás automática, y el propio asistente creando los flujos por el
+  servidor MCP de n8n.
+- **Despertador en vez de Monitors** ([docs/wakeup.md](docs/wakeup.md)): un pequeño servicio que escribe avisos de una
+  línea en la sesión solo cuando un log vigilado o n8n traen algo. Sustituyó a un Monitor que costaba ~48 turnos
+  vacíos al día.
+- **Pagos bloqueados del todo** en `settings.json` (`autoMode.hard_deny`), porque un «nunca pagos» dentro de una regla
+  `allow` no bloquea nada.
+- **Escribe pensando en el móvil**: mensajes ricos de Telegram con título, emojis que guían, una cita para la idea
+  principal y opciones numeradas para contestar con un número ([un ejemplo](docs/telegram-extras.md#writing-for-the-phone)).
+- **Aprobar desde Telegram lo que bloquea el clasificador**, una sola vez y para esa llamada exacta.
+- **Herramientas de memoria**: `recall` sobre conversaciones antiguas, un repaso nocturno de skills y memoria, y un
+  historial git para deshacerlo.
+- **Móntala como quieras**: la documentación ya no da por hecho un contenedor aislado; compara las opciones.
+- Arreglos: un «⏳ Trabajando» fantasma tras turnos sin herramientas, y las tareas nocturnas con cron.
+
 ## Qué trae
+
+Las piezas, agrupadas por para qué sirven. Todo menos lo básico es opcional.
+
+**Lo básico**
 
 | Pieza | Qué hace |
 |---|---|
@@ -83,11 +119,29 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 | `assistant-daily-restart` + cron | Cada noche: le pide que guarde el día, actualiza Claude Code y empieza una conversación limpia |
 | `settings.json` | Modo auto y una lista de permisos: leer y preparar borradores lo hace solo; enviar y borrar te lo pregunta por Telegram |
 | `bin/statusline.sh` | Guarda el contexto y el uso del plan para que pueda responder a `/usage` desde Telegram |
+| `autoMode.hard_deny` en `settings.json` | Pagos y dinero bloqueados del todo, lo pida quien lo pida |
 | `bin/clear-context.sh` | `/clear` desde Telegram: conversación nueva a media jornada, después de apuntar lo pendiente |
 | `bin/permission-watch.sh` | Te avisa por Telegram cuando se queda parado en un aviso de permiso de su terminal o cambia de modelo tras un freno de seguridad |
-| `bin/transcribe.sh`, `bin/speak.sh` | Notas de voz de entrada (Whisper en Groq, con respaldo local) y de salida (ElevenLabs) |
-| `templates/telegram/` + hooks en `settings.json` | Mensaje «⏳ Trabajando» mientras trabaja, le llegan los mensajes que citas y las peticiones de permiso con botones Permitir / Denegar |
+
+**Telegram y memoria**
+
+| Pieza | Qué hace |
+|---|---|
+| `templates/telegram/` + hooks en `settings.json` | Mensaje «⏳ Trabajando» mientras trabaja, le llegan los mensajes que citas, peticiones de permiso con botones Permitir / Denegar, aprobar una vez lo que bloqueó el clasificador y mensajes ricos (títulos, tablas) con `send-rich.py` |
 | `templates/memory/` + skill `recall` | Busca en conversaciones antiguas (`recall`), repasa skills y memoria cada noche y guarda un historial git para deshacer |
+
+**Reaccionar sin gastar tokens**
+
+| Pieza | Qué hace |
+|---|---|
+| `templates/wakeup/` (`assistant-wakeup`) | Escribe un aviso de una línea en la sesión solo cuando un log vigilado o n8n traen algo; junta los que llegan seguidos, espera si hay un diálogo de permiso abierto y nunca pasa por Telegram |
+| `templates/n8n/` (`install-n8n.sh`, `n8n-admin`, flujos) | Instala n8n endurecido, importa y publica flujos desde la terminal, lo actualiza con copia y vuelta atrás; plantillas de correo nuevo → asistente y vigilar una web → tú |
+
+**Extras**
+
+| Pieza | Qué hace |
+|---|---|
+| `bin/transcribe.sh`, `bin/speak.sh` | Notas de voz de entrada (Whisper en Groq, con respaldo local) y de salida (ElevenLabs) |
 | `.claude/skills/browser` | Usa webs con agent-browser en vez de scripts improvisados |
 | `templates/tools/vet-skill.sh` | Revisa una skill de terceros con SkillSpector antes de instalarla |
 
@@ -100,10 +154,14 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 - [Ciclo diario, rutinas y comandos](docs/daily-cycle.md): cierre del día, resumen matutino, `/usage`, `/clear`.
 - [Recordar, repaso nocturno e historial](docs/memory.md): buscar en conversaciones antiguas, mejorar skills y memoria
   cada noche y deshacerlo, con lo que cuesta.
-- [Extras de Telegram](docs/telegram-extras.md): estado «trabajando» en directo, mensajes citados y aprobar permisos con botones.
+- [Extras de Telegram](docs/telegram-extras.md): estado «trabajando» en directo, mensajes citados, aprobar permisos con
+  botones y mensajes ricos con tablas.
 - [Navegador](docs/browser.md): agent-browser para webs sin API, instalado en un contenedor, con mediciones.
 - [Voz](docs/voice.md): notas de voz, respuestas habladas y una llamada experimental por Discord.
-- [Aislamiento](docs/isolation.md): dónde ejecutarlo y cómo cerrarlo.
+- [Móntala como quieras](docs/isolation.md): dónde ejecutarla (su propio contenedor, un usuario, root de su propia
+  máquina, una VM en la nube), qué arriesga cada opción y cómo cerrarla si quieres.
+- [Despertador](docs/wakeup.md): reaccionar a logs y a n8n con avisos de una línea en vez de Monitors.
+- [n8n](docs/n8n.md): avisos y automatizaciones que no gastan tokens, montados por el propio asistente y al día.
 - [Ojos en tu servidor, sin manos](docs/homelab-read-access.md): acceso de solo lectura a Proxmox, copias y paneles, con seguridad.
 - [Revisar skills](docs/vetting-skills.md): comprobar skills de terceros antes de instalarlas (SkillSpector, skill a skill).
 - [Problemas frecuentes](docs/troubleshooting.md): los que nos encontramos de verdad.

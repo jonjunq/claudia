@@ -1,12 +1,14 @@
 # Setup
 
-About an hour the first time. Everything runs as one normal user on one isolated machine.
+About an hour the first time. The steps below are how we do it: one normal user on a machine of its own. Adapt
+them to your layout; [Run it your way](isolation.md) compares the options (its own container, a user on a machine
+you already have, root on a machine that is all its own, a cloud VM).
 
 ## 1. The machine
 
-Any always-on Linux box you are happy to dedicate: a VM, an LXC container, a mini PC or a small cloud VM. Debian or
-Ubuntu make the commands below work as written. Without local voice models, 2 cores, 2-4 GB of RAM and 10 GB of disk
-are plenty. Fence it off from the rest of your network before you give it your email: [isolation.md](isolation.md).
+Any always-on Linux box: a VM, an LXC container, a mini PC, a home server or a small cloud VM. Debian or Ubuntu make
+the commands below work as written. Without local voice models, 2 cores, 2-4 GB of RAM and 10 GB of disk are
+plenty. Decide how much of your network it should see before you give it your email: [isolation.md](isolation.md).
 
 Set the time zone (`timedatectl set-timezone Europe/London`): reminders, routines and the daily restart all use it.
 
@@ -117,9 +119,20 @@ What happens from now on:
 One gotcha baked into `start.sh`: when you pass a first prompt to `claude`, put it **before** `--channels`.
 `--channels` takes several values and swallows a prompt placed after it.
 
+## 8. Optional: wake-up and n8n
+
+- **Wake-up** ([wakeup.md](wakeup.md)): if the assistant should react to things other than your messages (a log
+  that gets a new line, an email, a job that fails), `systemctl enable --now assistant-wakeup` lets them reach it as
+  one-line notices, without Monitors that cost a turn every 30 minutes.
+- **n8n** ([n8n.md](n8n.md)): for alerts that need no thinking (a tracking page, a price, a site that goes down) and
+  for watching your inbox in real time. `/usr/local/share/assistant-n8n/install-n8n.sh` installs it; after that the
+  assistant can build the workflows itself.
+
 ## Updating
 
 `git pull` in your clone shows what changed in `templates/`. Re-running `./install.sh <user>` adds files that are new
 (it never overwrites), then `systemctl daemon-reload` and enable any new unit it lists. Your workspace files are
 yours: copy over the scripts in `bin/` you want (they hold no personal data) and merge `CLAUDE.md` and
-`settings.json` changes by hand. Claude Code itself updates every night.
+`settings.json` changes by hand (from 1.3.0 the template adds an `autoMode.hard_deny` block that blocks payments,
+and two `CLAUDE.md` sections: automatic notices and n8n). Claude Code itself updates every night; n8n, if you use
+it, does not: `n8n-admin update` ([n8n.md](n8n.md#keeping-it-updated)).
