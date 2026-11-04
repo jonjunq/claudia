@@ -173,6 +173,19 @@ echo '{"type":"user","promptId":"real-2"}' >> "$TR"; ev PreToolUse real-2 "Step 
 check "status-hook opens a turn for a new real prompt" jq -e '(.end | not) and .step == "Step two" and .prompt == "real-2"' "$TURN"
 ev PreToolUse ghost-2 "No action"
 check "status-hook ignores background runs during a real turn" test "$(jq -r .step "$TURN")" = "Step two"
+# A turn without tools never opens a status; the suggested reply prepared after it reuses its prompt_id (which is
+# in the transcript) and must not open one either.
+ev Stop real-2 ""
+echo '{"type":"user","promptId":"real-3"}' >> "$TR"
+ev Stop real-3 ""
+hook '{"hook_event_name":"PreToolUse","cwd":"'"$H"'/assistant","prompt_id":"real-3","transcript_path":"'"$TR"'","tool_name":"AskUserQuestion","tool_input":{}}'
+check "status-hook: the suggestion after a turn without tools opens nothing" jq -e '.end > 0 and .prompt == "real-2" and .closed == "real-3"' "$TURN"
+rm -f "$TURN"; echo '{"type":"user","promptId":"real-4"}' >> "$TR"
+ev Stop real-4 ""
+ev PreToolUse real-4 "Suggestion"
+check "status-hook: same with no status file yet" bash -c "! jq -e '.start' '$TURN' >/dev/null"
+echo '{"type":"user","promptId":"real-5"}' >> "$TR"; ev PreToolUse real-5 "Step five"
+check "status-hook: the next real turn still opens" jq -e '(.end | not) and .step == "Step five" and .prompt == "real-5"' "$TURN"
 
 # permission-hook.py against a fake Telegram API: Allow from a button -> allow decision; no answer -> no decision
 API_LOG="$T/api.log"; : > "$API_LOG"

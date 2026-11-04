@@ -34,20 +34,26 @@ def in_transcript(pid):
 
 
 if event in ("Stop", "StopFailure"):
-    t = tg.read_json(TURN)
-    if t and not t.get("end") and (not prompt or not t.get("prompt") or t["prompt"] == prompt or in_transcript(prompt)):
+    t = tg.read_json(TURN) or {}
+    if t.get("start") and not t.get("end") and (not prompt or not t.get("prompt") or t["prompt"] == prompt or in_transcript(prompt)):
         t["end"] = now
+    if prompt:
+        # Always remember the last prompt that ended, even when its turn never opened a status (a turn without
+        # tools). The suggested reply Claude Code prepares afterwards reuses that prompt_id, which IS in the
+        # transcript, and without this it opened a phantom "Working" message that stayed for many minutes.
+        t["closed"] = prompt
+    if t:
         tg.write_json(TURN, t)
     sys.exit(0)
 
 t = tg.read_json(TURN) or {}
-if not t or t.get("end"):
-    if prompt and prompt == t.get("prompt"):
-        sys.exit(0)  # late event from a turn that already ended
+if not t.get("start") or t.get("end"):
+    if prompt and prompt in (t.get("prompt"), t.get("closed")):
+        sys.exit(0)  # late event from a turn that already ended (or the suggested reply prepared after it)
     if not in_transcript(prompt):
         tg.log(f"ignored {event} {hook.get('tool_name')}: prompt {prompt} is not in the conversation")
         sys.exit(0)
-    t = {"start": now, "prompt": prompt}
+    t = {"start": now, "prompt": prompt, "closed": t.get("closed")}
 elif prompt and t.get("prompt") and prompt != t["prompt"] and not in_transcript(prompt):
     sys.exit(0)  # background run while a real turn is open
 t["last_event"] = now

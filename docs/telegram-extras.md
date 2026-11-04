@@ -18,7 +18,9 @@ the status does not depend on the assistant remembering to report it:
   command ("Merge the two PDFs"), or the tool and its target. It only counts events whose `prompt_id` is written
   in the session transcript: Claude Code also runs background work in the same session (for example while it
   prepares the suggested reply) that fires the hooks but is not part of any turn, and it used to leave a phantom
-  "⏳ Working" on Telegram until the next turn ended.
+  "⏳ Working" on Telegram until the next turn ended. That background work can also reuse the `prompt_id` of the
+  turn that just ended, which *is* in the transcript; so every `Stop` records its prompt as closed, even for a turn
+  that used no tools and never opened a status, and events of a closed prompt never open a new one.
 - `status-daemon.py`, started by the first hook of a turn, keeps "typing…" on and, once the turn passes 15 seconds,
   sends a silent message and edits it every 5 seconds:
 
