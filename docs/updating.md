@@ -84,7 +84,7 @@ For every file it installs:
 | The same as the new template | Nothing |
 | Unchanged since install.sh wrote it | Replaced; the old one stays as `<file>.bak-<date>` |
 | Changed by you (or by the nightly review) | **Left alone.** `<file>.new` gets your changes and the template's merged (`git merge-file`); `CONFLICT` if both changed the same lines, marked with `<<<<<<<` |
-| Changed, and installed before 1.4.0 (no record of the original) | Left alone; `<file>.new` is the plain new template, to merge by hand |
+| Changed, and installed before 1.4.0 (no record of the original) | Left alone; `<file>.new` is the plain new template, to merge by hand. Except the root-owned code under `/usr/local/`, which is not meant to be edited: replaced, with a `.bak-<date>` |
 
 Your keys and the wake-up token are kept; the n8n kit's copies and the guides are refreshed; units are not enabled
 or restarted. Review each `.new`, move it over the original when it is right (`mv CLAUDE.md.new CLAUDE.md`), then

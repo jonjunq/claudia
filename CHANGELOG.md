@@ -23,7 +23,9 @@
 - **`install.sh --upgrade`**: a file you never changed is replaced (old copy as `<file>.bak-<date>`); a file you
   changed is left alone and gets `<file>.new` with both sets of changes merged by `git merge-file` (`CONFLICT` with
   `<<<<<<<` markers when both touched the same lines). The wake-up token and your install settings are kept, the n8n
-  kit copies, `n8n-admin` and the guides are refreshed. Without `--upgrade` it still only adds what is missing.
+  kit copies, `n8n-admin` and the guides are refreshed. Installs from before 1.4.0 have no record of the originals:
+  the first upgrade replaces the root-owned code under `/usr/local/` (with a `.bak`) and writes the plain template
+  as `.new` for the other files that differ. Without `--upgrade` it still only adds what is missing.
 - `install.sh` writes `/usr/local/share/assistant/install.conf` on every run (version from `git describe`, or from
   `CHANGELOG.md` without git; the source repo; `--name`, `--owner`, `--language`, `--timezone`, which later runs
   now reuse), keeps the base copies in `/usr/local/share/assistant/installed/`, and copies every guide and the

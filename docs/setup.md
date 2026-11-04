@@ -148,5 +148,5 @@ Files you never changed are updated (the old copy stays as `<file>.bak-<date>`);
 and get a `<file>.new` with your changes and the template's merged, for you (or the assistant) to review and move
 over. Then `systemctl daemon-reload` and restart what changed. Installs from before 1.4.0 have no record of the
 original files, so the first upgrade writes the plain new template as `.new` for every file of yours that
-differs. Claude Code itself updates every night; n8n, if you use it, does not: `n8n-admin update`
+differs (except the root-owned code under `/usr/local/`, which it replaces, keeping a `.bak-<date>`). Claude Code itself updates every night; n8n, if you use it, does not: `n8n-admin update`
 ([n8n.md](n8n.md#keeping-it-updated)).

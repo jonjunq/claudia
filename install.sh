@@ -62,7 +62,8 @@ put() {
     echo "  kept     $to"; return
   elif cmp -s "$new" "$D$to"; then
     :
-  elif [ -e "$base" ] && cmp -s "$base" "$D$to"; then
+  elif { [ -e "$base" ] && cmp -s "$base" "$D$to"; } || { [ ! -e "$base" ] && [[ $to == /usr/local/* ]]; }; then
+    # (the root-owned code under /usr/local is not meant to be edited: from installs without a record, replace it)
     cp -p "$D$to" "$D$to.bak-$TODAY"; install -m "$mode" "$new" "$D$to"
     echo "  updated  $to (old copy: $to.bak-$TODAY)"
   elif [ -e "$base" ]; then

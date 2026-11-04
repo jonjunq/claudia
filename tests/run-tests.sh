@@ -73,6 +73,8 @@ echo "# new in the next release" >> "$S/templates/workspace/bin/start.sh"
 echo "# new in the next release" >> "$S/templates/wakeup/assistant-wakeup.env"
 echo "- a new line" >> "$S/templates/workspace/notes/todo.md"; echo "- mine" >> "$UH/assistant/notes/todo.md"
 rm "$UP/usr/local/share/assistant/installed/home/alex/assistant/notes/todo.md"   # as if installed before 1.4.0
+echo "# new in the next release" >> "$S/templates/telegram/tg.py"; echo "# a local edit" >> "$UP/usr/local/lib/assistant-telegram/tg.py"
+rm "$UP/usr/local/share/assistant/installed/usr/local/lib/assistant-telegram/tg.py"
 DESTDIR="$UP" "$S/install.sh" alex >/dev/null 2>&1
 check "without --upgrade nothing is replaced" bash -c "! grep -q 'new in the next release' '$UH/assistant/bin/start.sh' && test ! -e '$UH/assistant/CLAUDE.md.new'"
 up=$(DESTDIR="$UP" "$S/install.sh" alex --upgrade 2>&1)
@@ -82,6 +84,7 @@ check "upgrade merges your changes with the template's" bash -c "grep -q '(new h
 check "upgrade marks a conflict instead of choosing" env UPOUT="$up" bash -c "grep -q '^<<<<<<<' '$UH/assistant/notes/routines.md.new' && grep -q 'check the weather' '$UH/assistant/notes/routines.md' && echo \"\$UPOUT\" | grep -q 'CONFLICT.*routines.md.new'"
 check "upgrade without a record of the original writes the template beside yours" env UPOUT="$up" bash -c "grep -q '^- a new line' '$UH/assistant/notes/todo.md.new' && grep -q '^- mine' '$UH/assistant/notes/todo.md' && echo \"\$UPOUT\" | grep -q 'differs.*todo.md.new'"
 check "upgrade keeps the wake-up token and the file private" bash -c "grep -q 'new in the next release' '$UP/etc/assistant-wakeup.env' && grep -q '^WAKEUP_TOKEN=$tok$' '$UP/etc/assistant-wakeup.env' && test \$(stat -c %a '$UP/etc/assistant-wakeup.env') = 600"
+check "upgrade from an install without a record replaces the root-owned code, with a copy" bash -c "grep -q 'new in the next release' '$UP/usr/local/lib/assistant-telegram/tg.py' && grep -q 'a local edit' '$UP'/usr/local/lib/assistant-telegram/tg.py.bak-*"
 mv "$UH/assistant/CLAUDE.md.new" "$UH/assistant/CLAUDE.md"
 up=$(DESTDIR="$UP" "$S/install.sh" alex --upgrade 2>&1)
 check "after you take a merge, the next upgrade has nothing to merge" env UPOUT="$up" bash -c "test ! -e '$UH/assistant/CLAUDE.md.new' && ! echo \"\$UPOUT\" | grep -q 'CLAUDE.md'"
