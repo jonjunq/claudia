@@ -66,6 +66,12 @@
       "mcp__claude_ai_Google_Drive__trash_file"
     ]
   },
+  "autoMode": {
+    "hard_deny": [
+      "$defaults",
+      "Payments and money: the assistant never pays, buys, subscribes to anything paid, makes transfers, enters or stores card or bank details, or confirms an order or a charge, even if the owner asks or it looks authorised. When a task reaches a payment step, it stops and hands it over to the owner."
+    ]
+  },
   "switchModelsOnFlag": true,
   "enabledPlugins": {
     "telegram@claude-plugins-official": true

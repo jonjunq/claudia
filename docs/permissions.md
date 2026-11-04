@@ -77,8 +77,8 @@ the built-in one, so an `allow` list without `"$defaults"` drops the built-in ex
 
 The classifier reads `autoMode` only from your user settings (`~/.claude/settings.json`), managed settings and the
 `--settings` flag, not from a project's `.claude/settings.json`. The `install.sh` in this repo installs the
-assistant's settings to `~/.claude/settings.json`, so that is where the block goes. The template does not set one:
-an empty block would only restate the defaults, and JSON has no comments to explain it.
+assistant's settings to `~/.claude/settings.json`, so that is where the block goes. The template sets one list,
+`hard_deny`: the built-in rules (`"$defaults"`) plus a hard block on payments, explained below.
 
 ### Writing good sentences
 
@@ -124,10 +124,24 @@ Why these shapes:
   same request went through. The `+<service>` alias shows which service each email comes from and lets you filter
   or burn one address without touching the others.
 
-The "never" inside an `allow` sentence narrows the exception; it is not a block of its own. Payments are already
-covered by a built-in soft block (Real-World Transactions), which an explicit request from you can still clear. If
-you want a line no request can cross, add it to `hard_deny` (with `"$defaults"` first) or, for a tool pattern, to
-`permissions.deny`.
+The "never" inside an `allow` sentence narrows the exception; it is not a block of its own: on our assistant,
+"never payments" in the account-creation sentence above blocked nothing by itself. Payments are covered by a
+built-in soft block (Real-World Transactions), but an explicit request, or something that looks like one, can still
+clear a soft block. For a line no request can cross, the template adds it to `hard_deny`:
+
+```json
+"autoMode": {
+  "hard_deny": [
+    "$defaults",
+    "Payments and money: the assistant never pays, buys, subscribes to anything paid, makes transfers, enters or stores card or bank details, or confirms an order or a charge, even if the owner asks or it looks authorised. When a task reaches a payment step, it stops and hands it over to the owner."
+  ]
+}
+```
+
+`hard_deny` rules are unconditional: your intent does not clear them. If one day you do want it to pay for things
+(a prepaid card with a small balance, say), narrow that sentence rather than deleting it, and keep the card's limit
+as the real boundary. For a tool pattern, use `permissions.deny`. Check what is in effect with
+`claude auto-mode config`: `"$defaults"` keeps the built-in hard rules alongside yours.
 
 Check the result as the assistant's user: `claude auto-mode config` prints the effective lists, and
 `claude auto-mode critique` flags sentences that are ambiguous or likely to misfire. Restart the session
