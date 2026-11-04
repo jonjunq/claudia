@@ -2,7 +2,7 @@
 """Generate the "how it works" diagram at the top of the README, in English and Spanish.
 
 Drawn with the diagram-design skill (https://github.com/cathrynlavery/diagram-design, MIT): architecture type,
-"faithful" detail level (10 pieces in three zones), the skill's editorial tokens plus one colour per kind of piece.
+"faithful" detail level (11 pieces in three zones), the skill's editorial tokens plus one colour per kind of piece.
 
     python3 how-it-works.py [output-dir]
 
@@ -147,26 +147,31 @@ TEXT = {
         "svg_title": "How the assistant fits together",
         "svg_desc": ("You chat on your phone with a Telegram bot, and the official channel plugin connects it to a "
                      "Claude Code session that runs in tmux, in auto mode, on your Claude subscription, on an "
-                     "always-on machine of yours, set up as you like. The session reads and writes CLAUDE.md, its "
-                     "notes and memory, runs voice and browser tools, and uses the Gmail, Calendar and Drive "
-                     "connectors of claude.ai. Hooks on every tool call send its status and permission buttons to "
-                     "Telegram. A nightly cycle saves the day, reviews memory, updates and restarts it. Optionally, "
-                     "n8n alerts you directly when nothing needs thinking, and otherwise hands a one-line notice to "
-                     "the wake-up, which types it into the session; the session builds n8n workflows through MCP."),
+                     "always-on machine of yours, set up as you like. Voice notes are turned into text on arrival "
+                     "(Groq, then Cloudflare, then a local engine). The session reads and writes CLAUDE.md, its "
+                     "notes and memory, uses a full browser with a remote window, the devices you allow (TV, media "
+                     "server, over your network or Tailscale) and, optionally, a limited card, and uses the Gmail, "
+                     "Calendar and Drive connectors of claude.ai. Hooks on every tool call send its status and "
+                     "permission buttons to Telegram. A nightly cycle saves the day, reviews memory, updates and "
+                     "restarts it. Optionally, n8n alerts you directly when nothing needs thinking (page watches), "
+                     "and otherwise hands a one-line notice to the wake-up, which types it into the session (new "
+                     "email, a new release of the assistant); the session builds n8n workflows through MCP."),
         "nodes": {
             "you": ("USER", "You", ["on your phone"]),
             "telegram": ("BOT", "Telegram", ["official channel plugin"]),
+            "stt": ("VOICE NOTES", "Speech to text", ["Groq → Cloudflare → local"]),
             "google": ("CLAUDE.AI", "Gmail · Calendar · Drive", ["connectors: read and draft"]),
             "session": ("SESSION", "Claude Code", ["in tmux · auto mode", "your Claude subscription"]),
             "memory": ("NOTES", "Notes and memory", ["CLAUDE.md · recall · history"]),
-            "voice": ("SKILLS", "Voice and browser", ["Whisper · TTS · agent-browser"]),
+            "voice": ("TOOLS", "Browser and devices", ["Chromium + remote window", "TV · media server · devices",
+                                                      "limited card (optional)"]),
             "daily": ("SYSTEMD · CRON", "Daily cycle", ["end of day · review · restart"]),
             "hooks": ("HOOKS", "Telegram hooks", ["status · permission buttons"]),
             "wakeup": ("DAEMON", "Wake-up", ["watches logs · POST /wake"]),
-            "n8n": ("WORKFLOWS", "n8n", ["new email · page watches"]),
+            "n8n": ("WORKFLOWS", "n8n", ["email · releases · page watches"]),
         },
         "labels": {
-            "chat": "CHAT", "memory": "READS + WRITES", "voice": "RUNS", "daily": "EVERY NIGHT",
+            "chat": "CHAT", "stt": "AUDIO", "memory": "READS + WRITES", "voice": "RUNS", "daily": "EVERY NIGHT",
             "hooks": "TOOL EVENTS", "botapi": "BOT API", "wakeup": "TYPES A NOTICE", "mcp": "MCP",
             "think": "NEEDS THINKING", "alert": "ALERT TO YOU",
         },
@@ -191,10 +196,11 @@ TEXT = {
             ("security", "PERMISSIONS", "Asks before it acts",
              ["Reads and drafts run alone; sending and deleting ask you, with Allow / Deny buttons",
               "What the auto-mode classifier blocks can be approved once, from Telegram",
-              "Payments are blocked outright"]),
+              "Payments are blocked outright, or allowed only on a limited card with your yes, if you set it up"]),
             ("async", "ON ITS OWN", "Keeps itself going",
              ["Every night: save the day, review skills and memory, update Claude Code, fresh start",
-              "n8n tells you directly what needs no thinking; the rest reaches the session as a notice"]),
+              "n8n tells you directly what needs no thinking; the rest reaches the session as a notice",
+              "New releases arrive as a notice too: it explains them and updates only with your yes"]),
         ],
         "footer": ("claudia · how it works", "drawn with diagram-design"),
     },
@@ -208,26 +214,32 @@ TEXT = {
         "svg_title": "Cómo está montado el asistente",
         "svg_desc": ("Hablas desde el móvil con un bot de Telegram, y el plugin oficial de canal lo conecta con una "
                      "sesión de Claude Code que corre en tmux, en modo auto, con tu suscripción de Claude, en una "
-                     "máquina tuya siempre encendida, montada como prefieras. La sesión lee y escribe CLAUDE.md, sus "
-                     "notas y su memoria, usa herramientas de voz y de navegador, y los conectores de Gmail, Calendar "
-                     "y Drive de claude.ai. Unos hooks en cada herramienta mandan a Telegram su estado y los botones "
-                     "de permiso. Un ciclo nocturno guarda el día, repasa la memoria, actualiza y reinicia. Si "
-                     "quieres, n8n te avisa directamente de lo que no hace falta pensar, y si no, pasa un aviso de "
-                     "una línea al despertador, que lo escribe en la sesión; la sesión monta flujos de n8n por MCP."),
+                     "máquina tuya siempre encendida, montada como prefieras. Las notas de voz llegan ya pasadas a "
+                     "texto (Groq, luego Cloudflare, luego un motor local). La sesión lee y escribe CLAUDE.md, sus "
+                     "notas y su memoria, usa un navegador completo con ventana remota, los aparatos que le "
+                     "permitas (tele, servidor de pelis, por tu red o por Tailscale) y, si quieres, una tarjeta "
+                     "limitada, y los conectores de Gmail, Calendar y Drive de claude.ai. Unos hooks en cada "
+                     "herramienta mandan a Telegram su estado y los botones de permiso. Un ciclo nocturno guarda el "
+                     "día, repasa la memoria, actualiza y reinicia. Si quieres, n8n te avisa directamente de lo que "
+                     "no hace falta pensar (vigilar webs), y si no, pasa un aviso de una línea al despertador, que "
+                     "lo escribe en la sesión (correo nuevo, una versión nueva del asistente); la sesión monta "
+                     "flujos de n8n por MCP."),
         "nodes": {
             "you": ("PERSONA", "Tú", ["en el móvil"]),
             "telegram": ("BOT", "Telegram", ["plugin oficial de canal"]),
+            "stt": ("NOTAS DE VOZ", "Voz a texto", ["Groq → Cloudflare → local"]),
             "google": ("CLAUDE.AI", "Gmail · Calendar · Drive", ["conectores: lee y redacta"]),
             "session": ("SESIÓN", "Claude Code", ["en tmux · modo auto", "tu suscripción de Claude"]),
             "memory": ("NOTAS", "Notas y memoria", ["CLAUDE.md · recall · historial"]),
-            "voice": ("SKILLS", "Voz y navegador", ["Whisper · TTS · agent-browser"]),
+            "voice": ("HERRAMIENTAS", "Navegador y aparatos", ["Chromium + ventana remota", "tele · pelis · dispositivos",
+                                                            "tarjeta limitada (opcional)"]),
             "daily": ("SYSTEMD · CRON", "Ciclo diario", ["cierre · repaso · reinicio"]),
             "hooks": ("HOOKS", "Hooks de Telegram", ["estado · botones de permiso"]),
             "wakeup": ("SERVICIO", "Despertador", ["vigila logs · POST /wake"]),
-            "n8n": ("FLUJOS", "n8n", ["correo nuevo · vigilar webs"]),
+            "n8n": ("FLUJOS", "n8n", ["correo · versiones · webs"]),
         },
         "labels": {
-            "chat": "CHAT", "memory": "LEE Y ESCRIBE", "voice": "EJECUTA", "daily": "CADA NOCHE",
+            "chat": "CHAT", "stt": "AUDIO", "memory": "LEE Y ESCRIBE", "voice": "EJECUTA", "daily": "CADA NOCHE",
             "hooks": "EVENTOS", "botapi": "API DEL BOT", "wakeup": "ESCRIBE AVISO", "mcp": "MCP",
             "think": "HAY QUE PENSAR", "alert": "AVISO PARA TI",
         },
@@ -253,10 +265,11 @@ TEXT = {
             ("security", "PERMISOS", "Pregunta antes de actuar",
              ["Leer y redactar lo hace solo; enviar y borrar te lo pregunta, con botones Permitir / Denegar",
               "Lo que bloquea el clasificador del modo auto se puede aprobar una vez desde Telegram",
-              "Los pagos están bloqueados del todo"]),
+              "Los pagos están bloqueados del todo, o solo con una tarjeta limitada y tu «sí», si lo montas"]),
             ("async", "POR SU CUENTA", "Se mantiene solo",
              ["Cada noche: guarda el día, repasa skills y memoria, actualiza Claude Code y empieza de cero",
-              "n8n te avisa directamente de lo que no hace falta pensar; lo demás llega a la sesión como aviso"]),
+              "n8n te avisa directamente de lo que no hace falta pensar; lo demás llega a la sesión como aviso",
+              "Las versiones nuevas también llegan como aviso: te las explica y solo actualiza con tu «sí»"]),
         ],
         "footer": ("claudia · cómo funciona", "dibujado con diagram-design"),
     },
@@ -271,48 +284,51 @@ NODES = {   # id: (x, y, w, h, kind)
     "you": (40, 264, 120, NH, "external"),
     "google": (216, 112, 184, NH, "external"),
     "telegram": (216, 264, 184, NH, "edge"),
+    "stt": (216, 400, 184, NH, "external"),
     "memory": (456, 112, 192, NH, "store"),
     "session": (456, 240, 192, 128, "backend"),
     "hooks": (456, 432, 192, NH, "security"),
     "n8n": (456, 560, 192, NH, "async"),
-    "voice": (744, 112, 192, NH, "backend"),
+    "voice": (744, 112, 192, 96, "backend"),
     "daily": (744, 256, 192, NH, "backend"),
     "wakeup": (744, 560, 192, NH, "async"),
 }
 FOCAL = {"session"}
 ZONES = [   # (x, y, w, h, key, depth)
-    (204, 80, 208, 264, "online", 1),
+    (204, 80, 208, 412, "online", 1),
     (432, 80, 528, 568, "machine", 1),
     (444, 528, 504, 108, "optional", 2),
 ]
 # Connectors: (points, style). Points are the corners of an orthogonal route; corners are rounded at r=8.
 ROUTES = {
     "chat": ([(160, 296), (216, 296)], "accent"),
+    "stt": ([(308, 328), (308, 400)], "link"),
     "channel": ([(400, 296), (456, 296)], "accent"),
     "memory": ([(552, 240), (552, 176)], "muted"),
     "google": ([(456, 256), (424, 256), (424, 144), (400, 144)], "link"),
     "voice": ([(648, 256), (680, 256), (680, 144), (744, 144)], "muted"),
     "daily": ([(744, 288), (648, 288)], "async"),
     "hooks": ([(552, 368), (552, 432)], "muted"),
-    "botapi": ([(456, 464), (344, 464), (344, 328)], "link"),
+    "botapi": ([(456, 452), (424, 452), (424, 316), (400, 316)], "link"),
     "wakeup": ([(792, 560), (792, 336), (648, 336)], "async"),
     "mcp": ([(648, 352), (712, 352), (712, 576), (648, 576)], "link"),
     "think": ([(648, 600), (744, 600)], "async"),
-    "alert": ([(456, 600), (272, 600), (272, 328)], "async"),
+    "alert": ([(456, 600), (188, 600), (188, 316), (216, 316)], "async"),
 }
 # Arrow labels: route key -> (x, y, anchor, depth of zones under the plate). anchor "c" centres the plate on x,
 # "l" puts its left edge at x. y is the top of the 12px plate.
 LABELS = {
     "chat": (186, 278, "c", 0),
+    "stt": (316, 358, "l", 1),
     "memory": (560, 202, "l", 1),
     "voice": (712, 126, "c", 1),
     "daily": (696, 270, "c", 1),
     "hooks": (560, 394, "l", 1),
-    "botapi": (384, 446, "c", 0),
+    "botapi": (424, 376, "c", 0),
     "wakeup": (800, 440, "l", 1),
     "mcp": (672, 440, "l", 1),
     "think": (696, 606, "c", 2),
-    "alert": (352, 582, "c", 0),
+    "alert": (320, 582, "c", 0),
 }
 LEGEND_Y = 680
 

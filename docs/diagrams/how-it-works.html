@@ -109,7 +109,7 @@
     <div class="diagram-container">
 <svg viewBox="0 0 1000 776" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="how-it-works-title how-it-works-desc">
 <title id="how-it-works-title">How the assistant fits together</title>
-<desc id="how-it-works-desc">You chat on your phone with a Telegram bot, and the official channel plugin connects it to a Claude Code session that runs in tmux, in auto mode, on your Claude subscription, on an always-on machine of yours, set up as you like. The session reads and writes CLAUDE.md, its notes and memory, runs voice and browser tools, and uses the Gmail, Calendar and Drive connectors of claude.ai. Hooks on every tool call send its status and permission buttons to Telegram. A nightly cycle saves the day, reviews memory, updates and restarts it. Optionally, n8n alerts you directly when nothing needs thinking, and otherwise hands a one-line notice to the wake-up, which types it into the session; the session builds n8n workflows through MCP.</desc>
+<desc id="how-it-works-desc">You chat on your phone with a Telegram bot, and the official channel plugin connects it to a Claude Code session that runs in tmux, in auto mode, on your Claude subscription, on an always-on machine of yours, set up as you like. Voice notes are turned into text on arrival (Groq, then Cloudflare, then a local engine). The session reads and writes CLAUDE.md, its notes and memory, uses a full browser with a remote window, the devices you allow (TV, media server, over your network or Tailscale) and, optionally, a limited card, and uses the Gmail, Calendar and Drive connectors of claude.ai. Hooks on every tool call send its status and permission buttons to Telegram. A nightly cycle saves the day, reviews memory, updates and restarts it. Optionally, n8n alerts you directly when nothing needs thinking (page watches), and otherwise hands a one-line notice to the wake-up, which types it into the session (new email, a new release of the assistant); the session builds n8n workflows through MCP.</desc>
 <defs>
 <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75" class="f-muted"/></marker>
 <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#a21caf" class="f-accent"/></marker>
@@ -118,7 +118,7 @@
 </defs>
 <rect width="100%" height="100%" fill="#f5f5f5" class="f-paper"/>
 <!-- Zones -->
-<rect x="204" y="80" width="208" height="264" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.1)" class="f-zone-1 s-zrule" stroke-width="0.8"/>
+<rect x="204" y="80" width="208" height="412" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.1)" class="f-zone-1 s-zrule" stroke-width="0.8"/>
 <rect x="216" y="84" width="92" height="12" rx="2" fill="#f1f1f1" class="f-mask-1"/>
 <text x="262" y="93" fill="#5a6580" class="f-soft" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">ONLINE SERVICES</text>
 <rect x="432" y="80" width="528" height="568" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.1)" class="f-zone-1 s-zrule" stroke-width="0.8"/>
@@ -129,20 +129,23 @@
 <text x="580" y="541" fill="#5a6580" class="f-soft" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">OPTIONAL · NO TOKENS UNTIL SOMETHING HAPPENS</text>
 <!-- Connectors -->
 <path d="M 160,296 H 216" fill="none" stroke="#a21caf" class="s-accent" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+<path d="M 308,328 V 400" fill="none" stroke="#1d4ed8" class="s-link" stroke-width="1.2" marker-end="url(#arrow-link)"/>
 <path d="M 400,296 H 456" fill="none" stroke="#a21caf" class="s-accent" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
 <path d="M 552,240 V 176" fill="none" stroke="#4f5d75" class="s-muted" stroke-width="1.2" marker-end="url(#arrow)"/>
 <path d="M 456,256 H 432 Q 424,256 424,248 V 152 Q 424,144 416,144 H 400" fill="none" stroke="#1d4ed8" class="s-link" stroke-width="1.2" marker-end="url(#arrow-link)"/>
 <path d="M 648,256 H 672 Q 680,256 680,248 V 152 Q 680,144 688,144 H 744" fill="none" stroke="#4f5d75" class="s-muted" stroke-width="1.2" marker-end="url(#arrow)"/>
 <path d="M 744,288 H 648" fill="none" stroke="#7c3aed" class="s-k-async-stroke" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow-async)"/>
 <path d="M 552,368 V 432" fill="none" stroke="#4f5d75" class="s-muted" stroke-width="1.2" marker-end="url(#arrow)"/>
-<path d="M 456,464 H 352 Q 344,464 344,456 V 328" fill="none" stroke="#1d4ed8" class="s-link" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+<path d="M 456,452 H 432 Q 424,452 424,444 V 324 Q 424,316 416,316 H 400" fill="none" stroke="#1d4ed8" class="s-link" stroke-width="1.2" marker-end="url(#arrow-link)"/>
 <path d="M 792,560 V 344 Q 792,336 784,336 H 648" fill="none" stroke="#7c3aed" class="s-k-async-stroke" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow-async)"/>
 <path d="M 648,352 H 704 Q 712,352 712,360 V 568 Q 712,576 704,576 H 648" fill="none" stroke="#1d4ed8" class="s-link" stroke-width="1.2" marker-end="url(#arrow-link)"/>
 <path d="M 648,600 H 744" fill="none" stroke="#7c3aed" class="s-k-async-stroke" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow-async)"/>
-<path d="M 456,600 H 280 Q 272,600 272,592 V 328" fill="none" stroke="#7c3aed" class="s-k-async-stroke" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow-async)"/>
+<path d="M 456,600 H 196 Q 188,600 188,592 V 324 Q 188,316 196,316 H 216" fill="none" stroke="#7c3aed" class="s-k-async-stroke" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow-async)"/>
 <!-- Connector labels -->
 <rect x="168" y="278" width="36" height="12" rx="2" fill="#f5f5f5" class="f-mask-0"/>
 <text x="186" y="287" fill="#a21caf" class="f-accent" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">CHAT</text>
+<rect x="316" y="358" width="40" height="12" rx="2" fill="#f1f1f1" class="f-mask-1"/>
+<text x="336" y="367" fill="#1d4ed8" class="f-link" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">AUDIO</text>
 <rect x="560" y="202" width="88" height="12" rx="2" fill="#f1f1f1" class="f-mask-1"/>
 <text x="604" y="211" fill="#5a6580" class="f-soft" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">READS + WRITES</text>
 <rect x="694" y="126" width="36" height="12" rx="2" fill="#f1f1f1" class="f-mask-1"/>
@@ -151,16 +154,16 @@
 <text x="696" y="279" fill="#6d28d9" class="f-k-async-ink" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">EVERY NIGHT</text>
 <rect x="560" y="394" width="72" height="12" rx="2" fill="#f1f1f1" class="f-mask-1"/>
 <text x="596" y="403" fill="#5a6580" class="f-soft" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TOOL EVENTS</text>
-<rect x="358" y="446" width="52" height="12" rx="2" fill="#f5f5f5" class="f-mask-0"/>
-<text x="384" y="455" fill="#1d4ed8" class="f-link" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">BOT API</text>
+<rect x="398" y="376" width="52" height="12" rx="2" fill="#f5f5f5" class="f-mask-0"/>
+<text x="424" y="385" fill="#1d4ed8" class="f-link" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">BOT API</text>
 <rect x="800" y="440" width="88" height="12" rx="2" fill="#f1f1f1" class="f-mask-1"/>
 <text x="844" y="449" fill="#6d28d9" class="f-k-async-ink" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TYPES A NOTICE</text>
 <rect x="672" y="440" width="28" height="12" rx="2" fill="#f1f1f1" class="f-mask-1"/>
 <text x="686" y="449" fill="#1d4ed8" class="f-link" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">MCP</text>
 <rect x="652" y="606" width="88" height="12" rx="2" fill="#ebebec" class="f-mask-2"/>
 <text x="696" y="615" fill="#6d28d9" class="f-k-async-ink" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">NEEDS THINKING</text>
-<rect x="312" y="582" width="80" height="12" rx="2" fill="#f5f5f5" class="f-mask-0"/>
-<text x="352" y="591" fill="#6d28d9" class="f-k-async-ink" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">ALERT TO YOU</text>
+<rect x="280" y="582" width="80" height="12" rx="2" fill="#f5f5f5" class="f-mask-0"/>
+<text x="320" y="591" fill="#6d28d9" class="f-k-async-ink" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">ALERT TO YOU</text>
 <!-- Nodes -->
 <!-- You -->
 <rect x="40" y="264" width="120" height="64" rx="6" fill="#f5f5f5" class="f-paper"/>
@@ -183,6 +186,13 @@
 <text x="236" y="279" fill="#b13b0b" class="f-k-edge-ink" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">BOT</text>
 <text x="308" y="303" fill="#2d3142" class="f-ink" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Telegram</text>
 <text x="308" y="319" fill="#4f5d75" class="f-muted" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">official channel plugin</text>
+<!-- Speech to text -->
+<rect x="216" y="400" width="184" height="64" rx="6" fill="#f5f5f5" class="f-paper"/>
+<rect x="216" y="400" width="184" height="64" rx="6" fill="rgba(148,163,184,0.18)" stroke="#64748b" class="f-k-external-tint s-k-external-stroke" stroke-width="1"/>
+<rect x="224" y="406" width="64" height="12" rx="2" fill="none" stroke="rgba(100,116,139,0.45)" class="s-k-external-tagst" stroke-width="0.8"/>
+<text x="256" y="415" fill="#475569" class="f-k-external-ink" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">VOICE NOTES</text>
+<text x="308" y="439" fill="#2d3142" class="f-ink" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Speech to text</text>
+<text x="308" y="455" fill="#4f5d75" class="f-muted" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Groq → Cloudflare → local</text>
 <!-- Notes and memory -->
 <rect x="456" y="112" width="192" height="64" rx="6" fill="#f5f5f5" class="f-paper"/>
 <rect x="456" y="112" width="192" height="64" rx="6" fill="rgba(250,204,21,0.22)" stroke="#a16207" class="f-k-store-tint s-k-store-stroke" stroke-width="1"/>
@@ -211,14 +221,16 @@
 <rect x="464" y="566" width="52" height="12" rx="2" fill="none" stroke="rgba(124,58,237,0.45)" class="s-k-async-tagst" stroke-width="0.8"/>
 <text x="490" y="575" fill="#6d28d9" class="f-k-async-ink" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">WORKFLOWS</text>
 <text x="552" y="599" fill="#2d3142" class="f-ink" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">n8n</text>
-<text x="552" y="615" fill="#4f5d75" class="f-muted" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">new email · page watches</text>
-<!-- Voice and browser -->
-<rect x="744" y="112" width="192" height="64" rx="6" fill="#f5f5f5" class="f-paper"/>
-<rect x="744" y="112" width="192" height="64" rx="6" fill="rgba(52,211,153,0.18)" stroke="#059669" class="f-k-backend-tint s-k-backend-stroke" stroke-width="1"/>
-<rect x="752" y="118" width="40" height="12" rx="2" fill="none" stroke="rgba(5,150,105,0.45)" class="s-k-backend-tagst" stroke-width="0.8"/>
-<text x="772" y="127" fill="#047454" class="f-k-backend-ink" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">SKILLS</text>
-<text x="840" y="151" fill="#2d3142" class="f-ink" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Voice and browser</text>
-<text x="840" y="167" fill="#4f5d75" class="f-muted" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Whisper · TTS · agent-browser</text>
+<text x="552" y="615" fill="#4f5d75" class="f-muted" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">email · releases · page watches</text>
+<!-- Browser and devices -->
+<rect x="744" y="112" width="192" height="96" rx="6" fill="#f5f5f5" class="f-paper"/>
+<rect x="744" y="112" width="192" height="96" rx="6" fill="rgba(52,211,153,0.18)" stroke="#059669" class="f-k-backend-tint s-k-backend-stroke" stroke-width="1"/>
+<rect x="752" y="118" width="32" height="12" rx="2" fill="none" stroke="rgba(5,150,105,0.45)" class="s-k-backend-tagst" stroke-width="0.8"/>
+<text x="768" y="127" fill="#047454" class="f-k-backend-ink" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">TOOLS</text>
+<text x="840" y="151" fill="#2d3142" class="f-ink" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Browser and devices</text>
+<text x="840" y="167" fill="#4f5d75" class="f-muted" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Chromium + remote window</text>
+<text x="840" y="183" fill="#4f5d75" class="f-muted" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">TV · media server · devices</text>
+<text x="840" y="199" fill="#4f5d75" class="f-muted" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">limited card (optional)</text>
 <!-- Daily cycle -->
 <rect x="744" y="256" width="192" height="64" rx="6" fill="#f5f5f5" class="f-paper"/>
 <rect x="744" y="256" width="192" height="64" rx="6" fill="rgba(52,211,153,0.18)" stroke="#059669" class="f-k-backend-tint s-k-backend-stroke" stroke-width="1"/>
@@ -271,7 +283,7 @@
 <text x="381" y="732" fill="#4f5d75" class="f-muted" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Notice or alert (async)</text>
 </svg>
     </div>
-    <div class="cards"><div class="card"><p class="card-eyebrow">YOUR ACCOUNT</p><div class="card-header"><span class="card-dot external"></span><h3>Your plan, your machine</h3></div><ul><li>Unmodified Claude Code, signed in with your own subscription</li><li>The Telegram allowlist only lets you in</li><li>Its own container or VM, a user on a server you have, root on a machine of its own: the same files</li></ul></div><div class="card"><p class="card-eyebrow">PERMISSIONS</p><div class="card-header"><span class="card-dot security"></span><h3>Asks before it acts</h3></div><ul><li>Reads and drafts run alone; sending and deleting ask you, with Allow / Deny buttons</li><li>What the auto-mode classifier blocks can be approved once, from Telegram</li><li>Payments are blocked outright</li></ul></div><div class="card"><p class="card-eyebrow">ON ITS OWN</p><div class="card-header"><span class="card-dot async"></span><h3>Keeps itself going</h3></div><ul><li>Every night: save the day, review skills and memory, update Claude Code, fresh start</li><li>n8n tells you directly what needs no thinking; the rest reaches the session as a notice</li></ul></div></div>
+    <div class="cards"><div class="card"><p class="card-eyebrow">YOUR ACCOUNT</p><div class="card-header"><span class="card-dot external"></span><h3>Your plan, your machine</h3></div><ul><li>Unmodified Claude Code, signed in with your own subscription</li><li>The Telegram allowlist only lets you in</li><li>Its own container or VM, a user on a server you have, root on a machine of its own: the same files</li></ul></div><div class="card"><p class="card-eyebrow">PERMISSIONS</p><div class="card-header"><span class="card-dot security"></span><h3>Asks before it acts</h3></div><ul><li>Reads and drafts run alone; sending and deleting ask you, with Allow / Deny buttons</li><li>What the auto-mode classifier blocks can be approved once, from Telegram</li><li>Payments are blocked outright, or allowed only on a limited card with your yes, if you set it up</li></ul></div><div class="card"><p class="card-eyebrow">ON ITS OWN</p><div class="card-header"><span class="card-dot async"></span><h3>Keeps itself going</h3></div><ul><li>Every night: save the day, review skills and memory, update Claude Code, fresh start</li><li>n8n tells you directly what needs no thinking; the rest reaches the session as a notice</li><li>New releases arrive as a notice too: it explains them and updates only with your yes</li></ul></div></div>
     <div class="footer"><span>claudia · how it works</span><span>drawn with diagram-design</span></div>
   </div>
 </body>
