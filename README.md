@@ -15,12 +15,12 @@ sends a morning summary, transcribes your voice notes and can answer with its ow
   <a href="https://jonjunq.github.io/claudia/diagrams/how-it-works.html">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/how-it-works-dark.svg">
-    <img src="docs/diagrams/how-it-works-light.svg" width="100%" alt="How the assistant is put together: you chat with a Telegram bot on your phone; the official channel plugin connects it to a Claude Code session in tmux in auto mode, on an isolated always-on Linux machine. The session reads and writes CLAUDE.md and its notes, runs web tools, scripts and voice, and uses the claude.ai Gmail, Calendar and Drive connectors. systemd restarts it with --continue and a nightly cron saves the day, updates Claude Code and starts a fresh session.">
+    <img src="docs/diagrams/how-it-works-light.svg" width="100%" alt="How the assistant fits together: you chat on your phone with a Telegram bot, and the official channel plugin connects it to a Claude Code session in tmux, in auto mode, on your Claude subscription, on an always-on machine of yours (a container, a VM, a plain user or root: your call). The session reads and writes CLAUDE.md, its notes and memory, runs voice and browser tools, and uses the claude.ai Gmail, Calendar and Drive connectors. Hooks send its status and permission buttons to Telegram, and a nightly cycle saves the day, reviews memory, updates Claude Code and restarts it. Optional, and costing no tokens until something happens: n8n alerts you directly when nothing needs thinking, and otherwise hands a one-line notice to the wake-up, which types it into the session; the session builds n8n workflows over MCP.">
   </picture>
   </a>
 </p>
 
-<sub>Interactive version (zoom, light/dark, trace a path): [open it in your browser](https://jonjunq.github.io/claudia/diagrams/how-it-works.html). Drawn with [Archify](https://github.com/tt-a1i/archify).</sub>
+<sub>Larger version, light or dark following your system: [open it in your browser](https://jonjunq.github.io/claudia/diagrams/how-it-works.html). Drawn with [diagram-design](https://github.com/cathrynlavery/diagram-design) (MIT).</sub>
 
 > Unofficial project, not affiliated with or endorsed by Anthropic. Read [Is this allowed?](#is-this-allowed) first.
 

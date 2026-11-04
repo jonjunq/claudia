@@ -15,12 +15,12 @@ manda un resumen por la mañana, entiende tus notas de voz y puede contestarte c
   <a href="https://jonjunq.github.io/claudia/diagrams/how-it-works.es.html">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/how-it-works-dark.es.svg">
-    <img src="docs/diagrams/how-it-works-light.es.svg" width="100%" alt="Cómo está montado el asistente: hablas desde el móvil con un bot de Telegram; el plugin oficial de canal lo conecta con una sesión de Claude Code en tmux, en modo auto, en una máquina Linux aislada y siempre encendida. La sesión lee y escribe CLAUDE.md y sus notas, ejecuta web, scripts y voz, y usa los conectores de Gmail, Calendar y Drive de claude.ai. systemd la reinicia con --continue y un cron nocturno cierra el día, actualiza Claude Code y abre una sesión limpia.">
+    <img src="docs/diagrams/how-it-works-light.es.svg" width="100%" alt="Cómo está montado el asistente: hablas desde el móvil con un bot de Telegram, y el plugin oficial de canal lo conecta con una sesión de Claude Code en tmux, en modo auto, con tu suscripción de Claude, en una máquina tuya siempre encendida (un contenedor, una VM, un usuario o root: tú eliges). La sesión lee y escribe CLAUDE.md, sus notas y su memoria, usa herramientas de voz y de navegador, y los conectores de Gmail, Calendar y Drive de claude.ai. Unos hooks mandan a Telegram su estado y los botones de permiso, y un ciclo nocturno guarda el día, repasa la memoria, actualiza Claude Code y la reinicia. Opcional, y sin gastar tokens hasta que pasa algo: n8n te avisa directamente de lo que no hace falta pensar, y si no, pasa un aviso de una línea al despertador, que lo escribe en la sesión; la sesión monta flujos de n8n por MCP.">
   </picture>
   </a>
 </p>
 
-<sub>Versión interactiva (zoom, claro/oscuro, seguir un camino): [ábrela en el navegador](https://jonjunq.github.io/claudia/diagrams/how-it-works.es.html). Dibujado con [Archify](https://github.com/tt-a1i/archify).</sub>
+<sub>Versión grande, clara u oscura según tu sistema: [ábrela en el navegador](https://jonjunq.github.io/claudia/diagrams/how-it-works.es.html). Dibujado con [diagram-design](https://github.com/cathrynlavery/diagram-design) (MIT).</sub>
 
 > Proyecto no oficial, sin relación con Anthropic. Lee antes [¿Esto está permitido?](#esto-está-permitido).
 

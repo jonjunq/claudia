@@ -8,7 +8,7 @@ ok() { echo "ok   $1"; pass=$((pass + 1)); }
 ko() { echo "FAIL $1"; fail=$((fail + 1)); }
 check() { local name=$1; shift; if "$@" >/dev/null 2>&1; then ok "$name"; else ko "$name"; fi; }
 
-SCRIPTS=(install.sh tests/run-tests.sh templates/system/assistant-daily-restart templates/system/recall templates/workspace/bin/*.sh templates/tools/*.sh templates/memory/*.sh templates/n8n/install-n8n.sh templates/n8n/n8n-admin)
+SCRIPTS=(install.sh tests/run-tests.sh templates/system/assistant-daily-restart templates/system/recall templates/workspace/bin/*.sh templates/tools/*.sh templates/memory/*.sh templates/n8n/install-n8n.sh templates/n8n/n8n-admin docs/diagrams/build.sh)
 check "shellcheck" shellcheck -S warning -x "${SCRIPTS[@]}"
 for s in "${SCRIPTS[@]}"; do check "bash -n $s" bash -n "$s"; done
 check "settings.json is valid JSON" jq -e . templates/settings.json
@@ -16,8 +16,8 @@ check "settings.json has the Telegram hooks" jq -e '.hooks.PermissionRequest[0].
 check "settings.json has the classifier-block hooks" jq -e '(.hooks.PermissionDenied[0].hooks[0].command | test("denied-hook")) and ([.hooks.PreToolUse[].hooks[] | select(.command | test("approved-hook")) | (.async // false)] == [false])' templates/settings.json
 check "settings.json hard-blocks payments" jq -e '.autoMode.hard_deny[0] == "$defaults" and (.autoMode.hard_deny[1] | test("payment"; "i"))' templates/settings.json
 for j in templates/n8n/workflows/*.json; do check "valid JSON $j" jq -e . "$j"; done
-for p in templates/telegram/*.py templates/memory/*.py templates/wakeup/*.py templates/tools/*.py tests/*.py; do check "python compiles $p" python3 -m py_compile "$p"; done
-find templates tests -name __pycache__ -exec rm -rf {} +
+for p in templates/telegram/*.py templates/memory/*.py templates/wakeup/*.py templates/tools/*.py tests/*.py docs/diagrams/*.py; do check "python compiles $p" python3 -m py_compile "$p"; done
+find templates tests docs -name __pycache__ -exec rm -rf {} +
 
 # No EXIT trap for the cleanup: bash runs it in the subshells of pipelines inside functions, too early.
 T=$(mktemp -d)
