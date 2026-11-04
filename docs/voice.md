@@ -4,24 +4,89 @@ All optional. Keys go in `~/.config/assistant/keys.env` (mode 600), settings in 
 
 ## Voice notes in
 
-Telegram voice notes reach the session as attachments. `CLAUDE.md` tells the assistant to download them with the
-plugin's `download_attachment` and run `~/assistant/bin/transcribe.sh <file>`, then answer what was said.
+### Transcribed before the assistant sees them
 
-`transcribe.sh`:
+Out of the box, the Telegram plugin only tells the session "a voice note arrived, file id X". The assistant then
+spends one turn deciding to download it and another deciding to transcribe it. We timed 117 real voice notes over
+two days (median length 12 s):
 
-- With `GROQ_API_KEY`: sends the audio to [Groq](https://console.groq.com)'s hosted `whisper-large-v3-turbo`. It
-  takes about a second and detects the language.
-  Two quirks handled: Groq rejects Telegram's `.oga` extension (the script uploads it as `.ogg`), and files over 25 MB
-  (the script recompresses anything over 20 MB to mono Opus).
-- Without a key, or if Groq fails, or with a model argument (`transcribe.sh file.ogg large-v3`): runs
-  [faster-whisper](https://github.com/SYSTRAN/faster-whisper) locally from a venv at `$WHISPER_VENV`:
-  ```bash
-  python3 -m venv ~/whisper && ~/whisper/bin/pip install faster-whisper
-  # with an NVIDIA GPU, also: ~/whisper/bin/pip install nvidia-cublas-cu12 nvidia-cudnn-cu12
-  ```
-  It decodes with ffmpeg because recent PyAV releases broke faster-whisper's own decoder. On a laptop GPU we measured
-  about 47 s for 5 minutes of audio with `large-v3-turbo` and about 4.5 minutes with `large-v3`; on CPU, turbo
-  ran at roughly 0.6 s per second of audio. We moved to Groq and gave the GPU back.
+| Step | Median | p90 |
+|---|---|---|
+| The assistant decides to call `download_attachment` | 2.3 s | 4.4 s |
+| Download from Telegram | 0.3 s | 0.7 s |
+| The assistant decides to run `transcribe.sh` | 2.7 s | 3.7 s |
+| Transcription (Groq, including the Bash call) | 0.4 s | 1.5 s |
+| The assistant answers (and does what the note asked) | 10.8 s | 33.8 s |
+| **From arrival to answer** | **17.5 s** | 48.7 s |
+
+The speech-to-text was 2 % of the time; the two extra turns were about 5 s per note, almost a third. The worst case
+took 261 s: the plugin's download has no timeout (120 s) and the script's Groq call allowed 300 s before falling
+back to a slow local model.
+
+So [`patch-telegram-plugin.py`](../templates/telegram/patch-telegram-plugin.py) (v2, see
+[docs/telegram-extras.md](telegram-extras.md#5-voice-notes-transcribed-on-arrival)) makes the plugin do it:
+after its access check (a stranger's note is never downloaded), it fetches voice notes up to 15 minutes and audio
+files up to 5 minutes, runs `~/assistant/bin/transcribe.sh`, and sends the transcript as the message itself, with
+`voice_transcribed_by="groq"` and `voice_path` in the tag. The download has 10 s for `getFile` and 15 s for the file,
+each with one retry; the transcription gets what is left of 55 s in all. If anything fails or runs out of time, the
+notification goes out exactly as without the patch and the assistant transcribes it the old way. In the real
+setup, a note now reaches the session about 0.7 s after it arrives, transcript included (download 0.1-0.4 s,
+Groq 0.2-0.35 s), and the two extra turns are gone. Times (never the text) go to
+`~/.claude/channels/telegram/voice.log`.
+
+The patch also gives the plugin's own `download_attachment` and photo download a 30 s timeout with one retry, so a
+hung Telegram download returns an error after about a minute instead of leaving the assistant waiting forever.
+
+### `transcribe.sh`: a chain of engines
+
+`transcribe.sh <file>` prints the text on stdout and `engine=<name> <ms>` on stderr. It tries, in order:
+
+| Engine | Needs | Measured | Notes |
+|---|---|---|---|
+| [Groq](https://console.groq.com) `whisper-large-v3-turbo` | `GROQ_API_KEY` | 0.3 s for 30 s of audio, 0.9 s for 2 min | Free tier: 20 requests a minute, 2,000 a day, 8 h of audio a day. Rejects Telegram's `.oga` name (the script uploads `.ogg`) and files over 25 MB (it recompresses anything over 20 MB) |
+| [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/) `whisper-large-v3-turbo` | `CF_AI_TOKEN`, `CF_AI_ACCOUNT_ID` | 1.4-4.9 s for 12-30 s, 6-16 s for 2 min | Optional. Free daily allowance of about 200 minutes of audio; same model, so the same quality |
+| [Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) int8 on the CPU, via [onnx-asr](https://github.com/istupakov/onnx-asr) | a venv at `$PARAKEET_VENV` | 5.4 s for 12 s, 7.8 s for 30 s, 19 s for 2 min, on 4 shared cores | Optional. Stays at home. About 2 % different from Groq's text on our samples, up to 2.4 GB of RAM. 25 European languages, but **not** Basque, Catalan or Galician |
+| [faster-whisper](https://github.com/SYSTRAN/faster-whisper) | a venv at `$WHISPER_VENV` | 36 s for 30 s and 78 s for 2 min (turbo, CPU) | Optional; the old fallback. Used directly when asked for a model |
+
+- **Timeouts and retries.** Each cloud call gets 5 s to connect and `TRANSCRIBE_MAX_TIME` seconds in all (30 by
+  default; the plugin passes 12). Groq gets one retry on a network error or a 5xx; a 429 (quota) or another 4xx
+  goes straight to the next engine. Measured: Groq hanging, then Cloudflare, 17 s in all.
+- **Names.** Whisper misspells names it has not heard of. Put them in `TRANSCRIBE_NAMES` in `assistant.env`
+  (`"Ada, Proxmox, Jellyfin, n8n."`): the cloud engines get them as a prompt. Only names: an example sentence such as
+  "Hi Ada, this is Alex" sometimes ended up inside the transcript. No language is forced, so a note in another
+  language still comes out right.
+- **Best quality.** `transcribe.sh <file> large-v3` goes straight to faster-whisper with that model (minutes on a
+  CPU). The assistant uses it when you ask, or when a local transcript looks wrong.
+- Whisper turbo once failed on a clip cut mid-word where Cloudflare and Parakeet got it right: different engines
+  fail differently, which is the point of a chain.
+- Be careful with test bursts: a quick series of test calls used up Groq's 20-per-minute limit for a minute.
+
+**Install the local engines** (as the assistant's user; each is optional):
+
+```bash
+# Parakeet (about 640 MB of model, in the venv folder)
+python3 -m venv ~/parakeet && ~/parakeet/bin/pip install "onnx-asr[cpu,hub]"
+~/parakeet/bin/python -c 'import onnx_asr, os; d = os.path.expanduser("~/parakeet")
+onnx_asr.load_model("nemo-parakeet-tdt-0.6b-v3", d + "/model", quantization="int8"); onnx_asr.load_vad("silero", d + "/model-vad")'
+
+# faster-whisper (for "best quality")
+python3 -m venv ~/whisper && ~/whisper/bin/pip install faster-whisper
+# with an NVIDIA GPU, also: ~/whisper/bin/pip install nvidia-cublas-cu12 nvidia-cudnn-cu12
+```
+
+Both decode with ffmpeg (`apt install ffmpeg`): recent PyAV releases broke faster-whisper's own decoder. Audio over
+90 s goes to Parakeet in voice-activity chunks, because in one piece its memory grows with the length. Only one
+local model runs at a time (a lock file), since they share the CPU.
+
+**Cloudflare**: in the dashboard, create an API token with only the *Workers AI: Read* permission and put it, with
+your account id, in `~/.config/assistant/keys.env`. Do not reuse a broader token you have for other things.
+
+**Privacy.** Groq and Cloudflare say they do not keep the audio by default, but the notes leave your machine. Only
+the local engines keep them at home; if that matters to you, leave the cloud keys out and the chain starts at
+Parakeet. A transcript reaches the session like a typed message, and only from senders on the plugin's allowlist.
+
+What we left out: a GPU for speech-to-text (with Groq at 0.4 s, a GPU kept awake costs power all day to win a
+second), and hosted services whose free tier trains on your audio or shares its quota with text-to-speech.
 
 ## Voice replies out
 

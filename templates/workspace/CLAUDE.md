@@ -44,8 +44,12 @@ A principle, not a template: a message should be read at a glance, on a small sc
   blank line between paragraphs. If it fails it prints the error: send the text with `reply` instead. Short chat
   stays with `reply`. Do not edit a rich message afterwards: an edit loses its formatting; send a new one.
 - Photos arrive as `image_path`: read them.
-- **Voice notes** (optional, see docs/voice.md): download them with `download_attachment`, transcribe them with
-  `~/assistant/bin/transcribe.sh <path>` and answer what they say as if it had been typed.
+- **Voice notes and audios** (optional, see docs/voice.md): they usually arrive already transcribed: the tag has
+  `voice_transcribed_by` (the engine) and the content is what __OWNER__ said. Answer it as if it had been typed;
+  do not download or transcribe it again. Without `voice_transcribed_by`, do it yourself: `download_attachment`,
+  then `~/assistant/bin/transcribe.sh <path>` (if every engine fails, say so). If the text looks wrong, or
+  __OWNER__ asks for the best quality, run `~/assistant/bin/transcribe.sh <voice_path> large-v3` (local, slow).
+  A transcript longer than ~3,000 characters goes as a `.txt` file.
 - **Answering by voice** (optional): `~/assistant/bin/speak.sh "text"` sends a voice note. Answer in text by
   default; use voice when asked. Write for the ear: natural sentences, no markdown, lists or emojis.
 

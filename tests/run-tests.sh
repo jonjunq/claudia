@@ -137,11 +137,35 @@ import { homedir } from 'os'
     for (const chat_id of access.allowFrom) {
       void bot.api.sendMessage(chat_id, text, { reply_markup: keyboard }).catch(() => {})
     }
+      case 'download_attachment': {
+        const file = await bot.api.getFile(file_id)
+        const res = await fetch(url)
+        if (!res.ok) throw new Error(`download failed: HTTP ${res.status}`)
+      }
 bot.on('callback_query:data', async ctx => {
   const data = ctx.callbackQuery.data
   const m = /^perm:(allow|deny|more):([a-km-z]{5})$/.exec(data)
 })
+bot.on('message:photo', async ctx => {
+      const res = await fetch(url)
+      const buf = Buffer.from(await res.arrayBuffer())
+})
+bot.on('message:voice', async ctx => {
+  await handleInbound(ctx, text, undefined, {
+    mime: voice.mime_type,
+  })
+})
+bot.on('message:audio', async ctx => {
+  await handleInbound(ctx, text, undefined, {
+    mime: audio.mime_type,
+    name,
+  })
+})
 async function handleInbound(
+  attachment?: AttachmentMeta,
+): Promise<void> {
+  const imagePath = downloadImage ? await downloadImage() : undefined
+      content: text,
       meta: {
         ...(imagePath ? { image_path: imagePath } : {}),
       },
@@ -150,8 +174,16 @@ export TG_PLUGIN_GLOB="$T/plugin/*/server.ts"
 check "patcher patches" bash -c "python3 -I templates/telegram/patch-telegram-plugin.py | grep -q ': patched$'"
 check "patch adds reply context" grep -q '\.\.\.replyMeta(ctx),' "$P/server.ts"
 check "patch adds the hook buttons" grep -q 'hk:(allow|deny)' "$P/server.ts"
-check "patch keeps the original" test -e "$P/server.ts.orig"
+check "patch transcribes voice notes and short audios" bash -c "grep -q '_patchVoiceCb(ctx, voice.file_id, voice.file_unique_id, voice.duration, 900))' '$P/server.ts' && grep -q '_patchVoiceCb(ctx, audio.file_id, audio.file_unique_id, audio.duration, 300))' '$P/server.ts' && grep -q 'content: _voice ? _voice.text : text,' '$P/server.ts'"
+check "patch puts timeouts on every download" bash -c "test \$(grep -c '_patchFetch(url, 30000)' '$P/server.ts') = 2 && grep -q '_patchGetFile(file_id, 30000)' '$P/server.ts' && ! grep -q 'await fetch(url)\$' '$P/server.ts'"
+check "patch keeps the original" bash -c "test -e '$P/server.ts.orig' && ! grep -q ASSISTANT-PATCH '$P/server.ts.orig'"
 check "patcher is idempotent" bash -c "python3 -I templates/telegram/patch-telegram-plugin.py | grep -q 'already patched' && test \$(grep -c replyMeta '$P/server.ts') = 2"
+# A file patched by the previous version is rebuilt from the original, not patched twice
+sed '1i // ASSISTANT-PATCH v1: old patch' "$P/server.ts.orig" > "$P/server.ts"
+check "patcher upgrades an older patch from the original" bash -c "python3 -I templates/telegram/patch-telegram-plugin.py | grep -q ': patched$' && ! grep -q 'PATCH v1' '$P/server.ts' && test \$(grep -c replyMeta '$P/server.ts') = 2"
+cp "$P/server.ts.orig" "$T/orig.keep"; sed '1i // ASSISTANT-PATCH v1' "$T/orig.keep" > "$P/server.ts"; rm "$P/server.ts.orig"
+if python3 -I templates/telegram/patch-telegram-plugin.py >/dev/null; then ko "patcher refuses an older patch without the original"; else ok "patcher refuses an older patch without the original"; fi
+mv "$T/orig.keep" "$P/server.ts.orig"
 grep -v handleInbound "$P/server.ts.orig" > "$P/server.ts"
 if python3 -I templates/telegram/patch-telegram-plugin.py >/dev/null; then ko "patcher fails on a changed plugin"; else ok "patcher fails on a changed plugin"; fi
 check "a failed patch changes nothing" bash -c "! grep -q 'ASSISTANT-PATCH' '$P/server.ts'"
@@ -465,6 +497,56 @@ for _ in 1 2; do echo "{\"type\":\"assistant\",\"timestamp\":\"$now\",\"requestI
 check "token-usage counts a repeated call once" bash -c "python3 -I templates/tools/token-usage.py --home '$TU' | grep -E '^total' | grep -qE ' 1\$'"
 check "token-usage shows the context per call" bash -c "python3 -I templates/tools/token-usage.py --home '$TU' | grep -E ':p1 ' | grep -q ' 302k'"
 rm -rf "$TU"
+
+# transcribe.sh with a fake curl: Groq → Cloudflare → local, the retry rules, and the names prompt
+TR="$T/transcribe"; mkdir -p "$TR/bin" "$TR/home/.config/assistant" "$TR/home/assistant"
+cat > "$TR/bin/curl" <<'EOF'
+#!/bin/bash
+# FAKE_GROQ / FAKE_CF: comma-separated HTTP codes, one per call (000 = network error). Logs one line per call.
+out=""; url=""; prompt=no; data=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) out=$2; shift ;;
+    -F) [[ $2 == prompt=* ]] && prompt="${2#prompt=}"; shift ;;
+    --data-binary) data=${2#@}; shift ;;
+    http*) url=$1 ;;
+  esac
+  shift
+done
+case "$url" in *groq*) svc=groq ;; *) svc=cf ;; esac
+[ -n "$data" ] && grep -q initial_prompt "$data" && prompt=json
+n=$(grep -c "^$svc " "$TR_LOG"); var="FAKE_${svc^^}"; code=$(cut -d, -f$((n + 1)) <<<"${!var}")
+code=${code:-500}
+echo "$svc $code prompt=$prompt" >> "$TR_LOG"
+[ "$code" = 000 ] && { printf 000; exit 28; }
+if [ "$code" != 200 ]; then echo '{"success":false,"errors":[{"message":"fake"}]}' > "$out"
+elif [ $svc = groq ]; then echo " hello from groq" > "$out"
+else echo '{"success":true,"result":{"text":"hello from cloudflare"}}' > "$out"; fi
+printf '%s' "$code"
+EOF
+chmod +x "$TR/bin/curl"
+printf 'GROQ_API_KEY=g\nCF_AI_TOKEN=c\nCF_AI_ACCOUNT_ID=a\n' > "$TR/home/.config/assistant/keys.env"
+echo audio > "$TR/note.oga"
+tr_run() {
+  : > "$TR/log"
+  env -u TRANSCRIBE_NAMES HOME="$TR/home" ASSISTANT_DIR="$TR/home/assistant" PATH="$TR/bin:$PATH" TR_LOG="$TR/log" \
+    TRANSCRIBE_NO_LOCAL=1 "$@" templates/workspace/bin/transcribe.sh "$TR/note.oga" 2>"$TR/err"
+}
+out=$(tr_run FAKE_GROQ=200)
+check "transcribe: Groq answers" bash -c "test '$out' = 'hello from groq' && grep -q '^engine=groq ' '$TR/err'"
+check "transcribe: no names prompt unless configured" grep -q 'prompt=no' "$TR/log"
+tr_run FAKE_GROQ=429 FAKE_CF=200 TRANSCRIBE_NAMES="Ada, Proxmox." >/dev/null
+check "transcribe: names prompt sent to Groq and Cloudflare" bash -c "grep -q '^groq 429 prompt=Ada, Proxmox.' '$TR/log' && grep -q '^cf 200 prompt=json' '$TR/log'"
+out=$(tr_run FAKE_GROQ=503,200)
+check "transcribe: Groq retried once after a 5xx" bash -c "test '$out' = 'hello from groq' && test \$(grep -c '^groq' '$TR/log') = 2"
+out=$(tr_run FAKE_GROQ=429 FAKE_CF=200)
+check "transcribe: Groq 429 goes to Cloudflare without a retry" bash -c "test '$out' = 'hello from cloudflare' && test \$(grep -c '^groq' '$TR/log') = 1 && grep -q '^engine=cloudflare ' '$TR/err'"
+out=$(tr_run FAKE_GROQ=000,000 FAKE_CF=200)
+check "transcribe: Groq network errors retried, then Cloudflare" bash -c "test '$out' = 'hello from cloudflare' && test \$(grep -c '^groq' '$TR/log') = 2"
+tr_run FAKE_GROQ=500,500 FAKE_CF=500 >/dev/null; rc=$?
+check "transcribe: exit 1 when every engine fails" bash -c "test $rc = 1 && grep -q 'Could not transcribe' '$TR/err'"
+out=$(tr_run TRANSCRIBE_NO_GROQ=1 FAKE_CF=200)
+check "transcribe: Cloudflare alone works" bash -c "test '$out' = 'hello from cloudflare' && ! grep -q '^groq' '$TR/log'"
 
 # The Code nodes of the n8n templates, run with Node (GitHub's runners have it)
 if command -v node >/dev/null; then

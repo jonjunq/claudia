@@ -53,7 +53,7 @@ if [ -e "$D$H/.claude/settings.json" ] && ! grep -q assistant/bin/statusline.sh 
 fi
 mkdir -p "$D$H/.config/assistant"
 [ -e "$D$H/.config/assistant/keys.env" ] || {
-  printf '# API keys for the optional voice scripts. Only the owner can read this file.\n#GROQ_API_KEY=\n#ELEVENLABS_API_KEY=\n' \
+  printf '# API keys for the optional voice scripts (docs/voice.md). Only the owner can read this file.\n#GROQ_API_KEY=\n#CF_AI_TOKEN=\n#CF_AI_ACCOUNT_ID=\n#ELEVENLABS_API_KEY=\n' \
     > "$D$H/.config/assistant/keys.env"
   chmod 600 "$D$H/.config/assistant/keys.env"
   echo "  created  $H/.config/assistant/keys.env"

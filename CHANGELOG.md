@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+- **Voice notes transcribed before the assistant sees them** ([docs/voice.md](docs/voice.md),
+  [docs/telegram-extras.md](docs/telegram-extras.md#5-voice-notes-transcribed-on-arrival)). Timing 117 real notes
+  showed the speech-to-text took 0.4 s of the 17.5 s from arrival to answer, while the assistant's two extra turns
+  (download, then transcribe) took about 5 s. `patch-telegram-plugin.py` v2 makes the plugin download and transcribe
+  voice notes (up to 15 min) and audio files (up to 5 min) after its access check and deliver the transcript as the
+  message, tagged `voice_transcribed_by` and `voice_path`; on any failure, or past 55 s, the notification goes out as
+  before. Measured on the real setup: about 0.7 s from arrival to a transcribed notification.
+- The plugin's downloads get timeouts: `getFile` and the file fetch (10 s / 15 s for voice, 30 s for
+  `download_attachment` and photos), one retry each. A hung download had once held a note for two minutes; now
+  `download_attachment` returns an error after about a minute.
+- **`transcribe.sh`: a chain of engines** with timeouts: Groq (5 s to connect, `TRANSCRIBE_MAX_TIME`, one retry on a
+  network error or 5xx, none on a 429) → Cloudflare Workers AI `whisper-large-v3-turbo` (optional) → Parakeet TDT
+  0.6B v3 on the CPU (optional, about 5 s for a 12 s note) → faster-whisper (optional) → a clear error.
+  `TRANSCRIBE_NAMES` in `assistant.env` gives the cloud engines the names they misspell. The engine goes to stderr.
+  It used to wait up to 300 s on a hung Groq call.
+- Upgrading: the patcher rebuilds a v1-patched plugin from `server.ts.orig`; `CLAUDE.md` has a new voice-notes rule
+  (copy it into yours, since `install.sh` never overwrites); add `TRANSCRIBE_NAMES` and `PARAKEET_VENV` to your
+  `assistant.env` if you want them.
+- Tests: the patch on a stand-in with the new anchors (and the upgrade from v1), `transcribe.sh` with a fake curl, and
+  [`tests/plugin-e2e.py`](tests/plugin-e2e.py), which runs the real plugin against `tests/fake-telegram.py` (now able
+  to serve updates and files, or hang); not in CI because it needs bun.
+
 - **Smaller context** ([docs/memory.md](docs/memory.md#keeping-the-context-small)), from measuring a week of use:
   - `"autoCompactWindow": 300000` in `templates/settings.json`: an all-day conversation averaged ~300k tokens of
     context per message (peaks near 880k); it now compacts at 300k.

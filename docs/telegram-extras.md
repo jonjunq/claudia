@@ -1,6 +1,6 @@
-# Telegram extras: status, quoted messages, permission buttons, rich messages
+# Telegram extras: status, quoted messages, permission buttons, rich messages, voice notes
 
-Four things the official Telegram plugin does not do well enough for an assistant you only see through your phone,
+Five things the official Telegram plugin does not do well enough for an assistant you only see through your phone,
 and how this repo adds them. They live in [`templates/telegram/`](../templates/telegram/), which `install.sh` copies to
 `/usr/local/lib/assistant-telegram/` owned by root, plus a `hooks` block in `settings.json`. None of it calls the
 model: it is plain Python against the Telegram Bot API, so it costs nothing from your plan.
@@ -178,6 +178,36 @@ translated and with the personal bits made generic, announcing that it had n8n n
 On Telegram that arrives as a heading, a highlighted quote and three short points that each start with their own
 icon: read in five seconds, and easy to answer.
 
+## 5. Voice notes transcribed on arrival
+
+The plugin hands voice notes to the session as an attachment id, and the assistant needs two extra turns (download,
+then transcribe) before it even starts on what you said: about 5 s per note, and the plugin's downloads had no
+timeout at all. Version 2 of `patch-telegram-plugin.py` moves that into the plugin:
+
+- In `message:voice` (up to 15 min) and `message:audio` (up to 5 min) it passes a callback to `handleInbound`, which
+  runs it **after** the access check, the same way the plugin already defers photo downloads. A note from someone
+  not on the allowlist is never downloaded or transcribed.
+- The callback downloads the file to the plugin's inbox (`getFile` 10 s, download 15 s, one retry each) and runs
+  `timeout <what is left> ~/assistant/bin/transcribe.sh <file>` with `TRANSCRIBE_MAX_TIME=12`, within 55 s in all.
+- The notification's `content` becomes the transcript (after the caption, if the audio had one), and the tag gets
+  `voice_transcribed_by` (the engine `transcribe.sh` reports) and `voice_path` (the saved file, for a best-quality
+  pass later); `attachment_file_id` stays. A line in the plugin's instructions tells Claude what that means.
+- Any failure (no `transcribe.sh`, Telegram slow, every engine down, time up) leaves the notification exactly as the
+  plugin sends it, and `CLAUDE.md` tells the assistant to transcribe it itself then.
+- `download_attachment` and the photo download get a 30 s timeout with one retry too.
+- `~/.claude/channels/telegram/voice.log` records the times and the engine for each note, never the text.
+
+The patcher marks the file `// ASSISTANT-PATCH v2`. A file patched by v1 is rebuilt from `server.ts.orig` rather than
+patched twice, and a clean plugin file (after an update) refreshes `server.ts.orig`.
+
+[`tests/plugin-e2e.py`](../tests/plugin-e2e.py) checks the patch against the **real** plugin: it copies it, applies
+the patch, points it at a fake Bot API ([`tests/fake-telegram.py`](../tests/fake-telegram.py)) and speaks MCP to it
+the way Claude Code does. Against plugin 0.0.7: a note from the allowlisted user arrived transcribed in under a
+second; a stranger's note was dropped with nothing downloaded; a hung download still delivered the normal
+notification after 31 s; a hung `download_attachment` returned an error after 61 s. It needs `bun`, so it is not
+part of CI; run it after a plugin update (`tests/plugin-e2e.py ~/.claude/plugins/cache/claude-plugins-official/telegram/<version>`).
+Engines, timings and setup: [docs/voice.md](voice.md).
+
 ## Check it
 
 - Status: ask it for something that takes a minute ("summarise today's email"); `~/.cache/assistant-telegram/log`
@@ -187,5 +217,7 @@ icon: read in five seconds, and easy to answer.
   log shows `permission asked …` and `permission … allow`.
 - Classifier blocks: the next time one happens, the log shows `denied <id> …`, then `denied <id> approved` and
   `approval used …` if you tapped Approve.
+- Voice notes: send one; it answers what you said, and `~/.claude/channels/telegram/voice.log` shows
+  `ok … engine=groq` (or the engine that did it).
 - Rich messages: `printf '# Test\n\n| a | b |\n|---|---|\n| 1 | 2 |\n' | python3 -I /usr/local/lib/assistant-telegram/send-rich.py`
   shows a heading and a small table.

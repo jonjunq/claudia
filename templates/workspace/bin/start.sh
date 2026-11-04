@@ -19,7 +19,7 @@ while true; do
   # replaces it, and tell the plugin whether permission-hook.py handles permission requests.
   if [ -x "$TG_EXTRAS/patch-telegram-plugin.py" ]; then
     python3 -I "$TG_EXTRAS/patch-telegram-plugin.py" >> "$LOG" 2>&1 ||
-      tg_send "⚠️ The Telegram plugin changed and the assistant's patch no longer fits: quoted messages and permission buttons are off until patch-telegram-plugin.py is adapted."
+      tg_send "⚠️ The Telegram plugin changed and the assistant's patch no longer fits: quoted messages, permission buttons and the automatic transcription of voice notes are off until patch-telegram-plugin.py is adapted."
     if grep -q permission-hook.py "$HOME/.claude/settings.json" 2>/dev/null; then
       touch "$TG_DIR/permission-hook-enabled"
     else
