@@ -1,0 +1,107 @@
+{
+ "id": "emailToAssistant",
+ "name": "New email → wake the assistant (no Telegram)",
+ "active": false,
+ "settings": {
+  "executionOrder": "v1",
+  "timezone": "__TIMEZONE__",
+  "saveDataSuccessExecution": "none"
+ },
+ "nodes": [
+  {
+   "id": "e0afe0b8-2c38-40c9-9ae5-20c272d5f3d3",
+   "name": "New email (IMAP)",
+   "type": "n8n-nodes-base.emailReadImap",
+   "typeVersion": 2.2,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "mailbox": "INBOX",
+    "postProcessAction": "nothing",
+    "format": "simple",
+    "downloadAttachments": false,
+    "options": {
+     "customEmailConfig": "[\"UNSEEN\", [\"X-GM-RAW\", \"-category:promotions -category:social -category:forums\"]]",
+     "trackLastMessageId": true,
+     "forceReconnect": 60
+    }
+   },
+   "credentials": {
+    "imap": {
+     "id": "imapMailbox00001",
+     "name": "Mailbox (IMAP)"
+    }
+   }
+  },
+  {
+   "id": "9fd13b1b-95a2-44ab-949e-f6b7c4104416",
+   "name": "Build the notice",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    240,
+    0
+   ],
+   "parameters": {
+    "jsCode": "// One notice for the assistant with the new emails: sender, subject and id. No body: the assistant reads the\n// email itself with its Gmail connector, so nothing from the email is typed into its terminal but these two lines.\nfunction decodeWords(s) { // =?UTF-8?B?...?= / =?UTF-8?Q?...?= subjects\n  s = String(s || '');\n  try {\n    return s.replace(/=\\?([^?]+)\\?([BbQq])\\?([^?]*)\\?=/g, (m, cs, enc, t) => {\n      const buf = /b/i.test(enc) ? Buffer.from(t, 'base64')\n        : Buffer.from(t.replace(/_/g, ' ').replace(/=([0-9A-Fa-f]{2})/g, (x, h) => String.fromCharCode(parseInt(h, 16))), 'binary');\n      return buf.toString(/utf-?8/i.test(cs) ? 'utf8' : 'latin1');\n    }).replace(/\\?=\\s+=\\?/g, '');\n  } catch (e) { return s; }\n}\nconst short = (s, n) => { s = decodeWords(s).replace(/\\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n) + '…' : s; };\nconst MAX_AGE_HOURS = 3;   // the first search after activation can return the day's older unread emails: skip them\nconst mem = $getWorkflowStaticData('global');\nmem.seen = mem.seen || [];\nconst now = Date.now();\nconst lines = [];\nfor (const item of $input.all()) {\n  const j = item.json, meta = j.metadata || {};\n  const id = String(meta['message-id'] || meta['Message-ID'] || j.attributes?.uid || '').trim();\n  if (id && mem.seen.includes(id)) continue;\n  const date = Date.parse(j.date || meta.date || '');\n  if (!isNaN(date) && now - date > MAX_AGE_HOURS * 3600 * 1000) continue;\n  if (id) mem.seen.push(id);\n  lines.push('From: ' + short(j.from, 120) + ' · Subject: \"' + short(j.subject || '(no subject)', 160) + '\"' +\n             (id ? ' · rfc822msgid:' + id.replace(/[<>]/g, '') : ''));\n}\nmem.seen = mem.seen.slice(-300);\nif (!lines.length) return [];\nreturn [{ json: { source: 'email', text: (lines.length === 1 ? 'New email in the inbox: ' : lines.length + ' new emails in the inbox: ') + lines.join(' ‖ ') } }];\n"
+   }
+  },
+  {
+   "id": "fd513fa8-0903-4f54-b28c-f1f61afb89c4",
+   "name": "Wake the assistant",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    480,
+    0
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "__WAKEUP_URL__",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ source: $json.source, text: $json.text }) }}",
+    "options": {
+     "timeout": 15000
+    }
+   },
+   "credentials": {
+    "httpHeaderAuth": {
+     "id": "assistantWakeup1",
+     "name": "Assistant wake-up"
+    }
+   },
+   "retryOnFail": true,
+   "maxTries": 5,
+   "waitBetweenTries": 5000
+  }
+ ],
+ "connections": {
+  "New email (IMAP)": {
+   "main": [
+    [
+     {
+      "node": "Build the notice",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Build the notice": {
+   "main": [
+    [
+     {
+      "node": "Wake the assistant",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ }
+}

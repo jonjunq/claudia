@@ -1,0 +1,12 @@
+[Unit]
+Description=Wake the assistant only when there is something for it (watched logs, n8n), without Telegram
+After=network-online.target assistant.service
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 -I /usr/local/lib/assistant-wakeup/assistant-wakeup.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

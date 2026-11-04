@@ -1,0 +1,22 @@
+[Unit]
+Description=n8n workflow automation (docs/n8n.md)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=n8n
+Group=n8n
+WorkingDirectory=/var/lib/n8n
+EnvironmentFile=/etc/n8n.env
+ExecStart=/usr/bin/env n8n start
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/n8n
+
+[Install]
+WantedBy=multi-user.target

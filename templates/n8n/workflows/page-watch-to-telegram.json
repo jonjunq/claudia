@@ -1,0 +1,152 @@
+{
+ "id": "pageWatch0000001",
+ "name": "Watch a page → Telegram when it changes (switches itself off)",
+ "active": false,
+ "settings": {
+  "executionOrder": "v1",
+  "timezone": "__TIMEZONE__",
+  "saveDataSuccessExecution": "none"
+ },
+ "nodes": [
+  {
+   "id": "00348d91-a3d7-49fe-a82f-d397ce36a3a0",
+   "name": "Every few hours",
+   "type": "n8n-nodes-base.scheduleTrigger",
+   "typeVersion": 1.2,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "rule": {
+     "interval": [
+      {
+       "field": "hours",
+       "hoursInterval": 3
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "ff64ea32-b1d4-48aa-baad-77a158c23944",
+   "name": "Still on?",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    220,
+    0
+   ],
+   "parameters": {
+    "jsCode": "// Switched off? Then do nothing at all: no request to the page, no message. The watch turns itself off when it\n// reaches its final state or after too many days without a change (see the next Code node), so nobody has to\n// remember to unpublish it.\nif ($getWorkflowStaticData('global').done) return [];\nreturn $input.all();\n"
+   }
+  },
+  {
+   "id": "b8e2d755-851a-4f6b-be31-81159584cb77",
+   "name": "Fetch the page",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    440,
+    0
+   ],
+   "parameters": {
+    "url": "__URL__",
+    "options": {
+     "response": {
+      "response": {
+       "responseFormat": "text",
+       "outputPropertyName": "data"
+      }
+     },
+     "timeout": 30000
+    }
+   },
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 5000
+  },
+  {
+   "id": "207ebbd6-da6c-4c7e-977d-a93fff317941",
+   "name": "What changed?",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    660,
+    0
+   ],
+   "parameters": {
+    "jsCode": "// ---- Adapt these (or ask the assistant to) ----\nconst LABEL = '__LABEL__';                    // what this is, shown in the message: \"Parcel 1234\", \"Price of X\"\nconst URL_SHOWN = '__URL__';                  // shown in the message\nconst FINAL = /(?!)/;                        // the end state, e.g. /delivered|entregado/i (this default never matches)\nconst MAX_DAYS_UNCHANGED = 14;               // switch off after this many days with no change (0 = never)\n// What to compare. Default: the visible text of the page, between two markers if you give them. For a parcel\n// tracker, return the latest row only (date + place + status) so a change elsewhere on the page does not count.\nconst START = '';  // e.g. 'trace Details'\nconst END = '';\nfunction extract(html) {\n  let t = String(html || '').replace(/<script[\\s\\S]*?<\\/script>|<style[\\s\\S]*?<\\/style>/gi, ' ')\n    .replace(/<[^>]+>/g, '\\n').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');\n  if (START && t.includes(START)) t = t.slice(t.indexOf(START) + START.length);\n  if (END && t.includes(END)) t = t.slice(0, t.indexOf(END));\n  return t.split('\\n').map(l => l.trim()).filter(Boolean).join('\\n').slice(0, 600);\n}\n// -----------------------------------------------\nconst now = Date.now();\nconst mem = $getWorkflowStaticData('global');\nconst current = extract($input.first().json.data);\nif (!current) throw new Error('Nothing to compare: the page changed shape or the markers are wrong');\nconst footer = '\\n\\n— automatic notice from n8n';\nif (mem.last === undefined) { mem.last = current; mem.changedAt = now; return []; }   // first run: remember only\nif (current !== mem.last) {\n  mem.last = current; mem.changedAt = now;\n  let text = '🔔 ' + LABEL + ': it changed\\n' + current.slice(0, 400) + '\\n' + URL_SHOWN;\n  if (FINAL.test(current)) { mem.done = true; text += '\\n\\n✅ That is the final state: this watch has switched itself off.'; }\n  return [{ json: { text: text + footer } }];\n}\nif (MAX_DAYS_UNCHANGED > 0 && now - (mem.changedAt || now) > MAX_DAYS_UNCHANGED * 86400000) {\n  mem.done = true;\n  return [{ json: { text: '💤 ' + LABEL + ': no change in ' + MAX_DAYS_UNCHANGED + ' days, so this watch has switched itself off.\\nLast state:\\n' + current.slice(0, 300) + footer } }];\n}\nreturn [];\n"
+   }
+  },
+  {
+   "id": "067aebe1-0e5b-4a53-9805-e23967c48b7a",
+   "name": "Tell the owner",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    880,
+    0
+   ],
+   "parameters": {
+    "chatId": "__TELEGRAM_CHAT_ID__",
+    "text": "={{ $json.text }}",
+    "additionalFields": {
+     "appendAttribution": false
+    }
+   },
+   "credentials": {
+    "telegramApi": {
+     "id": "telegramBot00001",
+     "name": "Telegram bot"
+    }
+   }
+  }
+ ],
+ "connections": {
+  "Every few hours": {
+   "main": [
+    [
+     {
+      "node": "Still on?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Still on?": {
+   "main": [
+    [
+     {
+      "node": "Fetch the page",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Fetch the page": {
+   "main": [
+    [
+     {
+      "node": "What changed?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "What changed?": {
+   "main": [
+    [
+     {
+      "node": "Tell the owner",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ }
+}

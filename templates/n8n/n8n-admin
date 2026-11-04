@@ -1,0 +1,115 @@
+#!/bin/bash
+# n8n-admin: day-to-day n8n chores from a shell, as root, without a browser (docs/n8n.md).
+#   n8n-admin import <workflow.json>         import (or replace, same id) a workflow; then publish it
+#   n8n-admin import-credentials <file.json> import credentials (plain JSON: n8n encrypts them); delete the file after
+#   n8n-admin publish <id> | unpublish <id>  turn a workflow on or off (applies after: n8n-admin restart)
+#   n8n-admin list | export <id>             list workflows / print one as JSON
+#   n8n-admin restart                        restart n8n and wait until it answers
+#   n8n-admin update [--tell] [version]      back up, update to [version] or npm's "stable", check, roll back on failure;
+#                                            --tell: pass the outcome to the assistant through the wake-up (docs/wakeup.md)
+#   n8n-admin cli <args...>                  any n8n CLI command, as the n8n user with its settings
+# Settings: N8N_ENV_FILE (/etc/n8n.env), N8N_DATA (/var/lib/n8n), N8N_BACKUPS (/var/lib/n8n-backups).
+set -uo pipefail
+ENV_FILE=${N8N_ENV_FILE:-/etc/n8n.env}
+DATA=${N8N_DATA:-/var/lib/n8n}
+BACKUPS=${N8N_BACKUPS:-/var/lib/n8n-backups}
+WAIT=${N8N_HEALTH_TIMEOUT:-180}
+KEEP=${N8N_KEEP_BACKUPS:-3}
+
+envval() { sed -n "s/^$1=//p" "$ENV_FILE" 2>/dev/null | tail -1; }
+listen=$(envval N8N_LISTEN_ADDRESS); port=$(envval N8N_PORT)
+case "$listen" in ""|0.0.0.0|::) listen=127.0.0.1 ;; esac
+HEALTH=${N8N_HEALTH_URL:-http://$listen:${port:-5678}/healthz}
+
+# The n8n CLI must run as the n8n user, with its settings (the encryption key) and on spare ports, so it does not
+# collide with the running service (`n8n execute` starts a server of its own).
+as_n8n() {
+  # shellcheck source=/dev/null
+  ( set -a; . "$ENV_FILE"; set +a
+    export HOME="$DATA" N8N_PORT=5690 N8N_RUNNERS_BROKER_PORT=5691
+    cd "$DATA" && runuser -u n8n -p -- n8n "$@" )
+}
+healthy() {
+  local t=0
+  while [ "$t" -lt "$WAIT" ]; do
+    curl -fs -o /dev/null --max-time 3 "$HEALTH" && return 0
+    sleep 2; t=$((t + 2))
+  done
+  return 1
+}
+restart() { systemctl restart n8n && healthy; }
+installed_version() { n8n --version 2>/dev/null | tail -1 | tr -d '[:space:]'; }
+count_workflows() { as_n8n list:workflow 2>/dev/null | grep -c '|'; }
+
+update() {
+  local target=${1:-} current before stamp backup
+  current=$(installed_version)
+  [ -n "$target" ] || target=$(npm view n8n@stable version 2>/dev/null)
+  [ -n "$target" ] || { echo "Could not ask npm for the stable version"; return 2; }
+  if [ "$current" = "$target" ]; then echo "n8n $current is already the stable release: nothing to do"; return 0; fi
+  before=$(count_workflows)
+  stamp=$(date +%Y%m%d-%H%M%S)
+  backup="$BACKUPS/n8n-$current-$stamp.tar.gz"
+  mkdir -p "$BACKUPS"; chmod 700 "$BACKUPS"
+  echo "Updating n8n $current -> $target (backup: $backup)"
+  systemctl stop n8n
+  # The database migrates on the first start of the new version: only a copy of the data folder can undo that.
+  tar -C "$DATA" -czf "$backup" .n8n || { systemctl start n8n; echo "Backup failed: nothing changed"; return 2; }
+  if npm install -g --force "n8n@$target" >/dev/null 2>&1 && [ "$(installed_version)" = "$target" ] \
+     && systemctl start n8n && healthy && [ "$(count_workflows)" = "$before" ]; then
+    ls -1t "$BACKUPS"/n8n-*.tar.gz 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm -f
+    echo "Updated: n8n $target is up with its $before workflow(s)"
+    return 0
+  fi
+  echo "The update to $target failed its checks: rolling back to $current"
+  systemctl stop n8n
+  npm install -g --force "n8n@$current" >/dev/null 2>&1
+  rm -rf "${DATA:?}/.n8n" && tar -C "$DATA" -xzf "$backup"
+  chown -R n8n:n8n "$DATA/.n8n" 2>/dev/null
+  if systemctl start n8n && healthy && [ "$(installed_version)" = "$current" ]; then
+    echo "Rolled back: n8n $current is up again with its data from before the update"
+    return 1
+  fi
+  echo "ROLLBACK FAILED: n8n is not answering. Backup: $backup (journalctl -u n8n)"
+  return 3
+}
+
+# One line to the assistant through assistant-wakeup, which tells the owner in plain words.
+tell() {
+  local wenv=${WAKEUP_ENV:-/etc/assistant-wakeup.env}
+  [ -r "$wenv" ] || { echo "(no $wenv: nobody told)"; return 0; }
+  WAKEUP_ENV_FILE="$wenv" python3 -I - "$1" <<'PY'
+import json, os, sys, urllib.request
+env = dict(l.strip().split('=', 1) for l in open(os.environ['WAKEUP_ENV_FILE']) if '=' in l and not l.startswith('#'))
+host, _, port = env.get('WAKEUP_LISTEN', '127.0.0.1:8770').rpartition(':')
+host = '127.0.0.1' if host in ('', '0.0.0.0') else host
+body = json.dumps({'source': 'n8n update', 'text': sys.argv[1]}).encode()
+req = urllib.request.Request(f'http://{host}:{port}/wake', data=body, method='POST',
+                             headers={'Authorization': 'Bearer ' + env.get('WAKEUP_TOKEN', ''), 'Content-Type': 'application/json'})
+try:
+    urllib.request.urlopen(req, timeout=10)
+except Exception as e:
+    print(f'(could not tell the assistant: {e})')
+PY
+}
+
+cmd=${1:-}; shift || true
+case "$cmd" in
+  import) [ -f "${1:-}" ] || { echo "usage: n8n-admin import <workflow.json>"; exit 1; }
+          f=$(mktemp "$DATA/import.XXXXXX.json"); cp "$1" "$f"; chown n8n "$f"
+          as_n8n import:workflow --input="$f"; rc=$?; rm -f "$f"; exit $rc ;;
+  import-credentials) [ -f "${1:-}" ] || { echo "usage: n8n-admin import-credentials <file.json>"; exit 1; }
+          f=$(mktemp "$DATA/import.XXXXXX.json"); cp "$1" "$f"; chown n8n "$f"; chmod 600 "$f"
+          as_n8n import:credentials --input="$f"; rc=$?; rm -f "$f"; exit $rc ;;
+  publish) as_n8n publish:workflow --id="${1:?id}" ;;
+  unpublish) as_n8n unpublish:workflow --id="${1:?id}" ;;
+  list) as_n8n list:workflow ;;
+  export) as_n8n export:workflow --id="${1:?id}" ;;
+  restart) restart && echo "n8n is up" || { echo "n8n did not come back: journalctl -u n8n"; exit 1; } ;;
+  update) told=""; [ "${1:-}" = --tell ] && { told=1; shift; }
+          out=$(update "${1:-}"); rc=$?; echo "$out"
+          [ -n "$told" ] && tell "$(echo "$out" | tail -1) (n8n-admin update, exit $rc)"
+          exit $rc ;;
+  cli) as_n8n "$@" ;;
+  *) sed -n '2,11p' "$0"; exit 1 ;;
+esac

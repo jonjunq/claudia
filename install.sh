@@ -26,13 +26,16 @@ else
   H=/home/$U
 fi
 
+# Shared secret for the wake-up endpoint (only used if /etc/assistant-wakeup.env does not exist yet).
+TOKEN=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')
+
 # Copies a template unless the target exists, filling in the placeholders.
 put() {
   local from=$1 to=$2 mode=$3
   if [ -e "$D$to" ]; then echo "  kept     $to"; return; fi
   mkdir -p "$(dirname "$D$to")"
   sed -e "s|__USER__|$U|g" -e "s|__HOME__|$H|g" -e "s|__NAME__|$NAME|g" -e "s|__OWNER__|$OWNER|g" \
-      -e "s|__LANGUAGE__|$LANGUAGE|g" -e "s|__TIMEZONE__|$TIMEZONE|g" "$from" > "$D$to"
+      -e "s|__LANGUAGE__|$LANGUAGE|g" -e "s|__TIMEZONE__|$TIMEZONE|g" -e "s|__TOKEN__|$TOKEN|g" "$from" > "$D$to"
   chmod "$mode" "$D$to"
   echo "  created  $to"
 }
@@ -76,6 +79,22 @@ done
 put "$SRC/system/recall" /usr/local/bin/recall 755
 put "$SRC/system/assistant-history.service" /etc/systemd/system/assistant-history.service 644
 put "$SRC/system/assistant-history.timer" /etc/systemd/system/assistant-history.timer 644
+# Wake-up (optional, docs/wakeup.md): types a notice into the session only when a watched log or n8n has something.
+put "$SRC/wakeup/assistant-wakeup.py" /usr/local/lib/assistant-wakeup/assistant-wakeup.py 755
+put "$SRC/wakeup/assistant-wakeup.env" /etc/assistant-wakeup.env 600
+put "$SRC/wakeup/assistant-wakeup.watch" /etc/assistant-wakeup.watch 644
+put "$SRC/system/assistant-wakeup.service" /etc/systemd/system/assistant-wakeup.service 644
+# n8n kit (optional, docs/n8n.md): copied as-is, nothing is installed. Root-owned and readable, so the assistant can
+# read the workflow templates and the admin (or the assistant, if it runs as root) can run install-n8n.sh.
+( cd "$SRC/n8n" && find . -type f ) | sort | while read -r f; do
+  f=${f#./}; to="$D/usr/local/share/assistant-n8n/$f"
+  [ -e "$to" ] && continue
+  mkdir -p "$(dirname "$to")"
+  case "$f" in install-n8n.sh|n8n-admin) install -m 755 "$SRC/n8n/$f" "$to" ;; *) install -m 644 "$SRC/n8n/$f" "$to" ;; esac
+done
+# The guides too, so the assistant can read them on its own machine.
+for f in n8n.md wakeup.md; do install -D -m 644 "$SRC/../docs/$f" "$D/usr/local/share/assistant-n8n/docs/$f"; done
+echo "  copied   /usr/local/share/assistant-n8n/ (n8n kit and its guides, not installed)"
 [ -z "$D" ] && systemctl daemon-reload
 
 cat <<EOF
@@ -89,4 +108,7 @@ Next steps (details in docs/setup.md):
   2. Read and adapt $H/assistant/CLAUDE.md
   3. As root: systemctl enable --now assistant assistant-permission-watch assistant-history.timer
   4. Attach to watch it: sudo -u $U tmux attach -t assistant   (detach: Ctrl+B D)
+Optional:
+  - Wake-up instead of Monitors (docs/wakeup.md): systemctl enable --now assistant-wakeup
+  - n8n for alerts that need no thinking (docs/n8n.md): /usr/local/share/assistant-n8n/install-n8n.sh --help
 EOF
