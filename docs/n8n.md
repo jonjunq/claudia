@@ -160,6 +160,12 @@ you. Adapt the constants at the top of the second Code node (or ask the assistan
   From then on **Still on?** stops each run before any request is made. Nobody has to remember to unpublish it.
 - Messages end with "— automatic notice from n8n", so you know the assistant did not write them.
 
+### New release of the assistant → wake the assistant
+
+`release-watch-to-wakeup.json`: once a day, GitHub's API → **Newer than installed?** → the wake-up, only when there
+is a release newer than the installed version. The assistant then tells you what it brings and updates only with
+your yes. Details, and why it never updates on its own: [updating.md](updating.md).
+
 The Telegram node can use the assistant's own bot (its token is in `~/.claude/channels/telegram/.env`): sending
 does not interfere with the plugin, which only polls for incoming messages, and the assistant does not see what its
 bot sends. If you reply to one of those messages, the assistant sees your reply and the quoted text.

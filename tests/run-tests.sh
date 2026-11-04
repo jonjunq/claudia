@@ -41,7 +41,7 @@ check "review prompt filled in" grep -q "of Ada, Alex's personal assistant" "$T/
 check "recall allowed in settings" jq -e '.permissions.allow | index("Bash(recall *)")' "$H/.claude/settings.json"
 check "keys.env is private" test "$(stat -c %a "$H/.config/assistant/keys.env")" = 600
 check "units installed" test -e "$T/etc/systemd/system/assistant.service" -a -e "$T/etc/cron.d/assistant"
-check "no placeholders left" bash -c "! grep -rq --exclude-dir=assistant-n8n '__[A-Z]*__' '$H' '$T/etc' '$T/usr'"
+check "no placeholders left" bash -c "! grep -rq --exclude-dir=assistant-n8n --exclude-dir=docs '__[A-Z]*__' '$H' '$T/etc' '$T/usr'"
 check "wake-up installed" test -x "$T/usr/local/lib/assistant-wakeup/assistant-wakeup.py" -a -e "$T/etc/systemd/system/assistant-wakeup.service"
 check "wake-up settings are private, with a token" bash -c "test \$(stat -c %a '$T/etc/assistant-wakeup.env') = 600 && grep -qE '^WAKEUP_TOKEN=[0-9a-f]{48}$' '$T/etc/assistant-wakeup.env' && grep -q '^WAKEUP_USER=alex$' '$T/etc/assistant-wakeup.env'"
 check "n8n kit copied untouched" bash -c "test -x '$T/usr/local/share/assistant-n8n/install-n8n.sh' && grep -q __WAKEUP_URL__ '$T/usr/local/share/assistant-n8n/workflows/email-to-wakeup.json'"
@@ -53,7 +53,36 @@ check "installed settings valid JSON" jq -e . "$H/.claude/settings.json"
 echo "edited" >> "$H/assistant/CLAUDE.md"
 DESTDIR="$T" ./install.sh alex >/dev/null 2>&1
 check "re-install keeps edits" grep -q "^edited$" "$H/assistant/CLAUDE.md"
+check "re-install reuses the settings of the first install" grep -q "You are \*\*Ada\*\*" "$T/usr/local/share/assistant/installed/home/alex/assistant/CLAUDE.md"
+check "install records its version and settings" bash -c "grep -qE '^VERSION=.+' '$T/usr/local/share/assistant/install.conf' && grep -q '^NAME=Ada$' '$T/usr/local/share/assistant/install.conf' && grep -q '^GITHUB_REPO=[^/]*/[^/]*$' '$T/usr/local/share/assistant/install.conf'"
+check "install copies the guides and the changelog for the assistant" test -e "$T/usr/local/share/assistant/docs/updating.md" -a -e "$T/usr/local/share/assistant/docs/CHANGELOG.md"
 [ -n "$out" ] || ko "install printed nothing"
+
+# --upgrade, from a copy of the repo without git (a downloaded release): a "next release" changes some templates
+S="$T/src"; UP="$T/up"; UH="$UP/home/alex"; mkdir -p "$S"; cp -r install.sh templates docs CHANGELOG.md "$S/"
+DESTDIR="$UP" "$S/install.sh" alex --name Ada --owner Alex >/dev/null 2>&1
+check "version from CHANGELOG.md without git" grep -qE '^VERSION=v[0-9]+[.][0-9]+[.][0-9]+([+]unreleased)?$' "$UP/usr/local/share/assistant/install.conf"
+tok=$(sed -n 's/^WAKEUP_TOKEN=//p' "$UP/etc/assistant-wakeup.env")
+sed -i 's/^## How you talk$/## How you talk (new heading)/' "$S/templates/workspace/CLAUDE.md"
+echo "My own rule at the end." >> "$UH/assistant/CLAUDE.md"
+sed -i 's/^- At the start of every conversation: nothing extra yet.$/- At the start: the new default./' "$S/templates/workspace/notes/routines.md"
+sed -i 's/^- At the start of every conversation: nothing extra yet.$/- At the start: check the weather./' "$UH/assistant/notes/routines.md"
+echo "# new in the next release" >> "$S/templates/workspace/bin/start.sh"
+echo "# new in the next release" >> "$S/templates/wakeup/assistant-wakeup.env"
+echo "- a new line" >> "$S/templates/workspace/notes/todo.md"; echo "- mine" >> "$UH/assistant/notes/todo.md"
+rm "$UP/usr/local/share/assistant/installed/home/alex/assistant/notes/todo.md"   # as if installed before 1.4.0
+DESTDIR="$UP" "$S/install.sh" alex >/dev/null 2>&1
+check "without --upgrade nothing is replaced" bash -c "! grep -q 'new in the next release' '$UH/assistant/bin/start.sh' && test ! -e '$UH/assistant/CLAUDE.md.new'"
+up=$(DESTDIR="$UP" "$S/install.sh" alex --upgrade 2>&1)
+check "upgrade replaces an untouched file and keeps the old copy" bash -c "grep -q 'new in the next release' '$UH/assistant/bin/start.sh' && test -x '$UH/assistant/bin/start.sh' && ls '$UH'/assistant/bin/start.sh.bak-* && ! grep -q 'new in the next release' '$UH'/assistant/bin/start.sh.bak-*"
+check "upgrade never touches a file you changed" bash -c "grep -q '^## How you talk$' '$UH/assistant/CLAUDE.md' && grep -q 'My own rule' '$UH/assistant/CLAUDE.md'"
+check "upgrade merges your changes with the template's" bash -c "grep -q '(new heading)' '$UH/assistant/CLAUDE.md.new' && grep -q 'My own rule' '$UH/assistant/CLAUDE.md.new' && grep -q 'You are \*\*Ada\*\*' '$UH/assistant/CLAUDE.md.new'"
+check "upgrade marks a conflict instead of choosing" env UPOUT="$up" bash -c "grep -q '^<<<<<<<' '$UH/assistant/notes/routines.md.new' && grep -q 'check the weather' '$UH/assistant/notes/routines.md' && echo \"\$UPOUT\" | grep -q 'CONFLICT.*routines.md.new'"
+check "upgrade without a record of the original writes the template beside yours" env UPOUT="$up" bash -c "grep -q '^- a new line' '$UH/assistant/notes/todo.md.new' && grep -q '^- mine' '$UH/assistant/notes/todo.md' && echo \"\$UPOUT\" | grep -q 'differs.*todo.md.new'"
+check "upgrade keeps the wake-up token and the file private" bash -c "grep -q 'new in the next release' '$UP/etc/assistant-wakeup.env' && grep -q '^WAKEUP_TOKEN=$tok$' '$UP/etc/assistant-wakeup.env' && test \$(stat -c %a '$UP/etc/assistant-wakeup.env') = 600"
+mv "$UH/assistant/CLAUDE.md.new" "$UH/assistant/CLAUDE.md"
+up=$(DESTDIR="$UP" "$S/install.sh" alex --upgrade 2>&1)
+check "after you take a merge, the next upgrade has nothing to merge" env UPOUT="$up" bash -c "test ! -e '$UH/assistant/CLAUDE.md.new' && ! echo \"\$UPOUT\" | grep -q 'CLAUDE.md'"
 
 # Fake tmux and claude to drive the scripts.
 B="$T/bin"; mkdir -p "$B"

@@ -1,0 +1,149 @@
+{
+ "id": "releaseWatch0001",
+ "name": "New assistant release → wake the assistant",
+ "active": false,
+ "settings": {
+  "executionOrder": "v1",
+  "timezone": "__TIMEZONE__",
+  "saveDataSuccessExecution": "none"
+ },
+ "nodes": [
+  {
+   "id": "5b0e7a52-6c1f-4f0e-9d0a-2f1d8c3e4a01",
+   "name": "Every day",
+   "type": "n8n-nodes-base.scheduleTrigger",
+   "typeVersion": 1.2,
+   "position": [
+    0,
+    0
+   ],
+   "parameters": {
+    "rule": {
+     "interval": [
+      {
+       "field": "days",
+       "daysInterval": 1,
+       "triggerAtHour": 10,
+       "triggerAtMinute": 0
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "5b0e7a52-6c1f-4f0e-9d0a-2f1d8c3e4a02",
+   "name": "Latest release",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    220,
+    0
+   ],
+   "parameters": {
+    "url": "https://api.github.com/repos/__GITHUB_REPO__/releases/latest",
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "Accept",
+       "value": "application/vnd.github+json"
+      },
+      {
+       "name": "X-GitHub-Api-Version",
+       "value": "2022-11-28"
+      },
+      {
+       "name": "User-Agent",
+       "value": "assistant-release-watch"
+      }
+     ]
+    },
+    "options": {
+     "timeout": 20000
+    }
+   },
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 5000
+  },
+  {
+   "id": "5b0e7a52-6c1f-4f0e-9d0a-2f1d8c3e4a03",
+   "name": "Newer than installed?",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    440,
+    0
+   ],
+   "parameters": {
+    "jsCode": "// Is there a release newer than the installed one? Then one line for the assistant; otherwise nothing at all.\n// ---- Filled in when the workflow is set up (the assistant does it: docs/updating.md) ----\nconst INSTALLED = '__VERSION__';      // VERSION from /usr/local/share/assistant/install.conf, e.g. v1.4.0\nconst REPO = '__GITHUB_REPO__';       // GITHUB_REPO from the same file, e.g. jonjunq/claudia\n// -----------------------------------------------------------------------------------------\n// Only the numbers of a tag are used: the release title and notes are not passed on, so nothing written in the\n// repo reaches the assistant's terminal (it reads the changelog itself, as data).\nconst parse = v => { const m = String(v || '').match(/^v?(\\d+)\\.(\\d+)\\.(\\d+)/); return m ? m.slice(1).map(Number) : null; };\nconst newer = (a, b) => { for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] > b[i]; return false; };\nconst max = (a, b) => (!a ? b : !b ? a : newer(a, b) ? a : b);\nconst r = $input.first().json;\nif (r.draft || r.prerelease) return [];\nconst latest = parse(r.tag_name);\nif (!latest) throw new Error('The latest release has a tag that is not a version: ' + String(r.tag_name).slice(0, 40));\nconst mem = $getWorkflowStaticData('global');\nconst known = max(parse(INSTALLED), parse(mem.reported));\nconst tag = 'v' + latest.join('.');\nif (!known) { mem.reported = tag; return []; }   // nothing to compare with: remember it, report the next one\nif (!newer(latest, known)) return [];\nmem.reported = tag;                               // one notice per release, whatever the assistant decides\nreturn [{ json: { source: 'claudia-release', text: 'New release ' + tag + ' of ' + REPO + ' (this watch was set up on ' +\n  INSTALLED + '; the installed version is in /usr/local/share/assistant/install.conf). Notes: https://github.com/' +\n  REPO + '/releases/tag/' + tag } }];\n"
+   }
+  },
+  {
+   "id": "5b0e7a52-6c1f-4f0e-9d0a-2f1d8c3e4a04",
+   "name": "Wake the assistant",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    660,
+    0
+   ],
+   "parameters": {
+    "method": "POST",
+    "url": "__WAKEUP_URL__",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth",
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ source: $json.source, text: $json.text }) }}",
+    "options": {
+     "timeout": 15000
+    }
+   },
+   "credentials": {
+    "httpHeaderAuth": {
+     "id": "assistantWakeup1",
+     "name": "Assistant wake-up"
+    }
+   },
+   "retryOnFail": true,
+   "maxTries": 5,
+   "waitBetweenTries": 5000
+  }
+ ],
+ "connections": {
+  "Every day": {
+   "main": [
+    [
+     {
+      "node": "Latest release",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Latest release": {
+   "main": [
+    [
+     {
+      "node": "Newer than installed?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Newer than installed?": {
+   "main": [
+    [
+     {
+      "node": "Wake the assistant",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ }
+}

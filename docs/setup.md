@@ -36,6 +36,7 @@ It creates, without overwriting anything that exists:
 | `/etc/systemd/system/assistant.service` | Runs `bin/start.sh` inside a tmux session called `assistant` |
 | `/etc/systemd/system/assistant-permission-watch.service` | The permission-prompt watcher |
 | `/usr/local/sbin/assistant-daily-restart` + `/etc/cron.d/assistant` | The nightly end of day (05:45 by default) |
+| `/usr/local/share/assistant/` | `install.conf` (version and settings), the guides for the assistant to read, and a copy of what was installed, for upgrades |
 
 Nothing starts yet.
 
@@ -132,12 +133,20 @@ One gotcha baked into `start.sh`: when you pass a first prompt to `claude`, put 
 
 ## Updating
 
-`git pull` in your clone shows what changed in `templates/`. Re-running `./install.sh <user>` adds files that are new
-(it never overwrites), then `systemctl daemon-reload` and enable any new unit it lists. Your workspace files are
-yours: copy over the scripts in `bin/` you want (they hold no personal data) and merge `CLAUDE.md` and
-`settings.json` changes by hand (from 1.3.0 the template adds an `autoMode.hard_deny` block that blocks payments,
-and two `CLAUDE.md` sections: automatic notices and n8n; after 1.3.0, a new voice-notes rule). The root-owned
-pieces under `/usr/local/lib/` are not overwritten either: copy the ones that changed, as root, e.g.
-`install -m 755 templates/telegram/patch-telegram-plugin.py /usr/local/lib/assistant-telegram/` (the next session
-start applies the new patch). Claude Code itself updates every night; n8n, if you use
-it, does not: `n8n-admin update` ([n8n.md](n8n.md#keeping-it-updated)).
+The assistant can do this for you, with your yes: it hears about new releases (with n8n, or a GitHub
+notification), explains what they bring, and applies them without overwriting your changes. How, and why it never
+updates on its own: [updating.md](updating.md).
+
+By hand, from the release's tag (not `main`):
+
+```bash
+git fetch --tags && git checkout v1.5.0        # in your clone; read CHANGELOG.md first
+sudo ./install.sh <user> --upgrade
+```
+
+Files you never changed are updated (the old copy stays as `<file>.bak-<date>`); files you changed are left alone
+and get a `<file>.new` with your changes and the template's merged, for you (or the assistant) to review and move
+over. Then `systemctl daemon-reload` and restart what changed. Installs from before 1.4.0 have no record of the
+original files, so the first upgrade writes the plain new template as `.new` for every file of yours that
+differs. Claude Code itself updates every night; n8n, if you use it, does not: `n8n-admin update`
+([n8n.md](n8n.md#keeping-it-updated)).
