@@ -29,9 +29,9 @@ text = f"{head}\n\n{detail}\n\nYou have {WAIT // 60} min to answer; after that i
 buttons = {"inline_keyboard": [[{"text": "✅ Allow", "callback_data": f"hk:allow:{rid}"},
                                 {"text": "❌ Deny", "callback_data": f"hk:deny:{rid}"}]]}
 r = tg.api("sendMessage", chat_id=CHAT, text=text[:4000], reply_markup=buttons)
-if not r:
-    sys.exit(0)  # Telegram unreachable: let the normal flow handle it
-msg_id = r["message_id"]
+if not r:  # a timeout does not mean it was not delivered: do not resend (duplicates), wait for the button anyway
+    tg.log(f"permission {rid}: sendMessage not confirmed, waiting for the button anyway")
+msg_id = r["message_id"] if r else None
 pending = os.path.join(tg.STATE, "permission-pending.json")
 tg.write_json(pending, {"since": time.time(), "what": f"{name}: {what}"})
 tg.log(f"permission asked {rid} {name}: {what}")
@@ -52,12 +52,12 @@ finally:
         pass
 
 if verdict not in ("allow", "deny"):
-    tg.api("editMessageText", chat_id=CHAT, message_id=msg_id, text=f"{head}\n\n⌛ No answer: its terminal decided.")
+    msg_id and tg.api("editMessageText", chat_id=CHAT, message_id=msg_id, text=f"{head}\n\n⌛ No answer: its terminal decided.")
     tg.log(f"permission {rid} no answer")
     sys.exit(0)
 
 label = "✅ Allowed" if verdict == "allow" else "❌ Denied"
-tg.api("editMessageText", chat_id=CHAT, message_id=msg_id, text=f"{head}\n\n{label} from Telegram")
+msg_id and tg.api("editMessageText", chat_id=CHAT, message_id=msg_id, text=f"{head}\n\n{label} from Telegram")
 tg.log(f"permission {rid} {verdict}")
 decision = {"behavior": verdict}
 if verdict == "deny":

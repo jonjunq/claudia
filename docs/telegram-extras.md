@@ -93,6 +93,29 @@ Not verified yet: whether an answer arrives in time on the prompts that carry th
 since the terminal dialog and the hook run side by side. If the countdown wins, the message on Telegram ends up as
 "No answer".
 
+### When the classifier blocks something outright
+
+A `PermissionRequest` hook only runs when Claude Code is about to *ask*. When the auto-mode classifier denies a call
+by itself, nobody is asked: the call fails, the model gets the denial and works around it or gives up, and from the
+phone you only see the result. Two more hooks cover that case:
+
+1. `denied-hook.py` runs on [`PermissionDenied`](https://code.claude.com/docs/en/hooks). It sends you "🚫 The
+   classifier blocked this" with the tool, the classifier's reason, the command and two buttons, ✅ Approve and
+   ❌ Keep blocked, and waits for the verdict the same way as the permission hook.
+2. If you approve, it saves a **one-time approval** for that exact call (a SHA-256 of the tool name and its input;
+   for Bash only the command counts, not the description or the timeout) in `~/.cache/assistant-telegram/approvals/`,
+   valid for 5 minutes, and answers `retry: true`, so the model knows it may try again.
+3. `approved-hook.py`, a synchronous `PreToolUse` hook, sees the identical call, uses up the approval and returns
+   `allow`. Any other call, or the same one a second time, goes through the normal checks. When the approvals folder
+   is empty it exits before reading its input, so it costs nothing on ordinary tool calls.
+
+With no answer, or Keep blocked, the denial stands as before. If Telegram did not confirm the message (a timeout
+does not mean it was not delivered), the hooks do not resend it, to avoid duplicates, and wait for the button anyway;
+the denied hook then only waits 3 minutes.
+
+Use it with care: the classifier blocks things for a reason, and an approval overrides it for that one call. Read
+the command before tapping Approve.
+
 ### Security
 
 - The scripts are root-owned in `/usr/local/lib/assistant-telegram/`, and the `hooks` block is in
@@ -135,5 +158,7 @@ Limits: 32,768 characters, 500 blocks and 20 table columns per message.
 - Quotes: reply to one of its old messages with "what was this about?".
 - Permissions: add the `ask` rule above, ask it to run `echo permission-test`, tap Allow, then remove the rule. The
   log shows `permission asked …` and `permission … allow`.
+- Classifier blocks: the next time one happens, the log shows `denied <id> …`, then `denied <id> approved` and
+  `approval used …` if you tapped Approve.
 - Rich messages: `printf '# Test\n\n| a | b |\n|---|---|\n| 1 | 2 |\n' | python3 -I /usr/local/lib/assistant-telegram/send-rich.py`
   shows a heading and a small table.

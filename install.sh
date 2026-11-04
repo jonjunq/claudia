@@ -65,7 +65,7 @@ put "$SRC/system/assistant.cron" /etc/cron.d/assistant 644
 # Telegram extras (status message, permission buttons, plugin patch): root-owned, so the assistant cannot edit
 # the code that decides its own permissions.
 for f in "$SRC"/telegram/*.py; do
-  case "$f" in */tg.py) mode=644 ;; *) mode=755 ;; esac
+  case "$f" in */tg.py|*/approvals.py) mode=644 ;; *) mode=755 ;; esac
   put "$f" "/usr/local/lib/assistant-telegram/$(basename "$f")" "$mode"
 done
 # Memory tools (recall, nightly review, git history): root-owned too, so the assistant cannot change what reviews it.

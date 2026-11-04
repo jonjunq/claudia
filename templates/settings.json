@@ -93,6 +93,16 @@
             "async": true
           }
         ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I /usr/local/lib/assistant-telegram/approved-hook.py",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -136,6 +146,18 @@
           {
             "type": "command",
             "command": "python3 -I /usr/local/lib/assistant-telegram/permission-hook.py",
+            "timeout": 600
+          }
+        ]
+      }
+    ],
+    "PermissionDenied": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -I /usr/local/lib/assistant-telegram/denied-hook.py",
             "timeout": 600
           }
         ]

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Approve from Telegram what the auto-mode classifier blocks: `denied-hook.py` (`PermissionDenied`) sends the
+  blocked call with Approve / Keep blocked buttons; an approval is one-time, for that exact call, valid 5 minutes,
+  and `approved-hook.py` (synchronous `PreToolUse`) lets it through when the model retries. Without it, a call the
+  classifier denies just fails and you only notice later. See [docs/telegram-extras.md](docs/telegram-extras.md#when-the-classifier-blocks-something-outright).
+- Fix: when Telegram did not confirm the permission message (a timeout, while the message often did arrive),
+  `permission-hook.py` gave up and the button you then tapped did nothing. It now waits for the button anyway.
 - Fix: a phantom "⏳ Working" message stayed on Telegram after a turn ended, until the next turn. Claude Code fires
   tool hooks for background work in the same session (for example while it prepares the suggested reply), which
   never reaches the transcript. `status-hook.py` now ties each turn to its `prompt_id` and ignores events whose

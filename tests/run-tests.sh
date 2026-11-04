@@ -13,6 +13,7 @@ check "shellcheck" shellcheck -S warning -x "${SCRIPTS[@]}"
 for s in "${SCRIPTS[@]}"; do check "bash -n $s" bash -n "$s"; done
 check "settings.json is valid JSON" jq -e . templates/settings.json
 check "settings.json has the Telegram hooks" jq -e '.hooks.PermissionRequest[0].hooks[0].timeout == 600 and (.hooks.PreToolUse[0].hooks[0].async == true)' templates/settings.json
+check "settings.json has the classifier-block hooks" jq -e '(.hooks.PermissionDenied[0].hooks[0].command | test("denied-hook")) and ([.hooks.PreToolUse[].hooks[] | select(.command | test("approved-hook")) | (.async // false)] == [false])' templates/settings.json
 for p in templates/telegram/*.py templates/memory/*.py tests/*.py; do check "python compiles $p" python3 -m py_compile "$p"; done
 find templates tests -name __pycache__ -exec rm -rf {} +
 
@@ -193,6 +194,28 @@ check "permission-hook edits the message with the outcome" grep -q 'Allowed from
 out=$(echo "$REQ" | ASSISTANT_PERMISSION_WAIT=1 python3 -I templates/telegram/permission-hook.py)
 check "permission-hook without an answer leaves the decision to the terminal" test -z "$out"
 check "permission-hook clears its pending flag" test ! -e "$H/.cache/assistant-telegram/permission-pending.json"
+# denied-hook.py + approved-hook.py: a call the classifier blocked, approved from Telegram, passes once and only once
+DEN='{"hook_event_name":"PermissionDenied","cwd":"'"$H"'/assistant","tool_name":"Bash","reason":"Deletes files outside the project","tool_input":{"command":"rm -rf /tmp/old-build","description":"Remove the old build"}}'
+PRE_SAME='{"hook_event_name":"PreToolUse","cwd":"'"$H"'/assistant","tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/old-build","description":"Different wording","timeout":60000}}'
+PRE_OTHER='{"hook_event_name":"PreToolUse","cwd":"'"$H"'/assistant","tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/other"}}'
+check "approved-hook is silent with no approvals" test -z "$(echo "$PRE_SAME" | python3 -I templates/telegram/approved-hook.py)"
+: > "$API_LOG"
+( for _ in $(seq 1 40); do
+    id=$(grep -o 'hk:allow:[0-9a-f]\{16\}' "$API_LOG" | head -1 | cut -d: -f3)
+    if [ -n "$id" ]; then echo allow > "$H/.claude/channels/telegram/verdicts/$id"; break; fi
+    sleep 0.25
+  done ) &
+out=$(echo "$DEN" | ASSISTANT_PERMISSION_WAIT=15 python3 -I templates/telegram/denied-hook.py)
+wait $!
+check "denied-hook sends the block with the classifier's reason" bash -c "grep '\"method\": \"sendMessage\"' '$API_LOG' | grep -q 'Deletes files outside the project'"
+check "denied-hook asks for a retry after Approve" bash -c "echo '$out' | jq -e '.hookSpecificOutput.retry == true'"
+check "approved-hook ignores a different call" test -z "$(echo "$PRE_OTHER" | python3 -I templates/telegram/approved-hook.py)"
+out=$(echo "$PRE_SAME" | python3 -I templates/telegram/approved-hook.py)
+check "approved-hook allows the same command once" bash -c "echo '$out' | jq -e '.hookSpecificOutput.permissionDecision == \"allow\"'"
+check "approved-hook does not allow it twice" test -z "$(echo "$PRE_SAME" | python3 -I templates/telegram/approved-hook.py)"
+: > "$API_LOG"
+out=$(echo "$DEN" | ASSISTANT_PERMISSION_WAIT=1 python3 -I templates/telegram/denied-hook.py)
+check "denied-hook without an answer keeps the block" bash -c "test -z '$out' && grep -q 'No answer: it stays blocked' '$API_LOG' && test -z \"\$(ls -A '$H/.cache/assistant-telegram/approvals')\""
 # Under cron the PATH is only /usr/bin:/bin and runuser lives in /usr/sbin: both entry points must not depend on it
 check "assistant.cron sets a PATH with /usr/sbin" grep -q '^PATH=.*/usr/sbin' templates/system/assistant.cron
 check "assistant-daily-restart exports a PATH with /usr/sbin" grep -q '^export PATH=.*/usr/sbin' templates/system/assistant-daily-restart
