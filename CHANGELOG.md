@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.4.0 — 2026-11-05
 
 - **First weeks, proactive** (`templates/workspace/.claude/skills/first-days/`): a new owner should not need the
   docs to find out what the assistant can do. While `notes/first-days.md` says `phase: active`, the assistant offers
