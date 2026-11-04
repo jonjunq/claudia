@@ -41,8 +41,10 @@
   0.6B v3 on the CPU (optional, about 5 s for a 12 s note) → faster-whisper (optional) → a clear error.
   `TRANSCRIBE_NAMES` in `assistant.env` gives the cloud engines the names they misspell. The engine goes to stderr.
   It used to wait up to 300 s on a hung Groq call.
-- Upgrading: the patcher rebuilds a v1-patched plugin from `server.ts.orig`; `CLAUDE.md` has a new voice-notes rule
-  (copy it into yours, since `install.sh` never overwrites); add `TRANSCRIBE_NAMES` and `PARAKEET_VENV` to your
+- Upgrading (`install.sh` never overwrites, [docs/setup.md](docs/setup.md#updating)): copy
+  `templates/telegram/patch-telegram-plugin.py` to `/usr/local/lib/assistant-telegram/` and `bin/transcribe.sh` to
+  your workspace; the patcher rebuilds a v1-patched plugin from `server.ts.orig` at the next start. Copy the new
+  voice-notes rule from the `CLAUDE.md` template into yours, and add `TRANSCRIBE_NAMES` and `PARAKEET_VENV` to your
   `assistant.env` if you want them.
 - Tests: the patch on a stand-in with the new anchors (and the upgrade from v1), `transcribe.sh` with a fake curl, and
   [`tests/plugin-e2e.py`](tests/plugin-e2e.py), which runs the real plugin against `tests/fake-telegram.py` (now able

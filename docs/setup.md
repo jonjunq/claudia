@@ -136,5 +136,8 @@ One gotcha baked into `start.sh`: when you pass a first prompt to `claude`, put 
 (it never overwrites), then `systemctl daemon-reload` and enable any new unit it lists. Your workspace files are
 yours: copy over the scripts in `bin/` you want (they hold no personal data) and merge `CLAUDE.md` and
 `settings.json` changes by hand (from 1.3.0 the template adds an `autoMode.hard_deny` block that blocks payments,
-and two `CLAUDE.md` sections: automatic notices and n8n). Claude Code itself updates every night; n8n, if you use
+and two `CLAUDE.md` sections: automatic notices and n8n; after 1.3.0, a new voice-notes rule). The root-owned
+pieces under `/usr/local/lib/` are not overwritten either: copy the ones that changed, as root, e.g.
+`install -m 755 templates/telegram/patch-telegram-plugin.py /usr/local/lib/assistant-telegram/` (the next session
+start applies the new patch). Claude Code itself updates every night; n8n, if you use
 it, does not: `n8n-admin update` ([n8n.md](n8n.md#keeping-it-updated)).
