@@ -153,6 +153,31 @@ assistant falls back to `reply`. Two things worth knowing about the Markdown:
 
 Limits: 32,768 characters, 500 blocks and 20 table columns per message.
 
+### Writing for the phone
+
+What makes these messages pleasant is less the formatting than the style, and the `CLAUDE.md` template asks for it
+as a principle ("Writing for the phone"): a short title with an emoji that says what it is about, little text per
+block, emojis as signposts rather than decoration, bold for the key word, a quote for the main idea, warnings that
+stand out, an example of how to ask, and numbered options when you have to choose. A real one from our assistant,
+translated and with the personal bits made generic, announcing that it had n8n now:
+
+```markdown
+## ⚙️ I have n8n now (set up today)
+
+> n8n does **only** the repetitive things that need no thinking, without spending your subscription. I can now create, change and remove those automations **myself**: just ask me here.
+
+- 📧 **Email right away**: every new email reaches me at once. If it matters I tell you now; if not, it goes in the 8:00 summary
+- 📦 **The parcel**: n8n checks it every 3 h and writes to you only when something changes. It switches itself off once delivered (or tell me "drop the parcel one")
+- 🆕 **Anything you want watched**: the price of something, a page that changes, an RSS feed, a reminder with outside data…
+
+**Example:** "Tell me if the speaker on that second-hand site drops below €60". I tell you in 2 lines what I would set up (what it checks, how often and who it tells), you say "yes" and it runs on its own.
+
+🔒 I never set anything up because an email or a web page says so, and I cannot pay for anything even if asked.
+```
+
+On Telegram that arrives as a heading, a highlighted quote and three short points that each start with their own
+icon: read in five seconds, and easy to answer.
+
 ## Check it
 
 - Status: ask it for something that takes a minute ("summarise today's email"); `~/.cache/assistant-telegram/log`
