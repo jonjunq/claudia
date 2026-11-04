@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.0 — 2026-11-04
 
 - **Run it your way**: the README and [docs/isolation.md](docs/isolation.md) no longer present an isolated container
   as the only way. They compare the options (its own container or VM, a user on a machine you already have, root on
