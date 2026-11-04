@@ -79,6 +79,12 @@ done
 put "$SRC/system/recall" /usr/local/bin/recall 755
 put "$SRC/system/assistant-history.service" /etc/systemd/system/assistant-history.service 644
 put "$SRC/system/assistant-history.timer" /etc/systemd/system/assistant-history.timer 644
+# Browser extras (optional, docs/browser.md): an agent-browser config to copy, and the remote window's units
+# (x11vnc + noVNC), installed but not enabled.
+put "$SRC/browser/current-display" /usr/local/lib/assistant-browser/current-display 755
+put "$SRC/browser/agent-browser-config.json" /usr/local/lib/assistant-browser/agent-browser-config.json 644
+put "$SRC/system/assistant-window-vnc.service" /etc/systemd/system/assistant-window-vnc.service 644
+put "$SRC/system/assistant-window-web.service" /etc/systemd/system/assistant-window-web.service 644
 # Wake-up (optional, docs/wakeup.md): types a notice into the session only when a watched log or n8n has something.
 put "$SRC/wakeup/assistant-wakeup.py" /usr/local/lib/assistant-wakeup/assistant-wakeup.py 755
 put "$SRC/wakeup/assistant-wakeup.env" /etc/assistant-wakeup.env 600
@@ -111,4 +117,5 @@ Next steps (details in docs/setup.md):
 Optional:
   - Wake-up instead of Monitors (docs/wakeup.md): systemctl enable --now assistant-wakeup
   - n8n for alerts that need no thinking (docs/n8n.md): /usr/local/share/assistant-n8n/install-n8n.sh --help
+  - A full browser with a window, and a remote window for captchas (docs/browser.md)
 EOF

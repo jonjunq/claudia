@@ -8,7 +8,7 @@ ok() { echo "ok   $1"; pass=$((pass + 1)); }
 ko() { echo "FAIL $1"; fail=$((fail + 1)); }
 check() { local name=$1; shift; if "$@" >/dev/null 2>&1; then ok "$name"; else ko "$name"; fi; }
 
-SCRIPTS=(install.sh tests/run-tests.sh templates/system/assistant-daily-restart templates/system/recall templates/workspace/bin/*.sh templates/tools/*.sh templates/memory/*.sh templates/n8n/install-n8n.sh templates/n8n/n8n-admin docs/diagrams/build.sh)
+SCRIPTS=(install.sh tests/run-tests.sh templates/browser/current-display templates/system/assistant-daily-restart templates/system/recall templates/workspace/bin/*.sh templates/tools/*.sh templates/memory/*.sh templates/n8n/install-n8n.sh templates/n8n/n8n-admin docs/diagrams/build.sh)
 check "shellcheck" shellcheck -S warning -x "${SCRIPTS[@]}"
 for s in "${SCRIPTS[@]}"; do check "bash -n $s" bash -n "$s"; done
 check "settings.json is valid JSON" jq -e . templates/settings.json
@@ -29,6 +29,9 @@ for f in assistant/CLAUDE.md assistant/assistant.env assistant/notes/todo.md ass
   check "installed $f" test -e "$H/$f"
 done
 check "scripts are executable" test -x "$H/assistant/bin/start.sh"
+check "browser extras installed, not enabled" bash -c "test -x '$T/usr/local/lib/assistant-browser/current-display' && grep -q '\"profile\": \"/home/alex/.browser/clean\"' '$T/usr/local/lib/assistant-browser/agent-browser-config.json' && grep -q '^User=alex$' '$T/etc/systemd/system/assistant-window-vnc.service' && test -e '$T/etc/systemd/system/assistant-window-web.service'"
+check "remote window listens on localhost only" bash -c "grep -q 'websockify .* 127.0.0.1:6080 127.0.0.1:5900' templates/system/assistant-window-web.service && grep -q -- '-localhost .*-rfbauth' templates/system/assistant-window-vnc.service"
+check "agent-browser config is valid JSON" jq -e .headed templates/browser/agent-browser-config.json
 check "browser skill installed" test -e "$H/assistant/.claude/skills/browser/SKILL.md"
 check "Telegram extras installed" test -x "$T/usr/local/lib/assistant-telegram/permission-hook.py" -a -e "$T/usr/local/lib/assistant-telegram/tg.py"
 check "memory tools installed" test -x "$T/usr/local/lib/assistant-memory/nightly-review.py" -a -x "$T/usr/local/bin/recall" -a -e "$T/usr/local/lib/assistant-memory/review-prompt.txt"

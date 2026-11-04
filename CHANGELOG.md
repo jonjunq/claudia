@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **A full browser with a window** ([docs/browser.md](docs/browser.md#which-browser-underneath-a-full-chromium-with-a-window)):
+  Debian's Chromium in headed mode on Xvfb (agent-browser starts it) instead of the headless shell, whose
+  `HeadlessChrome` user agent got a CloudFront site's 403 in 0.1 s and was refused by a big provider's sign-in; with
+  the full browser the same site opens in 2-3 s. `templates/browser/agent-browser-config.json`, two profiles
+  (clean, and one for signed-in sites), the measurements, and the fix for Xvfb/Chromium crashing in a container
+  without a GPU (leftover NVIDIA EGL/Vulkan files). The rule: a standard browser yes; user-agent changes, stealth
+  and captcha solvers no.
+- **Remote window** (optional, not enabled): `assistant-window-vnc.service` (x11vnc on localhost that attaches to
+  the newest browser only when you connect, via `templates/browser/current-display`) and
+  `assistant-window-web.service` (noVNC/websockify on localhost), so you solve a captcha or a sign-in in the
+  assistant's own session from your phone. The doc compares ways to protect it (a VPN, or a proxy with a login and
+  a passkey, plus a firewall) without requiring any.
+- The browser skill: the two profiles, when to send the remote window, captchas, and the no-stealth rule.
 - **Voice notes transcribed before the assistant sees them** ([docs/voice.md](docs/voice.md),
   [docs/telegram-extras.md](docs/telegram-extras.md#5-voice-notes-transcribed-on-arrival)). Timing 117 real notes
   showed the speech-to-text took 0.4 s of the 17.5 s from arrival to answer, while the assistant's two extra turns

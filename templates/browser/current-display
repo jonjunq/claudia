@@ -1,0 +1,17 @@
+#!/bin/bash
+# For x11vnc -display WAIT:cmd=...: prints DISPLAY (and XAUTHORITY) of the most recently started browser of the
+# user running it. agent-browser in headed mode starts its own Xvfb per session, so the display number changes;
+# this finds it when someone connects to the remote window (docs/browser.md).
+# With an argument (part of the profile path, e.g. "sessions") it picks that browser.
+filter=${1:-}
+for pid in $(pgrep -u "$(id -u)" -f -- '--user-data-dir=' | sort -rn); do
+  args=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null) || continue
+  case "$args" in *--type=*) continue ;; esac          # renderer, GPU and other helper processes
+  [ -n "$filter" ] && [[ "$args" != *"$filter"* ]] && continue
+  env=$(tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null) || continue
+  d=$(sed -n 's/^DISPLAY=//p' <<<"$env"); a=$(sed -n 's/^XAUTHORITY=//p' <<<"$env")
+  [ -n "$d" ] || continue
+  echo "DISPLAY=$d"; [ -n "$a" ] && echo "XAUTHORITY=$a"
+  exit 0
+done
+exit 1

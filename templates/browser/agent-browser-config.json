@@ -1,0 +1,7 @@
+{
+  "executablePath": "/usr/bin/chromium",
+  "headed": true,
+  "profile": "__HOME__/.browser/clean",
+  "args": "--window-position=0,0,--window-size=1280,720",
+  "idleTimeout": "60m"
+}

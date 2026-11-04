@@ -1,0 +1,19 @@
+# Remote window, part 1 (optional, docs/browser.md#a-remote-window-for-captchas-and-logins): a VNC server that
+# attaches to the assistant's browser only when someone connects. Localhost only; part 2 (websockify) serves it.
+# Needs: apt install x11vnc, and a VNC password: x11vnc -storepasswd /etc/assistant-window/vncpasswd
+# (then chown root:__USER__ and chmod 640 it). Not enabled by default: systemctl enable --now assistant-window-vnc
+[Unit]
+Description=Assistant remote window: x11vnc on localhost, attached to the browser on connect
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+User=__USER__
+# WAIT:cmd = open no display until a client connects, then ask current-display which one the browser is on.
+# No -forever: when the client disconnects x11vnc exits, and systemd starts it waiting again.
+ExecStart=/usr/bin/x11vnc -display WAIT:cmd=/usr/local/lib/assistant-browser/current-display -localhost -rfbport 5900 -rfbauth /etc/assistant-window/vncpasswd -shared -noxdamage -noipv6 -nolookup -quiet
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

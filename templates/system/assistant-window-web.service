@@ -1,0 +1,21 @@
+# Remote window, part 2 (optional, docs/browser.md#a-remote-window-for-captchas-and-logins): noVNC in a web page,
+# bridged to the local VNC server by websockify. It listens on localhost: put an authenticating reverse proxy in
+# front of it (on this machine, or change the address to one only that proxy can reach, and firewall it).
+# Never expose it to the internet as it is. Needs: apt install novnc websockify. Not enabled by default.
+[Unit]
+Description=Assistant remote window: noVNC/websockify (behind your proxy)
+After=network-online.target assistant-window-vnc.service
+Wants=network-online.target
+
+[Service]
+DynamicUser=yes
+ExecStart=/usr/bin/websockify --web /usr/share/novnc 127.0.0.1:6080 127.0.0.1:5900
+Restart=always
+RestartSec=2
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
