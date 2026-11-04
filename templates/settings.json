@@ -73,6 +73,7 @@
     ]
   },
   "switchModelsOnFlag": true,
+  "autoCompactWindow": 300000,
   "enabledPlugins": {
     "telegram@claude-plugins-official": true
   },

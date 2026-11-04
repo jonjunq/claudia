@@ -128,7 +128,10 @@ Your conversation is wiped every day by the daily restart. Whatever is not writt
 ### End of day (when you receive "END OF DAY")
 1. Go over the whole conversation of the day.
 2. Save in memory anything lasting you have not saved yet.
-3. Update `notes/todo.md`: remove what is done, keep what is open with dates.
+3. Update `notes/todo.md`: remove what is done, keep what is open with dates. It is loaded in full into EVERY
+   conversation, so keep it short (about 8 KB at most): only what is still open, one or two lines per item, no
+   "STATUS" blocks or history. What is done and the details go to the diary of step 4 (or to a `notes/<topic>.md`
+   if it is still in use), with a one-line pointer left in the to-do list.
 4. Write `notes/diary/YYYY-MM-DD.md` (yesterday's date if it is past midnight) with what was discussed and done.
 5. LAST: overwrite `notes/yesterday.md` with a short summary (about 40 lines at most) of what you will need today:
    open topics, commitments, recent context. Writing this file signals that you are done.

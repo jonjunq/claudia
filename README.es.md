@@ -86,8 +86,12 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 
 ## Novedades
 
-Lo último, todavía sin versión publicada (lista completa en [CHANGELOG.md](CHANGELOG.md), en inglés):
+Lo último (lista completa en [CHANGELOG.md](CHANGELOG.md), en inglés):
 
+- **Menos contexto** (aún sin versión publicada; [docs/memory.md](docs/memory.md#keeping-the-context-small)): la
+  conversación se compacta a los 300k tokens en vez de cerca del millón, la lista de pendientes que se carga en cada
+  conversación se mantiene corta, el repaso nocturno poda las skills en vez de solo añadir, y
+  `templates/tools/token-usage.py` enseña dónde se van tus tokens y tu contexto.
 - **Avisos que no gastan tokens, con n8n** ([docs/n8n.md](docs/n8n.md)): un instalador que deja n8n endurecido,
   plantillas de flujo (correo nuevo → despierta al asistente; vigilar una web → te avisa a ti, y se apaga sola al
   terminar), actualizaciones con copia y vuelta atrás automática, y el propio asistente creando los flujos por el

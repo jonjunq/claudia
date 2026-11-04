@@ -16,7 +16,7 @@ check "settings.json has the Telegram hooks" jq -e '.hooks.PermissionRequest[0].
 check "settings.json has the classifier-block hooks" jq -e '(.hooks.PermissionDenied[0].hooks[0].command | test("denied-hook")) and ([.hooks.PreToolUse[].hooks[] | select(.command | test("approved-hook")) | (.async // false)] == [false])' templates/settings.json
 check "settings.json hard-blocks payments" jq -e '.autoMode.hard_deny[0] == "$defaults" and (.autoMode.hard_deny[1] | test("payment"; "i"))' templates/settings.json
 for j in templates/n8n/workflows/*.json; do check "valid JSON $j" jq -e . "$j"; done
-for p in templates/telegram/*.py templates/memory/*.py templates/wakeup/*.py tests/*.py; do check "python compiles $p" python3 -m py_compile "$p"; done
+for p in templates/telegram/*.py templates/memory/*.py templates/wakeup/*.py templates/tools/*.py tests/*.py; do check "python compiles $p" python3 -m py_compile "$p"; done
 find templates tests -name __pycache__ -exec rm -rf {} +
 
 # No EXIT trap for the cleanup: bash runs it in the subshells of pipelines inside functions, too early.
@@ -458,6 +458,13 @@ check "n8n-admin rolls back an update that loses workflows" bash -c "test $rc = 
 check "n8n-admin rollback restores the data from before" test "$(cat "$N8N_DATA/.n8n/database.sqlite")" = original
 check "n8n-admin update --tell without a wake-up only says so" bash -c "PATH='$N:$PATH' FAKE_N8N_VERSION='$NV' FAKE_STABLE=2.47.0 WAKEUP_ENV=/nonexistent templates/n8n/n8n-admin update --tell 2>&1 | grep -q 'nobody told'"
 unset N8N_DATA N8N_BACKUPS N8N_ENV_FILE N8N_HEALTH_TIMEOUT
+
+# token-usage.py: a call logged twice (Claude Code repeats the usage line per content block) counts once
+TU=$(mktemp -d); mkdir -p "$TU/.claude/projects/p1"; now=$(date -u +%FT%TZ)
+for _ in 1 2; do echo "{\"type\":\"assistant\",\"timestamp\":\"$now\",\"requestId\":\"r1\",\"message\":{\"id\":\"m1\",\"usage\":{\"input_tokens\":10,\"output_tokens\":5,\"cache_creation_input_tokens\":2000,\"cache_read_input_tokens\":300000}}}"; done > "$TU/.claude/projects/p1/a.jsonl"
+check "token-usage counts a repeated call once" bash -c "python3 -I templates/tools/token-usage.py --home '$TU' | grep -E '^total' | grep -qE ' 1\$'"
+check "token-usage shows the context per call" bash -c "python3 -I templates/tools/token-usage.py --home '$TU' | grep -E ':p1 ' | grep -q ' 302k'"
+rm -rf "$TU"
 
 # The Code nodes of the n8n templates, run with Node (GitHub's runners have it)
 if command -v node >/dev/null; then

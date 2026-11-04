@@ -49,7 +49,7 @@ inside `assistant-daily-restart`, right after the end of day and before the rest
    errors, anything not seen to work, and secrets.
 4. Only changed files under `skills/` and `memory/` are copied back, atomically, and only if the added lines carry
    no key, token, password or PIN pattern, no invisible Unicode, and the assistant did not touch that file while the
-   review ran. It never deletes.
+   review ran. It never deletes whole files, but it does prune inside them (see below).
 5. A commit in the history before and after and a summary in `notes/last-review.md`, one line per change. With
    `REVIEW_NOTIFY=yes` in `assistant.env` it also sends you that summary as a silent Telegram message; it is off by
    default, because after the first week most people would rather trust it than read one more message a night.
@@ -80,6 +80,35 @@ fresh input. The long day was about 3 % of the 5-hour limit and 0.5 % of the wee
 What it did on its first nights: fixed a TV-control skill that had gone stale, added anti-fake rules it had learnt
 for downloads, turned "X does not work" sentences into the positive instruction that does, removed a contradiction
 between two notes, and recorded which notification emails the owner wants binned.
+
+## Keeping the context small
+
+An assistant that runs all day in one conversation re-reads everything said since the morning on every message. We
+measured ours over a week with [`templates/tools/token-usage.py`](../templates/tools/token-usage.py) (it reads
+Claude Code's own transcripts; nothing is sent anywhere):
+
+| | Average context per message | Peak | At the start of a conversation |
+|---|---|---|---|
+| The assistant, before | ~300k tokens | ~880k | ~63k |
+| A coding loop, for comparison | ~80k | ~350k | ~24k |
+
+Three things had grown without anyone deciding it, and each one now has a limit:
+
+- **The conversation itself.** `"autoCompactWindow": 300000` in `settings.json` compacts at 300k tokens instead of
+  near the model's full window. In our week, the part of each call above 300k was already a quarter of everything
+  spent, and after a compaction the context starts again from a summary, so the real saving is larger. Quality goes
+  up rather than down for an errand-style day: the 8 p.m. request no longer drags the whole morning along, and what
+  matters is in memory, the diary and `recall`. Raise it (up to 1,000,000) if long tasks lose the thread.
+- **The to-do list.** `notes/todo.md` is imported into every conversation; ours had reached 51 KB of status blocks
+  and finished items. The end of day now keeps it to about 8 KB of open items and moves the rest to the diary.
+- **Skills.** The nightly review used to be told to "be active" and never to delete, so it could only add: one skill
+  went from 7 KB to 32 KB in four days, and all of it is read each time the skill loads. Now a new rule replaces the
+  old one instead of piling on, and a `SKILL.md` over about 15 KB gets split into `references/<topic>.md` files
+  with a one-line pointer each, so only the part a task needs is read.
+
+Run the script now and then (`python3 templates/tools/token-usage.py --days 7`, or `sudo … --all-users` for every
+user on the machine). A high average with a low start means a conversation that keeps growing; a high start means
+too much is loaded before anyone says anything.
 
 ## History: undo anything
 

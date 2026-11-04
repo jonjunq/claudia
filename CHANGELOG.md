@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- **Smaller context** ([docs/memory.md](docs/memory.md#keeping-the-context-small)), from measuring a week of use:
+  - `"autoCompactWindow": 300000` in `templates/settings.json`: an all-day conversation averaged ~300k tokens of
+    context per message (peaks near 880k); it now compacts at 300k.
+  - The end of day keeps `notes/todo.md` (imported into every conversation) to about 8 KB of open items; done items
+    and details go to the diary.
+  - The nightly review prunes: no more "be active", a rule that replaces another deletes it, a `SKILL.md` over ~15 KB
+    is split into `references/` files, and a new skill needs the same class of task in several conversations. It
+    still never deletes whole files.
+- **`templates/tools/token-usage.py`**: tokens per day and average / peak / starting context per project, read from
+  Claude Code's transcripts (repeated usage lines counted once). Tests included.
+
 ## 1.3.0 — 2026-11-04
 
 - **Run it your way**: the README and [docs/isolation.md](docs/isolation.md) no longer present an isolated container

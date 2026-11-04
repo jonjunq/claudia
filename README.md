@@ -86,8 +86,12 @@ Then write to your bot. Step by step, with every gotcha we hit: [docs/setup.md](
 
 ## What's new
 
-The latest changes, not yet in a release (full list in [CHANGELOG.md](CHANGELOG.md)):
+The latest changes (full list in [CHANGELOG.md](CHANGELOG.md)):
 
+- **Smaller context** (not yet in a release; [docs/memory.md](docs/memory.md#keeping-the-context-small)): the
+  conversation compacts at 300k tokens instead of near 1M, the to-do list loaded into every conversation stays short,
+  the nightly review prunes skills instead of only adding, and `templates/tools/token-usage.py` shows where your
+  tokens and context go.
 - **Alerts that cost no tokens, with n8n** ([docs/n8n.md](docs/n8n.md)): an installer that hardens n8n, workflow
   templates (new email → wake the assistant; watch a page → tell you, and switch itself off when done), updates with
   backup and automatic rollback, and the assistant building workflows itself through n8n's MCP server.
