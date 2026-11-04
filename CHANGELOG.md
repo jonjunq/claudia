@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Devices away from home** ([docs/remote-devices.md](docs/remote-devices.md), optional): the assistant on Tailscale
+  in userspace mode with its own tag, a policy whose grants only let it open specific ports on a tagged device (which
+  can open nothing), tests in the policy, `tailscale nc` as SSH `ProxyCommand`, a one-off pre-authorised tagged key;
+  and why it matters: with the default policy and a subnet router, any new node sees your LAN.
 - **Optional: paying with a limited card** ([docs/permissions.md](docs/permissions.md#optional-paying-with-a-limited-card)),
   off by default (the template still blocks every payment): a virtual or prepaid card with a separate balance,
   `templates/tools/card-fill.sh` to store it (mode 600, outside the workspace, number and code read without echo),
