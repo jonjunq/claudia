@@ -551,6 +551,16 @@ check "transcribe: exit 1 when every engine fails" bash -c "test $rc = 1 && grep
 out=$(tr_run TRANSCRIBE_NO_GROQ=1 FAKE_CF=200)
 check "transcribe: Cloudflare alone works" bash -c "test '$out' = 'hello from cloudflare' && ! grep -q '^groq' '$TR/log'"
 
+# card-fill.sh: saves the card 600 outside the workspace, checks the last digits, refuses a malformed number
+CF="$T/cardhome"; mkdir -p "$CF"
+card() { printf '%s\n' "$@" | env CF="$CF" bash -c 'getent() { echo "u:x:0:0::$CF:/bin/bash"; }; export -f getent; templates/tools/card-fill.sh "$(id -un)" 1234' >/dev/null 2>&1; }
+card "4111 1111 1111 1234" 12/29 123 "Ada Lovelace"
+check "card-fill saves the card, mode 600" bash -c "test \$(stat -c %a '$CF/.config/assistant/card.env') = 600 && grep -q '^CARD_NUMBER=4111111111111234$' '$CF/.config/assistant/card.env'"
+rm -f "$CF/.config/assistant/card.env"
+if card "4111 1111 1111 9999" 12/29 123 "Ada"; then ko "card-fill checks the last digits"; else ok "card-fill checks the last digits"; fi
+if card "4111" 12/29 123 "Ada"; then ko "card-fill refuses a malformed number"; else ok "card-fill refuses a malformed number"; fi
+check "card-fill wrote nothing when it refused" test ! -e "$CF/.config/assistant/card.env"
+
 # The Code nodes of the n8n templates, run with Node (GitHub's runners have it)
 if command -v node >/dev/null; then
   while read -r line; do case "$line" in "ok   "*) ok "${line#ok   }" ;; "FAIL "*) ko "${line#FAIL }" ;; esac; done < <(node tests/n8n-code.test.js 2>&1)

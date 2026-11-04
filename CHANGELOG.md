@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Optional: paying with a limited card** ([docs/permissions.md](docs/permissions.md#optional-paying-with-a-limited-card)),
+  off by default (the template still blocks every payment): a virtual or prepaid card with a separate balance,
+  `templates/tools/card-fill.sh` to store it (mode 600, outside the workspace, number and code read without echo),
+  the form filled from variables so the number never reaches the transcripts that `recall` indexes, your yes to
+  each purchase (site, product, total; subscriptions with price and period, a list and a reminder before renewals),
+  and the three `autoMode` sentences: `environment`, an `allow` for that card only with your yes, and a `hard_deny`
+  rewritten to forbid everything else. The browser skill has the steps.
 - **A full browser with a window** ([docs/browser.md](docs/browser.md#which-browser-underneath-a-full-chromium-with-a-window)):
   Debian's Chromium in headed mode on Xvfb (agent-browser starts it) instead of the headless shell, whose
   `HeadlessChrome` user agent got a CloudFront site's 403 in 0.1 s and was refused by a big provider's sign-in; with
