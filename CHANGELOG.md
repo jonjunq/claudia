@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.1 — 2026-11-05
+
+- **Idle compaction while the cache is still warm**: `assistant-idle-compact` now waits 52 minutes instead of 90, and
+  its timer checks every 3 minutes instead of 10, so it compacts between about 52 and 56 minutes, before the 1-hour
+  prompt cache expires. The compaction then reads the conversation at the cached price instead of writing it all
+  again; the safety checks are unchanged. `IDLE_COMPACT_MINUTES` in `assistant.env` still changes it. To get it:
+  `sudo ./install.sh <user> --upgrade`.
+
 ## 1.5.0 — 2026-11-05
 
 - **Helpers for heavy work** ([docs/context.md](docs/context.md)): four subagents in

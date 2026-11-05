@@ -129,14 +129,16 @@ the new topic drags the old one along. Compacting during the pause is cheaper an
   The transcript then shows "Compacted while idle". It depends on a feature flag: on ours it ran three times on one
   day and not on the following ones.
 - **`assistant-idle-compact`** (optional, `install.sh <user> --idle-compact yes`) is the fallback: a root timer every
-  10 minutes that types `/compact`, never `/clear`, only when all of this holds: 90 minutes with no message from you
+  3 minutes that types `/compact`, never `/clear`, only when all of this holds: 52 minutes with no message from you
   and no activity (its conversation, its helpers', the hooks' turn file), no turn open, no permission request
   waiting, no dialog and no helper running in its terminal, more than 120k tokens of context, and between 06:30 and
   23:00 (at night the daily restart starts a fresh conversation anyway, and the end of day works better on the whole
   conversation). It checks everything twice, 20 seconds apart, leaves a mark so the assistant knows why it was
   compacted, and logs to `/var/log/assistant-idle-compact.log` and `restarts.log`. `IDLE_COMPACT_MINUTES`,
   `IDLE_COMPACT_MIN_TOKENS` and `IDLE_COMPACT_HOURS` in `assistant.env` change it;
-  `sudo assistant-idle-compact <user> --check` says what it would do. If the built-in one already compacted, the
+  `sudo assistant-idle-compact <user> --check` says what it would do. Why 52: with a check every 3 minutes it
+  compacts between about 52 and 56 minutes, before the 1-hour prompt cache expires, so the summary reads the
+  conversation at the cached price; after an hour it would pay to write it all again (1.5.0 waited 90 minutes). If the built-in one already compacted, the
   context is small and this does nothing.
 
 ## 4. `/usage` without the model

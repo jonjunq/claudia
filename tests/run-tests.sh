@@ -673,7 +673,7 @@ idle() { env ASSISTANT_HOME="$H" IDLE_COMPACT_LOG="$T/idle.log" IDLE_COMPACT_LOC
 printf '> \n' > "$FAKE_SCREEN"; : > "$FAKE_LOG"; : > "$T/idle.log"
 idle
 check "idle-compact types /compact into an idle, big conversation" bash -c "grep -q 'send-keys -t assistant -l /compact' '$FAKE_LOG' && grep -q 'compact while idle (context ≈241k' '$T/idle.log'"
-check "idle-compact leaves a mark for after-compact and a line in restarts.log" bash -c "jq -e '.minutes >= 90' '$H/.cache/assistant-telegram/idle-compact.json' && grep -q 'compact while idle' '$H/assistant/restarts.log'"
+check "idle-compact leaves a mark for after-compact and a line in restarts.log" bash -c "jq -e '.minutes >= 52' '$H/.cache/assistant-telegram/idle-compact.json' && grep -q 'compact while idle' '$H/assistant/restarts.log'"
 : > "$FAKE_LOG"
 check "idle-compact --check only says what it would do" bash -c "env ASSISTANT_HOME='$H' IDLE_COMPACT_LOCK='$T/idle.lock' IDLE_COMPACT_HOURS=00:00-23:59 python3 -I templates/system/assistant-idle-compact alex --check | grep -q 'WOULD COMPACT' && ! grep -q send-keys '$FAKE_LOG'"
 nocompact() { : > "$FAKE_LOG"; idle "$@"; ! grep -q 'send-keys' "$FAKE_LOG"; }

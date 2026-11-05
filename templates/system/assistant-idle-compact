@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Compacts the assistant's conversation when it has been idle for a good while (optional, docs/context.md).
 Never /clear: a compaction keeps a summary, and the after-compact hook hands back the owner's last messages.
-Run by assistant-idle-compact.timer (root) every 10 minutes. It only acts when ALL of this holds:
-  - at least IDLE_COMPACT_MINUTES (90) without a message from the owner and without activity of its own: nothing
+Run by assistant-idle-compact.timer (root) every 3 minutes. It only acts when ALL of this holds:
+  - at least IDLE_COMPACT_MINUTES (52) without a message from the owner and without activity of its own: nothing
     written to its conversation or to its helpers' (subagents), no turn open according to the Telegram hooks, no
     permission request waiting, no helper running and no dialog open in its terminal;
   - its context is above IDLE_COMPACT_MIN_TOKENS (120000), or there is nothing to gain;
   - inside IDLE_COMPACT_HOURS (06:30-23:00): at night it is not worth it (a fresh conversation starts after the
     daily restart, and the end of day works better with the whole conversation than with a summary).
+52 minutes plus a check every 3 minutes means it compacts between about 52 and 56 minutes, while the 1-hour prompt
+cache is still warm: the compaction then reads the conversation at the cached price instead of writing it all again.
 Right before typing /compact it checks everything again. It leaves a mark for after-compact.py (so the assistant knows
 why) and a line in restarts.log.
 Claude Code (2.1.290 or later) has its own idle compaction, on by default ("idleCompaction"), which compacts after
@@ -51,7 +53,7 @@ def setting(key, default):
 
 SESSION = setting("TMUX_SESSION", "assistant")
 SOCKET = setting("TMUX_SOCKET", f"/tmp/tmux-{UID}/default")
-IDLE = float(setting("IDLE_COMPACT_MINUTES", "90")) * 60
+IDLE = float(setting("IDLE_COMPACT_MINUTES", "52")) * 60
 MIN_CTX = int(setting("IDLE_COMPACT_MIN_TOKENS", "120000"))
 HOURS = setting("IDLE_COMPACT_HOURS", "06:30-23:00")
 CHANNEL = re.compile(r'<channel source="[^"]*telegram[^"]*"([^>]*)>')

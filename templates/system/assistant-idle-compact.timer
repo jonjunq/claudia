@@ -1,9 +1,9 @@
 [Unit]
-Description=Every 10 minutes: should the assistant's conversation be compacted for being idle?
+Description=Every 3 minutes: should the assistant's conversation be compacted for being idle?
 
 [Timer]
 OnBootSec=20min
-OnUnitActiveSec=10min
+OnUnitActiveSec=3min
 AccuracySec=30s
 
 [Install]
