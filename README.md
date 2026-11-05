@@ -184,7 +184,7 @@ Then write to your bot. Step by step, with every gotcha we hit: [docs/setup.md](
 
 The latest changes (full list in [CHANGELOG.md](CHANGELOG.md)).
 
-**Next release** (not released yet)
+**1.6.0** (2026-11-05)
 
 - **Everything you can ask it** ([above](#what-you-can-ask-it) and [docs/recipes/](docs/recipes/README.md)): what
   ours does every day, from the TV and the media server to read-only money, paperwork, trips and its own Instagram,

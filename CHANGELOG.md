@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.6.0 — 2026-11-05
 
 - **Everything you can ask it**: the README's "What you can ask it" (English and Spanish) now lists what our
   assistant does every day or whenever it comes up (the TV and the projector, films, series and torrents, the

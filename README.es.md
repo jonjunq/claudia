@@ -187,7 +187,7 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 
 Lo último (lista completa en [CHANGELOG.md](CHANGELOG.md), en inglés).
 
-**Próxima versión** (aún sin publicar)
+**1.6.0** (05/11/2026)
 
 - **Todo lo que le puedes pedir** ([arriba](#qué-le-puedes-pedir) y [docs/recipes/](docs/recipes/README.md)): lo que
   la nuestra hace a diario, de la tele y el servidor de pelis al dinero en solo lectura, los trámites, los viajes y su
