@@ -12,6 +12,14 @@ manda un resumen por la mañana, entiende tus notas de voz y puede contestarte c
 [Read in English](README.md)
 
 <p align="center">
+  <a href="https://jonjunq.github.io/claudia/video/claudia.es.mp4">
+    <img src="docs/video/claudia.es.webp" width="320" alt="Vídeo de 105 segundos de un día con la asistente en el móvil: te escribe ella primero porque llueve la tarde del pádel y lo cambia; una nota de voz acaba en el fontanero apuntado en tu calendario; apaga las luces y pone la peli que mencionaste; vigila tu correo, pide cita para una renovación y reclama una factura de la luz cobrada dos veces; compra pilas solo cuando dices que sí; organiza un viaje a Roma con vuelos y hotel y lo reserva con tu OK; atiende a los clientes de una tienda y junta en un resumen cómo van treinta personas. Tú decides, ella se encarga.">
+  </a>
+</p>
+
+<sub>▶ 1 min 45 s, aquí sin sonido · [vídeo en calidad completa, con sonido](https://jonjunq.github.io/claudia/video/claudia.es.mp4). Todo es inventado; algunas escenas son usos opcionales o que aún no hemos probado ([qué le puedes pedir](#qué-le-puedes-pedir)). Hecho con [HyperFrames](https://github.com/heygen-com/hyperframes).</sub>
+
+<p align="center">
   <a href="https://jonjunq.github.io/claudia/diagrams/how-it-works.es.html">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/how-it-works-dark.es.svg">

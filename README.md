@@ -12,6 +12,14 @@ sends a morning summary, transcribes your voice notes and can answer with its ow
 [Leer en castellano](README.es.md)
 
 <p align="center">
+  <a href="https://jonjunq.github.io/claudia/video/claudia.mp4">
+    <img src="docs/video/claudia.webp" width="320" alt="105-second video of a day with the assistant on a phone: it texts you first about rain on your padel evening and moves it; a voice note becomes a plumber booked in your calendar; it turns off the lights and puts on the film you mentioned; it watches your inbox, books a renewal and claims back a power bill charged twice; it orders batteries only after you say yes; it plans a trip to Rome with flights and a hotel and books them with your OK; it answers a shop's customers and gathers thirty people's status into one summary. You decide, she handles it.">
+  </a>
+</p>
+
+<sub>▶ 1 min 45 s, no sound here · [full-quality video with sound](https://jonjunq.github.io/claudia/video/claudia.mp4). Everything in it is made up; some scenes are optional or untried uses ([what you can ask it](#what-you-can-ask-it)). Made with [HyperFrames](https://github.com/heygen-com/hyperframes).</sub>
+
+<p align="center">
   <a href="https://jonjunq.github.io/claudia/diagrams/how-it-works.html">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/diagrams/how-it-works-dark.svg">
