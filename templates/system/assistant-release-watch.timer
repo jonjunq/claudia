@@ -1,0 +1,10 @@
+[Unit]
+Description=Once a day: is there a new release of the assistant?
+
+[Timer]
+OnCalendar=*-*-* 10:00
+RandomizedDelaySec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

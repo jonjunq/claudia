@@ -24,7 +24,8 @@ rid = secrets.token_hex(8)
 os.makedirs(tg.VERDICTS, mode=0o700, exist_ok=True)
 verdict_file = os.path.join(tg.VERDICTS, rid)
 CHAT = tg.chat_id()
-head = f"🔐 Permission request\n\n{name}: {what}"
+who = f" (helper {hook['agent_type']})" if hook.get("agent_type") else ""  # a subagent asking
+head = f"🔐 Permission request{who}\n\n{name}: {what}"
 text = f"{head}\n\n{detail}\n\nYou have {WAIT // 60} min to answer; after that its terminal decides."
 buttons = {"inline_keyboard": [[{"text": "✅ Allow", "callback_data": f"hk:allow:{rid}"},
                                 {"text": "❌ Deny", "callback_data": f"hk:deny:{rid}"}]]}

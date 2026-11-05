@@ -19,7 +19,7 @@ Two rules it never breaks, and why:
 `install.sh` writes `/usr/local/share/assistant/install.conf` on every run: the version (`git describe`, e.g.
 `v1.5.0`, or `v1.4.0-3-gabc1234` for three commits after 1.4.0; from a download without git, the newest release in
 `CHANGELOG.md`), the repo it came from, and the settings you installed with (`--name`, `--owner`, `--language`,
-`--timezone`), which later runs reuse. It also keeps a copy of every file exactly as it wrote it, in
+`--timezone`, and your answers to `--release-watch` and `--idle-compact`), which later runs reuse. It also keeps a copy of every file exactly as it wrote it, in
 `/usr/local/share/assistant/installed/`: that is how an upgrade tells apart the files you changed from the ones you
 did not. The guides and the changelog are copied to `/usr/local/share/assistant/docs/` so the assistant can read
 them.
@@ -43,7 +43,18 @@ once, whatever you decide, and costs no tokens on the days without one (almost a
   once it is published.
 - It never needs editing after an upgrade: it remembers the last release it reported.
 
-**Without n8n**, either of these:
+**Without n8n: a small daily timer** (offered at the end of the first `install.sh` run, or
+`install.sh <user> --release-watch yes`): `assistant-release-watch.timer` runs `/usr/local/sbin/assistant-release-watch`
+once a day around 10:00. It does exactly what the n8n workflow does, with `curl` and `jq`: the latest release of
+`GITHUB_REPO`, drafts and pre-releases skipped, numbers compared as numbers, one line to the
+[wake-up](wakeup.md) (which it turns on, listening on localhost only), each release once, nothing of the release
+text passed on. If the wake-up does not take the notice, it tries again the next day. Log:
+`/var/log/assistant-release-watch.log`; `assistant-release-watch --check` says what it would do. No n8n needed for
+this alone. If n8n is already there when you install, the answer is recorded and the assistant sets up the workflow
+instead (`RELEASE_WATCH_HOW=n8n` in `install.conf`). Said no, or installed without a terminal? The assistant offers
+it once in its first days.
+
+Or, by hand:
 
 - On GitHub, **Watch → Custom → Releases** on the repo: GitHub emails you each release, and if the assistant
   watches your inbox it sees it too.

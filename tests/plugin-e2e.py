@@ -7,7 +7,9 @@ MCP to it over stdio like Claude Code does, and checks:
   1. a voice note from the allowlisted user arrives already transcribed (content = transcript, voice_transcribed_by);
   2. a voice note from a stranger is dropped before anything is downloaded;
   3. a download that hangs still delivers the normal notification (without transcript), after the timeouts;
-  4. download_attachment with a hung download returns an error instead of hanging forever.
+  4. download_attachment with a hung download returns an error instead of hanging forever;
+  5. /usage from the allowlisted user is answered by the plugin itself (never reaches Claude), and a stranger's is
+     ignored.
 Steps 3 and 4 wait for the real timeouts: about 1.5 minutes in all."""
 import json, os, shutil, subprocess, sys, tempfile, threading, time
 
@@ -62,7 +64,13 @@ set_scenario()
 fake = subprocess.Popen([sys.executable, "-I", os.path.join(HERE, "fake-telegram.py"), "0", api_log, sc_path],
                         stdout=subprocess.PIPE, text=True)
 port = fake.stdout.readline().strip()
-env = {**os.environ, "TELEGRAM_BOT_TOKEN": "123:FAKE", "TELEGRAM_STATE_DIR": state, "ASSISTANT_DIR": ws,
+home = os.path.join(T, "home"); os.makedirs(os.path.join(home, ".claude")); os.makedirs(os.path.join(home, ".cache", "assistant-telegram"))
+now = int(time.time())
+json.dump({"updated": time.strftime("%Y-%m-%d %H:%M"), "model": "Opus", "context_pct": 19, "context_max": 1000000,
+           "five_hour_pct": 85, "five_hour_resets_at": now + 1800, "week_pct": 58, "week_resets_at": now + 4 * 86400},
+          open(os.path.join(ws, "state.json"), "w"))
+json.dump({"autoCompactWindow": 300000}, open(os.path.join(home, ".claude", "settings.json"), "w"))
+env = {**os.environ, "HOME": home, "TELEGRAM_BOT_TOKEN": "123:FAKE", "TELEGRAM_STATE_DIR": state, "ASSISTANT_DIR": ws,
        "TG_API_ROOT": f"http://127.0.0.1:{port}"}
 plugin = subprocess.Popen(["bun", "server.ts"], cwd=P, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                           stderr=open(os.path.join(T, "plugin.err"), "w"), text=True)
@@ -139,6 +147,28 @@ check("4. download_attachment with a hung download returns", wait(lambda: 2 in r
 if 2 in replies:
     check("4. as an error", replies[2][1].get("result", {}).get("isError") is True or "error" in replies[2][1])
     print(f"     after {replies[2][0] - t:.1f} s")
+
+def text_update(uid, sender, text):
+    ent = [{"type": "bot_command", "offset": 0, "length": len(text.split()[0])}] if text.startswith("/") else []
+    return {"update_id": uid, "message": {
+        "message_id": uid, "date": int(time.time()), "chat": {"id": sender, "type": "private"}, "text": text,
+        "entities": ent, "from": {"id": sender, "is_bot": False, "first_name": "U"}}}
+
+
+open(api_log, "w").close(); n_inbox = len(inbox)
+json.dump({"start": time.time() - 300, "prompt": "x"}, open(os.path.join(home, ".cache", "assistant-telegram", "turn.json"), "w"))
+set_scenario(updates=[text_update(10, 99, "/usage"), text_update(11, 42, "/usage"), text_update(12, 42, "hello")])
+check("5. a normal text still reaches Claude", wait(lambda: any(p["content"] == "hello" for _, p in inbox), 30))
+sent = [json.loads(l) for l in open(api_log) if '"sendMessage"' in l]
+usage = [m for m in sent if str(m.get("chat_id")) == "42"]
+text = usage[0].get("text", "") if usage else ""
+print("     " + text.replace("\n", "\n     "))
+check("5. /usage answered by the plugin", text.startswith("📊 Usage"))
+check("5. context against the compaction window", "≈190k of 300k" in text)
+check("5. warning past 80 % of the 5-hour limit", "85 % ⚠️" in text and "58 % ·" in text)
+check("5. says it is working", "working, for 5 min" in text)
+check("5. nothing for the stranger", not [m for m in sent if str(m.get("chat_id")) == "99"])
+check("5. /usage never reaches Claude", not any("/usage" in p["content"] for _, p in inbox[n_inbox:]))
 
 for line in open(os.path.join(state, "voice.log"), errors="replace") if os.path.exists(os.path.join(state, "voice.log")) else []:
     print("     voice.log: " + line.strip())

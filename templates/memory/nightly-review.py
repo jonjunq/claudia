@@ -7,8 +7,9 @@ Run by assistant-daily-restart (as root) after the end of day and before the res
 2. Copies skills and memory to a separate workshop and runs `claude -p` as the user WITHOUT their settings, hooks,
    MCP servers, shell or network: only Read/Write/Edit/Glob/Grep inside the workshop.
 3. Copies back only what changed under skills/ and memory/ and passes the checks (no secrets, no invisible Unicode,
-   the assistant did not touch the file meanwhile). It never deletes.
-4. Git history before and after and a summary in notes/last-review.md; a silent Telegram message to the owner
+   no lines that read like injected instructions, the assistant did not touch the file meanwhile). It never deletes.
+4. Lists the skills and reference files nobody loaded in 30 days (Hermes' curator idea): only listed, never deleted.
+5. Git history before and after and a summary in notes/last-review.md; a silent Telegram message to the owner
    only with REVIEW_NOTIFY=yes in assistant.env (off by default: one more message a night is noise for most).
 It is root-owned and runs outside the session on purpose: the assistant cannot change what reviews it.
 """
@@ -37,6 +38,11 @@ SECRETS = re.compile(r"(sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_
                      r"|(password|passwd|passcode|token|secret|api[_-]?key)\s*[:=]\s*[\"'`]?(?=\S*\d)[\w+/.=-]{6,}"
                      r"|\bPIN\s*:?\s*\d{4,8}\b)", re.I)
 INVISIBLE = re.compile("[​-‏‪-‮⁠-⁤﻿]")
+# Typical phrases of instructions planted in emails and web pages: a memory or a skill must not carry them.
+INJECTION = re.compile(r"(ignor(e|a|ad)\s+(all\s+|todas\s+)?(the\s+|las\s+)?(previous\s+|prior\s+)?(instructions|instrucciones|anteriores)"
+                       r"|disregard\s+(all|previous|prior|the|your)\b|forget\s+(all\s+)?(your|the|previous)\s+instructions"
+                       r"|olvida\s+(tus|las)\s+instrucciones|system\s+prompt|<\s*/?\s*system\b|you\s+are\s+now\b"
+                       r"|ahora\s+eres\s|from\s+now\s+on,?\s+(you\s+)?(must\s+)?obey|new\s+instructions\s*:)", re.I)
 
 
 def log(text):
@@ -76,7 +82,7 @@ def dump(since):
     if not any(w == "owner" for _, w, _ in rows):
         return None, last
     for tool_max, result_max in ((400, 400), (200, 200), (120, 0)):
-        cap = {"owner": 3000, "assistant": 2000, "system": 300, "tool": tool_max, "result": result_max}
+        cap = {"owner": 3000, "assistant": 2000, "helper": 1200, "system": 300, "tool": tool_max, "result": result_max}
         lines = []
         for ts, who, text in rows:
             if not cap[who]:
@@ -155,6 +161,8 @@ def apply(before):
                 reason = "looks like it holds a key or password"
             elif any(INVISIBLE.search(line) for line in added):
                 reason = "has invisible characters"
+            elif any(INJECTION.search(line) for line in added):
+                reason = "looks like instructions copied from an email or a web page"
             elif rel in before[zone] and os.path.exists(target) and \
                     hashlib.sha256(open(target, "rb").read()).hexdigest() != before[zone][rel]:
                 reason = "the assistant changed it meanwhile"
@@ -175,6 +183,34 @@ def apply(before):
                 os.replace(tmp, target)   # atomic: the session never reads a half-written file
             applied.append(name)
     return applied, rejected
+
+
+def unused_skills(days=30):
+    """Skills and references/ files nobody loaded in `days` days, in the assistant's conversations or its helpers'.
+    Only when the transcripts cover that long and the file was not changed in that time."""
+    import glob
+    since = time.time() - days * 86400
+    projects = os.path.dirname(MEMORY)
+    files = glob.glob(f"{projects}/*.jsonl") + glob.glob(f"{projects}/*/subagents/agent-*.jsonl")
+    if not files or min(os.path.getmtime(f) for f in files) > since:
+        return []  # not `days` days of history yet
+    used = set()
+    for f in files:
+        if os.path.getmtime(f) < since:
+            continue
+        text = open(f, encoding="utf-8", errors="ignore").read()
+        used.update(re.findall(r'"skill":\s*"([\w:-]+)"', text))
+        used.update(re.findall(r"skills/([\w-]+/(?:references/[\w.-]+|SKILL\.md))", text))
+    out = []
+    for path in sorted(glob.glob(f"{SKILLS}/*/SKILL.md")):
+        name = path.split("/")[-2]
+        if name not in used and f"{name}/SKILL.md" not in used and os.path.getmtime(path) < since:
+            out.append(name)
+        for ref in sorted(glob.glob(f"{SKILLS}/{name}/references/*.md")):
+            rel = f"{name}/references/{os.path.basename(ref)}"
+            if rel not in used and os.path.getmtime(ref) < since:
+                out.append(rel)
+    return out
 
 
 def history(message):
@@ -228,6 +264,14 @@ def main():
     body = report if applied or rejected else "Nothing to save."
     if rejected:
         body += "\n\nNot applied:\n" + "\n".join("· " + r for r in rejected)
+    try:
+        unused = unused_skills()
+    except Exception as e:  # secondary: it never stops the review
+        unused, body = [], body + f"\n\n(could not look for unused skills: {e})"
+    if unused:
+        body += ("\n\nSkills or references not used in 30 days (nothing was deleted; you or the assistant decide):\n"
+                 + "\n".join("· " + x for x in unused))
+        log(f"unused for 30 days: {unused}")
     day = (now.astimezone() - dt.timedelta(hours=6)).strftime("%Y-%m-%d")
     open(SUMMARY, "w").write(f"# Nightly review of {day} (automatic)\n\n{body}\n")
     give(SUMMARY)

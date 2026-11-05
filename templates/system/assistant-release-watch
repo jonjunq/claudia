@@ -1,0 +1,62 @@
+#!/bin/bash
+# Release notices without n8n (docs/updating.md): once a day assistant-release-watch.timer runs this as root. It asks
+# GitHub for the latest release of the repo the assistant was installed from (no token: one request a day) and, if
+# it is newer than the installed version, wakes the assistant with one line through the local wake-up: the version
+# and a link built from the tag. Only the numbers of the tag are used; the release title and notes are never passed
+# on, so nothing written in the repo is typed into the assistant's terminal. Each release is reported once. It never
+# updates anything: the assistant reads the changes and asks its owner (skill `updating`).
+#   assistant-release-watch           what the timer runs
+#   assistant-release-watch --check   only says what it would do
+# RELEASE_CONF, RELEASE_STATE, RELEASE_API and WAKEUP_ENV are for the tests.
+set -uo pipefail
+CONF=${RELEASE_CONF:-/usr/local/share/assistant/install.conf}
+STATE=${RELEASE_STATE:-/var/lib/assistant-release-watch/reported}
+API=${RELEASE_API:-https://api.github.com}
+WENV=${WAKEUP_ENV:-/etc/assistant-wakeup.env}
+CHECK=0; [ "${1:-}" = --check ] && CHECK=1
+
+say() { echo "$(date '+%F %T') $*"; }
+num() { sed -nE 's/^v?([0-9]+)\.([0-9]+)\.([0-9]+).*/\1 \2 \3/p' <<<"$1"; }
+newer() {  # is version $1 newer than $2? (numbers, not text: 1.10.0 > 1.9.0)
+  local a b; read -r -a a <<<"$(num "$1")"; read -r -a b <<<"$(num "$2")"
+  [ ${#a[@]} -eq 3 ] || return 1; [ ${#b[@]} -eq 3 ] || return 0
+  for i in 0 1 2; do
+    [ "${a[$i]}" -gt "${b[$i]}" ] && return 0
+    [ "${a[$i]}" -lt "${b[$i]}" ] && return 1
+  done
+  return 1
+}
+
+INSTALLED=$(sed -n 's/^VERSION=//p' "$CONF" 2>/dev/null | tail -1)
+REPO=$(sed -n 's/^GITHUB_REPO=//p' "$CONF" 2>/dev/null | tail -1)
+[[ $REPO =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { say "no valid GITHUB_REPO in $CONF"; exit 1; }
+json=$(curl -fsS --max-time 20 --retry 2 -H 'Accept: application/vnd.github+json' \
+  -H 'User-Agent: assistant-release-watch' "$API/repos/$REPO/releases/latest") || { say "GitHub did not answer"; exit 1; }
+[ "$(jq -r '(.draft or .prerelease) // false' <<<"$json")" = true ] && { say "latest is a draft or pre-release"; exit 0; }
+LATEST=$(num "$(jq -r '.tag_name // empty' <<<"$json")")
+[ -n "$LATEST" ] || { say "the latest release has a tag that is not a version"; exit 1; }
+TAG=v${LATEST// /.}
+REPORTED=$(cat "$STATE" 2>/dev/null || true)
+KNOWN=$INSTALLED
+if [ -n "$REPORTED" ] && newer "$REPORTED" "$KNOWN"; then KNOWN=$REPORTED; fi
+if [ -z "$(num "$KNOWN")" ]; then
+  # Nothing to compare with (installed from a commit without a release): remember this one, report the next.
+  [ "$CHECK" = 1 ] || { mkdir -p "$(dirname "$STATE")"; echo "$TAG" > "$STATE"; }
+  say "no installed version to compare with; $TAG remembered"; exit 0
+fi
+newer "$TAG" "$KNOWN" || { say "nothing new ($TAG; installed $INSTALLED)"; exit 0; }
+TEXT="New release $TAG of $REPO (installed: $INSTALLED, see /usr/local/share/assistant/install.conf). Notes: https://github.com/$REPO/releases/tag/$TAG"
+if [ "$CHECK" = 1 ]; then say "would wake the assistant: $TEXT"; exit 0; fi
+
+# The wake-up's own settings: its token and where it listens.
+TOKEN=$(sed -n 's/^WAKEUP_TOKEN=//p' "$WENV" 2>/dev/null | tail -1)
+LISTEN=$(sed -n 's/^WAKEUP_LISTEN=//p' "$WENV" 2>/dev/null | tail -1); LISTEN=${LISTEN:-127.0.0.1:8770}
+[ -n "$TOKEN" ] || { say "no WAKEUP_TOKEN in $WENV"; exit 1; }
+body=$(jq -cn --arg t "$TEXT" '{source: "claudia-release", text: $t}')
+if curl -fsS --max-time 10 -o /dev/null -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+     -d "$body" "http://$LISTEN/wake"; then
+  mkdir -p "$(dirname "$STATE")"; echo "$TAG" > "$STATE"   # one notice per release, whatever the assistant decides
+  say "woke the assistant: $TAG"
+else
+  say "the wake-up did not take the notice (is assistant-wakeup running?); trying again tomorrow"; exit 1
+fi

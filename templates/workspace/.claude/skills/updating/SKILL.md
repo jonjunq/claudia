@@ -61,8 +61,14 @@ can change:
    the `first-days` skill. Then delete `~/assistant-backup-*.tgz` older than the last two.
 
 ## Setting up the release watch (if __OWNER__ said yes to it)
+First look at `RELEASE_WATCH` and `RELEASE_WATCH_HOW` in `install.conf`: `yes` + `timer` means it is already on
+(`systemctl is-enabled assistant-release-watch.timer`); `n8n` means it was accepted at install and n8n is there, so
+set up the workflow below.
+Without n8n, the small daily timer: as root, `install.sh <user> --release-watch yes` from the installed tag (it turns
+on `assistant-release-watch.timer` and the wake-up it posts to), or give __OWNER__ that one command. Check it with
+`/usr/local/sbin/assistant-release-watch --check`.
 With n8n: `/usr/local/share/assistant-n8n/workflows/release-watch-to-wakeup.json`. Fill its placeholders:
 VERSION and GITHUB_REPO from `install.conf`, WAKEUP_URL and TIMEZONE as for the email workflow, and use the
 existing **Assistant wake-up** credential. Create it through n8n's MCP server (or `n8n-admin import` + `publish` +
-`restart` if you are root), confirm with __OWNER__ before publishing, then leave it out of MCP. Without n8n, the two
-alternatives are in the guide.
+`restart` if you are root), confirm with __OWNER__ before publishing, then leave it out of MCP. Once it runs, turn
+the timer off if it was on (`systemctl disable --now assistant-release-watch.timer`): one notice is enough.

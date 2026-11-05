@@ -13,13 +13,17 @@
     $STATE_DIR/voice.log (times and engine only, never the text).
  5. (v2) download_attachment and the photo download get timeouts and one retry (a hung fetch used to leave the
     assistant waiting with no limit).
+ 6. (v3) /usage is answered by the plugin itself, at once, without passing the message to the assistant: it costs no
+    model call and works while the assistant is busy. It reads ~/assistant/state.json (written by statusline.sh),
+    autoCompactWindow from ~/.claude/settings.json and ~/.cache/assistant-telegram/turn.json. Only for the allowlist;
+    anyone else gets nothing, as before. Logged to $STATE_DIR/usage.log (the time only).
 Idempotent: a file that already carries this version's marker is left alone. A file patched by an older version is
 rebuilt from server.ts.orig (the unpatched copy, refreshed whenever a clean plugin file is patched).
 The session must restart to load the patched plugin. Exit 0 = patched or already patched; 1 = anchors not found
 (the plugin changed: adapt the anchors below)."""
 import glob, os, shutil, sys
 
-MARK = "// ASSISTANT-PATCH v2"
+MARK = "// ASSISTANT-PATCH v3"
 FAMILY = "ASSISTANT-PATCH"
 
 VOICE_HELPERS = (
@@ -93,6 +97,57 @@ VOICE_HELPERS = (
     "    return r && { meta: r.meta, text: cap ? `${cap}\\n\\n${r.text}` : r.text }\n"
     "  }\n"
     "}\n\n"
+)
+
+USAGE_TS = (
+    MARK + ": /usage answered at once by the plugin, without the assistant (allowlist only)\n"
+    "function _patchUsage(): string {\n"
+    "  const read = (p: string): any => { try { return JSON.parse(readFileSync(p, 'utf8')) } catch { return undefined } }\n"
+    "  const ws = process.env.ASSISTANT_DIR ?? join(homedir(), 'assistant')\n"
+    "  const e = read(join(ws, 'state.json'))\n"
+    "  if (!e) return 'No usage data yet (state.json is written after the first reply). Ask the assistant: \"usage\".'\n"
+    "  let tz: string | undefined\n"
+    "  try {\n"
+    "    tz = /^TIMEZONE=(.+)$/m.exec(readFileSync('/usr/local/share/assistant/install.conf', 'utf8'))?.[1]?.trim()\n"
+    "    if (tz) new Intl.DateTimeFormat('en-GB', { timeZone: tz })\n"
+    "  } catch { tz = undefined }\n"
+    "  const o = tz ? { timeZone: tz } : {}\n"
+    "  const day = (d: Date) => d.toLocaleDateString('en-CA', o)\n"
+    "  const when = (s: unknown) => {\n"
+    "    if (typeof s !== 'number' || !s) return '?'\n"
+    "    const d = new Date(s * 1000)\n"
+    "    const hm = d.toLocaleTimeString('en-GB', { ...o, hour: '2-digit', minute: '2-digit' })\n"
+    "    return (day(d) === day(new Date()) ? 'today' : d.toLocaleDateString('en-GB', { ...o, weekday: 'short', day: 'numeric' })) + ' at ' + hm\n"
+    "  }\n"
+    "  const pct = (x: unknown) => typeof x === 'number' ? `${Math.round(x)} %` : '?'\n"
+    "  const st = read(join(homedir(), '.claude', 'settings.json')) ?? {}\n"
+    "  let cw: unknown = st.autoCompactWindow\n"
+    "  if (typeof cw !== 'number') for (const v of Object.values(st.modelSettings ?? {})) if (typeof (v as any)?.autoCompactWindow === 'number') cw = (v as any).autoCompactWindow\n"
+    "  const upd = String(e.updated ?? '?')\n"
+    "  const l = [`📊 Usage (as of ${upd.startsWith(day(new Date())) ? upd.slice(11) : upd})`, `• Model: ${e.model ?? '?'}`]\n"
+    "  if (typeof e.context_pct === 'number' && typeof e.context_max === 'number') {\n"
+    "    const k = Math.round(e.context_pct * e.context_max / 100000)\n"
+    "    l.push(typeof cw === 'number' ? `• Context: ≈${k}k of ${Math.round(cw / 1000)}k (compacts by itself there)` : `• Context: ${pct(e.context_pct)} (≈${k}k)`)\n"
+    "  }\n"
+    "  const warn = (x: unknown, at: number) => typeof x === 'number' && x >= at ? ' ⚠️' : ''\n"
+    "  l.push(`• 5-hour limit: ${pct(e.five_hour_pct)}${warn(e.five_hour_pct, 80)} · resets ${when(e.five_hour_resets_at)}`)\n"
+    "  l.push(`• Week: ${pct(e.week_pct)}${warn(e.week_pct, 70)} · resets ${when(e.week_resets_at)}`)\n"
+    "  const cache = join(homedir(), '.cache', 'assistant-telegram')\n"
+    "  const t = read(join(cache, 'turn.json'))\n"
+    "  const p = read(join(cache, 'permission-pending.json'))\n"
+    "  const now = Date.now() / 1000\n"
+    "  if (p && now - (p.since ?? 0) < 900) l.push('• Now: waiting for your permission')\n"
+    "  else if (t && t.start && !t.end) l.push(`• Now: working, for ${Math.max(1, Math.round((now - t.start) / 60))} min`)\n"
+    "  else l.push('• Now: free')\n"
+    "  l.push('', '(automatic answer from the bot: it does not reach the assistant and costs nothing)')\n"
+    "  return l.join('\\n')\n"
+    "}\n"
+    "bot.command('usage', async ctx => {\n"
+    "  const g = dmCommandGate(ctx)\n"
+    "  if (!g || !g.access.allowFrom.includes(g.senderId)) return\n"
+    "  try { _patchAppend(join(STATE_DIR, 'usage.log'), `${new Date().toISOString()} usage\\n`) } catch {}\n"
+    "  await ctx.reply(_patchUsage()).catch(() => {})\n"
+    "})\n\n"
 )
 
 # (mode, anchor, text): "before" inserts the text in front of the anchor; "replace" replaces the anchor with the text.
@@ -170,6 +225,8 @@ CHANGES = [
      "        const res = await _patchFetch(url, 30000) " + MARK + "\n        if (!res.ok)"),
     ("replace", "      const res = await fetch(url)\n      const buf",
      "      const res = await _patchFetch(url, 30000) " + MARK + "\n      const buf"),
+    # v3: /usage without the model (before the text handler, so the command never reaches the assistant)
+    ("before", "bot.on('message:text', async ctx => {\n", USAGE_TS),
 ]
 
 

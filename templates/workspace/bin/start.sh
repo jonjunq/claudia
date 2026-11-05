@@ -19,7 +19,7 @@ while true; do
   # replaces it, and tell the plugin whether permission-hook.py handles permission requests.
   if [ -x "$TG_EXTRAS/patch-telegram-plugin.py" ]; then
     python3 -I "$TG_EXTRAS/patch-telegram-plugin.py" >> "$LOG" 2>&1 ||
-      tg_send "⚠️ The Telegram plugin changed and the assistant's patch no longer fits: quoted messages, permission buttons and the automatic transcription of voice notes are off until patch-telegram-plugin.py is adapted."
+      tg_send "⚠️ The Telegram plugin changed and the assistant's patch no longer fits: quoted messages, permission buttons, the automatic transcription of voice notes and the instant /usage are off until patch-telegram-plugin.py is adapted."
     if grep -q permission-hook.py "$HOME/.claude/settings.json" 2>/dev/null; then
       touch "$TG_DIR/permission-hook-enabled"
     else
@@ -27,6 +27,9 @@ while true; do
     fi
   fi
   MODEL="${MODEL:-opus}"
+  # Helpers (subagents, .claude/agents/) run on the same model as the session, whatever an agent definition or a
+  # built-in agent (Explore, claude-code-guide…) would pick: SUBAGENT_MODEL in assistant.env, or MODEL.
+  export CLAUDE_CODE_SUBAGENT_MODEL="${SUBAGENT_MODEL:-$MODEL}" CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1
   CHANNELS=(--channels plugin:telegram@claude-plugins-official)
   if [ -n "${DEV_CHANNELS:-}" ]; then
     # Self-built channels built with a recent MCP SDK may need this to register as a channel (see docs/voice.md).

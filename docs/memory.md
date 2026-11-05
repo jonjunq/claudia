@@ -25,6 +25,10 @@ recall show <session> <n>                     # the messages around a result
 - Messages from Telegram count as `owner`; voice notes too (with `(voice)` in front), because their text is the
   output of `bin/transcribe.sh`. Its own `recall` calls are left out of the index.
 - At most two results per conversation, so one long day does not hide the others.
+- If no message has all the words (often one word is one too many), it says so and searches again for any of them,
+  best matches first. On ours, the only empty search in three days was of that kind, not a paraphrase, which is why
+  there is no semantic search: an embedding model would add RAM and moving parts for very little.
+- Helpers' (subagents') own work is indexed too, as `helper`, and shows with `--all`.
 - The index (`~/.cache/assistant-recall.db`, mode 600) holds pieces of emails and conversations: it is only for its
   user.
 - The `recall` skill tells the assistant when to use it and how to search well (rare words, prefixes, confirm the
@@ -48,8 +52,16 @@ inside `assistant-daily-restart`, right after the end of day and before the rest
    new class-level skill), and what **not** to capture: negative claims about tools, one-off stories, transient
    errors, anything not seen to work, and secrets.
 4. Only changed files under `skills/` and `memory/` are copied back, atomically, and only if the added lines carry
-   no key, token, password or PIN pattern, no invisible Unicode, and the assistant did not touch that file while the
-   review ran. It never deletes whole files, but it does prune inside them (see below).
+   no key, token, password or PIN pattern, no invisible Unicode, no phrase that reads like planted instructions
+   ("ignore all previous instructions", "you are now…", a `<system>` tag), and the assistant did not touch that
+   file while the review ran. It never deletes whole files, but it does prune inside them (see below).
+   The prompt also has a **provenance rule** (from OpenClaw's "Dreaming"): only what the owner said, or what was
+   seen to work, may become memory or a skill; nothing whose only source is an email, a web page, a document, a
+   post, an automatic notice or a helper's unchecked report. Each line of the conversation it reads is labelled
+   with who wrote it, so it can tell.
+   After applying, it lists the skills and `references/` files nobody loaded in 30 days (Hermes' curator idea),
+   once the transcripts cover that long. It only lists them in `notes/last-review.md`: deleting is for you or the
+   assistant to decide.
 5. A commit in the history before and after and a summary in `notes/last-review.md`, one line per change. With
    `REVIEW_NOTIFY=yes` in `assistant.env` it also sends you that summary as a silent Telegram message; it is off by
    default, because after the first week most people would rather trust it than read one more message a night.
@@ -83,6 +95,9 @@ between two notes, and recorded which notification emails the owner wants binned
 
 ## Keeping the context small
 
+(1.5.0 went further: helpers for heavy work, a lighter start, safer compaction and `/usage` without the model, with
+measurements: [context.md](context.md).)
+
 An assistant that runs all day in one conversation re-reads everything said since the morning on every message. We
 measured ours over a week with [`templates/tools/token-usage.py`](../templates/tools/token-usage.py) (it reads
 Claude Code's own transcripts; nothing is sent anywhere):
@@ -113,7 +128,7 @@ too much is loaded before anyone says anything.
 ## History: undo anything
 
 `history.sh` keeps a git repository at `/var/lib/assistant-history/<user>` (root, mode 700) whose work tree is the
-user's home, tracking only `assistant/CLAUDE.md`, `assistant/notes`, `assistant/.claude/skills` and the memory
+user's home, tracking only `assistant/CLAUDE.md`, `assistant/notes`, `assistant/.claude/skills`, `assistant/.claude/agents` and the memory
 folder (`*.json`, `*.env`, `*.bak-*` excluded). `assistant-history.timer` commits hourly; the review commits before
 and after itself.
 

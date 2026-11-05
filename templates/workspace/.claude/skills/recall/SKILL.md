@@ -20,8 +20,10 @@ of opening the `.jsonl` transcripts by hand with Python or grep: it is instant a
 ## Searching well
 1. Concrete, rare words, not sentences: names, places, brands, amounts. Each word counts as a prefix (`hotel` finds
    `hotels`) and accents do not matter.
-2. Too many results: add another word or narrow with `--since/--until`. None: try synonyms, the word in another
-   language, or `--all`.
+2. Too many results: add another word or narrow with `--since/--until`. If no message has all your words, it
+   searches again for any of them by itself (it says so): check that the pieces are about the right thing. Still
+   none: try synonyms, the word in another language, or `--all`.
+   `--all` also finds what your helpers (subagents) did, as `helper` in a `helper:` session.
 3. Advanced, FTS5 syntax: `"exact phrase"`, `flight OR plane`, `Rome NOT Paris`.
 4. __OWNER__'s voice notes show up as `owner` with `(voice)` in front (it is their transcription).
 5. Before answering __OWNER__, open the good result with `show` to confirm the context: a loose piece can be an

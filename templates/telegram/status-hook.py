@@ -4,7 +4,12 @@ status-daemon.py, which keeps the "⏳ Working…" message on Telegram. It only 
 
 Only real turns count. Claude Code also runs background work in the same session (for example while it prepares
 the suggested reply) that fires these hooks but never reaches the transcript. Without the filter that work opened
-a phantom turn right after Stop and "⏳ Working" stayed on Telegram until the next real turn ended."""
+a phantom turn right after Stop and "⏳ Working" stayed on Telegram until the next real turn ended.
+
+Helpers (subagents) fire these hooks too, with agent_id / agent_type and the prompt_id of the turn that launched
+them. They never open a turn: in the foreground (the assistant waits for the helper) the turn is still open and the
+helper's step is shown; in the background the assistant has already ended its turn and is free for you, so there is
+no "Working" (otherwise it stayed on until the helper finished)."""
 import json, os, subprocess, sys, time
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 import tg
@@ -47,6 +52,9 @@ if event in ("Stop", "StopFailure"):
     sys.exit(0)
 
 t = tg.read_json(TURN) or {}
+helper = hook.get("agent_type") or ("helper" if hook.get("agent_id") else "")
+if helper and (not t.get("start") or t.get("end") or not prompt or prompt != t.get("prompt")):
+    sys.exit(0)
 if not t.get("start") or t.get("end"):
     if prompt and prompt in (t.get("prompt"), t.get("closed")):
         sys.exit(0)  # late event from a turn that already ended (or the suggested reply prepared after it)
@@ -61,7 +69,7 @@ if event == "PreToolUse":
     name = hook.get("tool_name", "")
     if name.endswith("telegram__reply"):
         sys.exit(0)  # answering is not a step worth showing
-    t["step"] = tg.describe(name, hook.get("tool_input"))
+    t["step"] = (f"helper {helper} · " if helper else "") + tg.describe(name, hook.get("tool_input"))
     t["step_since"] = now
 tg.write_json(TURN, t)
 

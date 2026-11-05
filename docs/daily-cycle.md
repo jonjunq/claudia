@@ -46,9 +46,11 @@ Tips from the morning summary we use:
 
 The assistant cannot see its own terminal, where Claude Code shows context and plan usage. `bin/statusline.sh` is
 configured as the status line: Claude Code feeds it a JSON with the model, the context window and, on subscription
-plans, the 5-hour and weekly `rate_limits`; the script saves them to `~/assistant/state.json`. `/usage` from Telegram
-makes the assistant read that file and answer in two lines, with reset times in your time zone. It also warns you on
-its own past 70 % of the weekly limit or 80 % of the 5-hour one. The data is as of its last reply.
+plans, the 5-hour and weekly `rate_limits`; the script saves them to `~/assistant/state.json`. `/usage` from Telegram is
+answered from that file by the plugin itself, at once and without a model call, even while the assistant is busy
+([telegram-extras.md](telegram-extras.md#6-usage-answered-by-the-bot)); asked in words, the assistant reads the same
+file. It also warns you on its own past 70 % of the weekly limit or 80 % of the 5-hour one. The data is as of its
+last reply.
 
 ## `/clear`
 

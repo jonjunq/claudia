@@ -64,8 +64,10 @@ Suggested order for the common ones; the "when it comes up" ones, whenever they 
   that can read their email: it stays on this machine. Guides: n8n.md, wakeup.md. Check: is n8n running, do you get
   email notices?
 - `updates` — "so I keep improving: once a day it checks whether there is a new version of me, and I tell you what
-  it brings. I never update without your yes." Offer after the first week, or right after n8n is set up. Skill
-  `updating`.
+  it brings. I never update without your yes." Check `RELEASE_WATCH` in `/usr/local/share/assistant/install.conf`:
+  `yes` = already offered at install (mark `already`; if `RELEASE_WATCH_HOW=n8n`, set up the workflow now, skill
+  `updating`). Empty or `no`: offer it early, in the first days, once (it costs nothing: a small daily check, no
+  n8n needed); a no is final. Skill `updating`.
 - `page-watch` — when they mention a parcel, an order, a price or something out of stock: "I can watch that page
   and tell you when it changes, and the watch switches itself off when it is delivered". n8n.md.
 

@@ -38,7 +38,11 @@ It creates, without overwriting anything that exists:
 | `/usr/local/sbin/assistant-daily-restart` + `/etc/cron.d/assistant` | The nightly end of day (05:45 by default) |
 | `/usr/local/share/assistant/` | `install.conf` (version and settings), the guides for the assistant to read, and a copy of what was installed, for upgrades |
 
-Nothing starts yet.
+Nothing starts yet, except what you say yes to. At the end it asks one question: **release notices** (once a day,
+check for a new version and tell the assistant, which tells you what it brings; it never updates without your yes,
+[updating.md](updating.md)). From a script, answer with `--release-watch yes|no`. If you (or the Claude Code you
+asked to install this) skip it, the assistant offers it once in its first days. `--idle-compact yes` turns on the
+optional idle compaction ([context.md](context.md#compacting-while-idle)).
 
 ## 3. Claude Code and Bun, as the assistant's user
 

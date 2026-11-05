@@ -1,6 +1,6 @@
 #!/bin/bash
 # Git history, owned by root and out of the assistant's reach, of what the assistant knows:
-# CLAUDE.md, notes, skills and memory. Run hourly by assistant-history.timer and around each nightly review.
+# CLAUDE.md, notes, skills, helpers (subagents) and memory. Run hourly by assistant-history.timer and around each nightly review.
 #   history.sh <user> ["message"]      (no changes, no commit)
 # See and undo: git --git-dir=/var/lib/assistant-history/<user> log --stat | show <commit> | checkout <commit> -- <path>
 set -euo pipefail
@@ -19,7 +19,7 @@ if [ ! -d "$G" ]; then
   chmod 700 "$G"
 fi
 paths=()
-for p in assistant/CLAUDE.md assistant/notes assistant/.claude/skills ".claude/projects/$P/memory"; do
+for p in assistant/CLAUDE.md assistant/notes assistant/.claude/skills assistant/.claude/agents ".claude/projects/$P/memory"; do
   [ -e "$H/$p" ] && paths+=("$p")
 done
 [ ${#paths[@]} -gt 0 ] || exit 0

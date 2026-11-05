@@ -1,14 +1,17 @@
 #!/bin/bash
 # Installs the assistant's workspace, scripts and services for one user. Run as root.
 #   sudo ./install.sh <user> [--name Claudia] [--owner Alex] [--language English] [--timezone Europe/Madrid] [--upgrade]
+#                    [--release-watch yes|no] [--idle-compact yes|no]
 # It never overwrites your files: re-running it only adds what is missing. --upgrade also brings the files you have
-# not changed up to date and writes <file>.new merges for the ones you changed (docs/updating.md). It does not
-# start anything; it prints the remaining steps. DESTDIR=/some/dir installs under that prefix (used by the tests).
+# not changed up to date and writes <file>.new merges for the ones you changed (docs/updating.md). It starts nothing
+# but what you say yes to: the daily release notice (asked at the end if not given; it never updates anything) and
+# the idle compaction (docs/context.md). It prints the remaining steps. DESTDIR=/some/dir installs under that prefix
+# (used by the tests).
 set -euo pipefail
 REPO=$(dirname "$(readlink -f "$0")")
 SRC=$REPO/templates
 U="${1:-}"
-if [ -z "$U" ]; then sed -n '2,6p' "$0"; exit 1; fi
+if [ -z "$U" ]; then sed -n '2,8p' "$0"; exit 1; fi
 shift
 D="${DESTDIR:-}"
 # What install.sh installed and with which settings: read by the assistant (its version) and by later runs.
@@ -20,6 +23,7 @@ conf() {
   true
 }
 NAME=$(conf NAME); OWNER=$(conf OWNER); LANGUAGE=$(conf LANGUAGE); TIMEZONE=$(conf TIMEZONE)
+RELEASE_WATCH=$(conf RELEASE_WATCH); IDLE_COMPACT=$(conf IDLE_COMPACT)
 NAME=${NAME:-Claudia}; OWNER=${OWNER:-$U}; LANGUAGE=${LANGUAGE:-English}
 TIMEZONE=${TIMEZONE:-$(cat /etc/timezone 2>/dev/null || echo UTC)}
 UPGRADE=0
@@ -30,6 +34,8 @@ while [ $# -gt 0 ]; do
     --language) LANGUAGE=$2; shift 2 ;;
     --timezone) TIMEZONE=$2; shift 2 ;;
     --upgrade) UPGRADE=1; shift ;;
+    --release-watch) case "${2:-}" in yes|no) RELEASE_WATCH=$2 ;; *) echo "--release-watch takes yes or no" >&2; exit 1 ;; esac; shift 2 ;;
+    --idle-compact) case "${2:-}" in yes|no) IDLE_COMPACT=$2 ;; *) echo "--idle-compact takes yes or no" >&2; exit 1 ;; esac; shift 2 ;;
     *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
@@ -125,6 +131,14 @@ done
 put "$SRC/system/recall" /usr/local/bin/recall 755
 put "$SRC/system/assistant-history.service" /etc/systemd/system/assistant-history.service 644
 put "$SRC/system/assistant-history.timer" /etc/systemd/system/assistant-history.timer 644
+# Idle compaction (optional, docs/context.md) and the release notice without n8n (optional, docs/updating.md):
+# installed always, enabled only with a yes.
+put "$SRC/system/assistant-idle-compact" /usr/local/sbin/assistant-idle-compact 755
+put "$SRC/system/assistant-idle-compact.service" /etc/systemd/system/assistant-idle-compact.service 644
+put "$SRC/system/assistant-idle-compact.timer" /etc/systemd/system/assistant-idle-compact.timer 644
+put "$SRC/system/assistant-release-watch" /usr/local/sbin/assistant-release-watch 755
+put "$SRC/system/assistant-release-watch.service" /etc/systemd/system/assistant-release-watch.service 644
+put "$SRC/system/assistant-release-watch.timer" /etc/systemd/system/assistant-release-watch.timer 644
 # Browser extras (optional, docs/browser.md): an agent-browser config to copy, and the remote window's units
 # (x11vnc + noVNC), installed but not enabled.
 put "$SRC/browser/current-display" /usr/local/lib/assistant-browser/current-display 755
@@ -166,6 +180,22 @@ fi
 SOURCE=$(git -c safe.directory="$REPO" -C "$REPO" remote get-url origin 2>/dev/null | sed -E 's#//[^@/]*@#//#' || true)
 SOURCE=${SOURCE:-https://github.com/jonjunq/claudia}
 GITHUB_REPO=$(echo "$SOURCE" | sed -nE 's#^.*github\.com[:/]([^/]+/[^/]+)$#\1#p' | sed 's/\.git$//')
+# Release notices: asked once, at the end of the first install run from a terminal (never during an upgrade the
+# assistant runs). With n8n already here, its workflow template does it and the assistant sets it up; otherwise a small
+# daily timer does. Either way it only tells the assistant, which tells you; nothing is ever updated without your yes.
+HAS_N8N=0
+if [ -x "$D/usr/local/sbin/n8n-admin" ] || { [ -z "$D" ] && systemctl is-active -q n8n 2>/dev/null; }; then HAS_N8N=1; fi
+if [ -z "$RELEASE_WATCH" ] && [ -t 0 ] && [ -t 1 ]; then
+  echo
+  echo "Release notices: once a day, check whether there is a new version of the assistant and tell it, so it can tell"
+  echo "$OWNER what the new version brings. It never updates without $OWNER's yes."
+  read -r -p "Turn it on? [Y/n] " answer
+  case "$answer" in [nN]*) RELEASE_WATCH=no ;; *) RELEASE_WATCH=yes ;; esac
+fi
+RW_HOW=
+if [ "$RELEASE_WATCH" = yes ]; then
+  if [ "$HAS_N8N" = 1 ]; then RW_HOW=n8n; else RW_HOW=timer; fi
+fi
 mkdir -p "$D$SHARE"
 cat > "$D$CONF" <<CONFEOF
 # Written by install.sh on every run. The assistant reads its version here; later runs reuse these settings.
@@ -177,11 +207,31 @@ NAME=$NAME
 OWNER=$OWNER
 LANGUAGE=$LANGUAGE
 TIMEZONE=$TIMEZONE
+RELEASE_WATCH=$RELEASE_WATCH
+RELEASE_WATCH_HOW=$RW_HOW
+IDLE_COMPACT=$IDLE_COMPACT
 INSTALLED_AT=$TODAY
 CONFEOF
 chmod 644 "$D$CONF"
 echo "  wrote    $CONF (version $VERSION)"
 [ -z "$D" ] && systemctl daemon-reload
+if [ -z "$D" ]; then
+  if [ "$RW_HOW" = timer ]; then
+    systemctl enable --now -q assistant-wakeup assistant-release-watch.timer && echo "  enabled  the daily release notice (assistant-release-watch.timer, through assistant-wakeup)"
+  elif [ "$RELEASE_WATCH" = no ]; then
+    systemctl disable --now -q assistant-release-watch.timer 2>/dev/null || true
+  fi
+  if [ "$IDLE_COMPACT" = yes ]; then
+    systemctl enable --now -q assistant-idle-compact.timer && echo "  enabled  the idle compaction (assistant-idle-compact.timer)"
+  elif [ "$IDLE_COMPACT" = no ]; then
+    systemctl disable --now -q assistant-idle-compact.timer 2>/dev/null || true
+  fi
+fi
+case "$RW_HOW" in
+  n8n) echo "  release notice: n8n is here, so the assistant sets up its release-watch workflow (docs/updating.md)" ;;
+  timer) [ -n "$D" ] && echo "  release notice: on (assistant-release-watch.timer)" ;;
+  *) [ "$RELEASE_WATCH" = no ] && echo "  release notice: off (the assistant will offer it once in its first days)" ;;
+esac
 
 if [ "$UPGRADE" = 1 ]; then
   cat <<EOF
@@ -206,6 +256,9 @@ Next steps (details in docs/setup.md):
   3. As root: systemctl enable --now assistant assistant-permission-watch assistant-history.timer
   4. Attach to watch it: sudo -u $U tmux attach -t assistant   (detach: Ctrl+B D)
 Optional:
+  - Release notices, if you did not turn them on now: install.sh $U --release-watch yes (or ask the assistant)
+  - Compact the conversation after a long idle spell, if Claude Code's own idle compaction does not run for you
+    (docs/context.md): install.sh $U --idle-compact yes
   - Wake-up instead of Monitors (docs/wakeup.md): systemctl enable --now assistant-wakeup
   - n8n for alerts that need no thinking (docs/n8n.md): /usr/local/share/assistant-n8n/install-n8n.sh --help
   - A full browser with a window, and a remote window for captchas (docs/browser.md)

@@ -1,6 +1,6 @@
-# Telegram extras: status, quoted messages, permission buttons, rich messages, voice notes
+# Telegram extras: status, quoted messages, permission buttons, rich messages, voice notes, `/usage`
 
-Five things the official Telegram plugin does not do well enough for an assistant you only see through your phone,
+Six things the official Telegram plugin does not do well enough for an assistant you only see through your phone,
 and how this repo adds them. They live in [`templates/telegram/`](../templates/telegram/), which `install.sh` copies to
 `/usr/local/lib/assistant-telegram/` owned by root, plus a `hooks` block in `settings.json`. None of it calls the
 model: it is plain Python against the Telegram Bot API, so it costs nothing from your plan.
@@ -32,6 +32,12 @@ the status does not depend on the assistant remembering to report it:
   When the turn ends it deletes the message. It switches to a ⚠️ line when the assistant is stopped: waiting for
   your permission, sitting on a terminal dialog (read from the tmux screen), no hook event for 10 minutes, or the
   session exited.
+
+Helpers (subagents, [context.md](context.md#1-helpers-heavy-work-in-a-subagent-and-it-keeps-talking-to-you)) fire
+the same hooks, with `agent_id`/`agent_type` and the `prompt_id` of the turn that launched them. They never open a
+turn: while the assistant waits for a foreground helper, its step shows as `helper reader · …`; a background helper
+shows nothing, because the assistant is free for you (before, the message stayed until the helper finished).
+Permission requests and classifier blocks from a helper get the same buttons, with `(helper <name>)` in the title.
 
 So: a message that keeps changing means working, ⚠️ means stuck, no message means idle. It also shows for routines
 and other work you did not start; that is the point, you see when it is busy.
@@ -208,6 +214,30 @@ notification after 31 s; a hung `download_attachment` returned an error after 61
 part of CI; run it after a plugin update (`tests/plugin-e2e.py ~/.claude/plugins/cache/claude-plugins-official/telegram/<version>`).
 Engines, timings and setup: [docs/voice.md](voice.md).
 
+## 6. `/usage` answered by the bot
+
+`/usage` used to be a full turn: the assistant re-read its whole context to answer three lines, and if it was busy
+the command waited in the queue. Patch v3 makes the plugin answer it itself, before the message would be passed on:
+
+```
+📊 Usage (as of 10:35)
+• Model: Opus 5.5
+• Context: ≈190k of 300k (compacts by itself there)
+• 5-hour limit: 85 % ⚠️ · resets today at 11:05
+• Week: 58 % · resets Mon 9 at 10:35
+• Now: working, for 5 min
+
+(automatic answer from the bot: it does not reach the assistant and costs nothing)
+```
+
+It reads `~/assistant/state.json` (written by `bin/statusline.sh` after each reply), `autoCompactWindow` from
+`~/.claude/settings.json`, and the hooks' `turn.json` and `permission-pending.json`; times are in the `TIMEZONE` of
+`install.conf`. Only the allowlist gets an answer (the plugin's own command gate, then the allowlist); anyone else
+gets nothing, as before. `$STATE_DIR/usage.log` records only the time. Asked in words ("how much have you used?"),
+the assistant still answers from the same file. The idea is Hermes' `quick_commands`: what needs no thinking should
+not wake the model. `tests/plugin-e2e.py` checks it against the real plugin: answered by the plugin, a stranger's
+ignored, never delivered to the session, and an ordinary message still delivered.
+
 ## Check it
 
 - Status: ask it for something that takes a minute ("summarise today's email"); `~/.cache/assistant-telegram/log`
@@ -219,5 +249,6 @@ Engines, timings and setup: [docs/voice.md](voice.md).
   `approval used …` if you tapped Approve.
 - Voice notes: send one; it answers what you said, and `~/.claude/channels/telegram/voice.log` shows
   `ok … engine=groq` (or the engine that did it).
+- `/usage`: send it while the assistant is busy; the answer comes at once, ending "(automatic answer from the bot…)".
 - Rich messages: `printf '# Test\n\n| a | b |\n|---|---|\n| 1 | 2 |\n' | python3 -I /usr/local/lib/assistant-telegram/send-rich.py`
   shows a heading and a small table.

@@ -27,7 +27,8 @@ rid = secrets.token_hex(8)
 os.makedirs(tg.VERDICTS, mode=0o700, exist_ok=True)
 verdict_file = os.path.join(tg.VERDICTS, rid)
 CHAT = tg.chat_id()
-head = f"🚫 The classifier blocked this\n\n{name}: {what}"
+who = f" (to helper {hook['agent_type']})" if hook.get("agent_type") else ""  # a subagent's call
+head = f"🚫 The classifier blocked this{who}\n\n{name}: {what}"
 text = (f"{head}\n\nClassifier's reason: {reason}\n\n{detail}\n\n"
         f"Approve it? You have {WAIT // 60} min; with no answer it stays blocked.")
 buttons = {"inline_keyboard": [[{"text": "✅ Approve", "callback_data": f"hk:allow:{rid}"},

@@ -1,0 +1,7 @@
+[Unit]
+Description=Compact the assistant's conversation if it has been idle a long while with a big context (docs/context.md)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I /usr/local/sbin/assistant-idle-compact __USER__
+TimeoutStartSec=15min

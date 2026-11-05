@@ -1,0 +1,226 @@
+#!/usr/bin/env python3
+"""Compacts the assistant's conversation when it has been idle for a good while (optional, docs/context.md).
+Never /clear: a compaction keeps a summary, and the after-compact hook hands back the owner's last messages.
+Run by assistant-idle-compact.timer (root) every 10 minutes. It only acts when ALL of this holds:
+  - at least IDLE_COMPACT_MINUTES (90) without a message from the owner and without activity of its own: nothing
+    written to its conversation or to its helpers' (subagents), no turn open according to the Telegram hooks, no
+    permission request waiting, no helper running and no dialog open in its terminal;
+  - its context is above IDLE_COMPACT_MIN_TOKENS (120000), or there is nothing to gain;
+  - inside IDLE_COMPACT_HOURS (06:30-23:00): at night it is not worth it (a fresh conversation starts after the
+    daily restart, and the end of day works better with the whole conversation than with a summary).
+Right before typing /compact it checks everything again. It leaves a mark for after-compact.py (so the assistant knows
+why) and a line in restarts.log.
+Claude Code (2.1.290 or later) has its own idle compaction, on by default ("idleCompaction"), which compacts after
+about an hour, before the prompt cache expires; it depends on a feature flag and did not run every day for us. This
+is the fallback: if it already compacted, the context is small and this does nothing.
+  assistant-idle-compact <user>           what the timer runs
+  assistant-idle-compact <user> --check   only says what it would do
+Settings in the user's assistant.env (IDLE_COMPACT_MINUTES, IDLE_COMPACT_MIN_TOKENS, IDLE_COMPACT_HOURS); the same
+names in the environment win (tests). ASSISTANT_HOME, IDLE_COMPACT_LOG, IDLE_COMPACT_LOCK, IDLE_COMPACT_RECHECK and
+IDLE_COMPACT_WAIT are for the tests."""
+import calendar, fcntl, glob, json, os, pwd, re, subprocess, sys, time
+
+ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
+CHECK = "--check" in sys.argv
+if not ARGS:
+    raise SystemExit(__doc__)
+USER = ARGS[0]
+TEST_HOME = os.environ.get("ASSISTANT_HOME")
+HOME = TEST_HOME or pwd.getpwnam(USER).pw_dir
+UID = os.getuid() if TEST_HOME else pwd.getpwnam(USER).pw_uid
+WS = os.path.realpath(os.path.join(HOME, "assistant"))
+PROJECT = os.path.join(HOME, ".claude/projects", re.sub(r"[^A-Za-z0-9]", "-", WS))
+STATE = os.path.join(HOME, ".cache/assistant-telegram")
+LOG = os.environ.get("IDLE_COMPACT_LOG", "/var/log/assistant-idle-compact.log")
+RESTARTS = os.path.join(WS, "restarts.log")
+
+
+def setting(key, default):
+    """The environment, then KEY=value in assistant.env (the last assignment wins, as in the shell)."""
+    if os.environ.get(key):
+        return os.environ[key]
+    value = ""
+    try:
+        for line in open(os.path.join(WS, "assistant.env")):
+            if line.startswith(key + "="):
+                value = line.split("=", 1)[1].strip().strip("\"'")
+    except OSError:
+        pass
+    return value or default
+
+
+SESSION = setting("TMUX_SESSION", "assistant")
+SOCKET = setting("TMUX_SOCKET", f"/tmp/tmux-{UID}/default")
+IDLE = float(setting("IDLE_COMPACT_MINUTES", "90")) * 60
+MIN_CTX = int(setting("IDLE_COMPACT_MIN_TOKENS", "120000"))
+HOURS = setting("IDLE_COMPACT_HOURS", "06:30-23:00")
+CHANNEL = re.compile(r'<channel source="[^"]*telegram[^"]*"([^>]*)>')
+
+
+def log(text, restarts=False):
+    line = time.strftime("[%Y-%m-%d %H:%M:%S] ") + text
+    if CHECK:
+        print(line)
+        return
+    with open(LOG, "a") as f:
+        f.write(line + "\n")
+    if restarts:
+        with open(RESTARTS, "a") as f:
+            f.write(f"[{time.strftime('%c')}] {text}\n")
+        if os.geteuid() == 0 and not TEST_HOME and os.stat(RESTARTS).st_uid == 0:
+            os.chown(RESTARTS, UID, -1)  # the session writes to it too
+
+
+def tmux(*args):
+    return subprocess.run(["tmux", "-S", SOCKET, *args], capture_output=True, text=True, timeout=10)
+
+
+def read_json(path):
+    try:
+        return json.load(open(path))
+    except Exception:
+        return None
+
+
+def owner_id():
+    v = setting("TELEGRAM_CHAT_ID", "")
+    if v:
+        return v
+    try:
+        return str(json.load(open(os.path.join(HOME, ".claude/channels/telegram/access.json")))["allowFrom"][0])
+    except Exception:
+        return None
+
+
+def read_transcript(path):
+    """(context of the last main call, epoch of the owner's last message)."""
+    ctx, last_owner, owner = None, None, owner_id()
+    with open(path, "rb") as f:
+        f.seek(0, 2)
+        start = max(0, f.tell() - 6_000_000)
+        f.seek(start)
+        lines = f.read().decode("utf-8", "ignore").splitlines()[1 if start else 0:]  # a cut first line is dropped
+    for line in lines:
+        try:
+            d = json.loads(line)
+        except ValueError:
+            continue
+        if d.get("isSidechain"):
+            continue
+        if d.get("type") == "system" and d.get("subtype") == "compact_boundary":
+            ctx = (d.get("compactMetadata") or {}).get("postTokens") or 0  # after a compaction, the new size
+            continue
+        m = d.get("message") or {}
+        if d.get("type") == "assistant" and m.get("usage"):
+            u = m["usage"]
+            ctx = u.get("input_tokens", 0) + u.get("cache_read_input_tokens", 0) + u.get("cache_creation_input_tokens", 0)
+        elif d.get("type") == "user" and not d.get("isCompactSummary"):
+            c = m.get("content")
+            text = c if isinstance(c, str) else " ".join(b.get("text", "") for b in c or [] if isinstance(b, dict))
+            for attrs in CHANNEL.findall(text):
+                if owner is None or re.search(rf'\b(user_id|chat_id|user)="{re.escape(owner)}"', attrs):
+                    try:
+                        last_owner = calendar.timegm(time.strptime(d["timestamp"][:19], "%Y-%m-%dT%H:%M:%S"))
+                    except (KeyError, ValueError):
+                        pass
+    return ctx, last_owner
+
+
+def in_hours(t):
+    try:
+        a, b = [int(x[:2]) * 60 + int(x[3:5]) for x in HOURS.split("-")]
+    except ValueError:
+        a, b = 6 * 60 + 30, 23 * 60
+    m = t.tm_hour * 60 + t.tm_min
+    return a <= m < b if a <= b else (m >= a or m < b)
+
+
+def check():
+    """(reason not to, data). reason None = it can compact now."""
+    now = time.time()
+    if not in_hours(time.localtime(now)):
+        return f"outside {HOURS}", {}
+    if tmux("has-session", "-t", SESSION).returncode != 0:
+        return "no tmux session", {}
+    if subprocess.run(["pgrep", "-u", str(UID), "-x", "claude"], capture_output=True).returncode != 0:
+        return "claude is not running", {}
+    transcripts = sorted(glob.glob(os.path.join(PROJECT, "*.jsonl")), key=os.path.getmtime)
+    if not transcripts:
+        return "no conversation", {}
+    main = transcripts[-1]
+    # Activity: its conversation, its helpers' conversations (<session>/subagents/…) and the hooks' state files.
+    watched = [main] + glob.glob(os.path.join(main[:-6], "**", "*"), recursive=True)
+    watched += [os.path.join(STATE, n) for n in ("turn.json", "permission-pending.json")]
+    last = max((os.path.getmtime(p) for p in watched if os.path.isfile(p)), default=0)
+    data = {"idle_min": int((now - last) / 60)}
+    if now - last < IDLE:
+        return f"activity {data['idle_min']} min ago", data
+    t = read_json(os.path.join(STATE, "turn.json"))
+    if t and t.get("start") and not t.get("end"):
+        return "a turn is open according to the hooks", data
+    if os.path.exists(os.path.join(STATE, "permission-pending.json")):
+        return "a permission request is waiting", data
+    ctx, last_owner = read_transcript(main)
+    if last_owner and now - last_owner < IDLE:
+        return f"the owner wrote {int((now - last_owner) / 60)} min ago", data
+    data["owner_min"] = int((now - last_owner) / 60) if last_owner else None
+    data["ctx"] = ctx
+    if not ctx or ctx < MIN_CTX:
+        return f"small context ({ctx and round(ctx / 1000)}k)", data
+    bottom = tmux("capture-pane", "-p", "-t", SESSION).stdout[-2500:]
+    if "Do you want" in bottom or "Model switch" in bottom or "safeguards flagged" in bottom:
+        return "a dialog is open in its terminal", data
+    if re.search(r"(esc to interrupt|…\s*\(\d|Compacting|Waiting for \d+ background)", bottom):
+        return "working, according to its terminal", data
+    if re.search(r"^\s*◯ ", bottom, re.M):
+        return "a helper (subagent) is running in its terminal", data
+    return None, data
+
+
+def main():
+    lock = open(os.environ.get("IDLE_COMPACT_LOCK", "/run/assistant-idle-compact.lock"), "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return
+    reason, data = check()
+    if reason:
+        if CHECK:
+            log(f"not compacting: {reason} {data}")
+        return
+    time.sleep(0 if CHECK else float(os.environ.get("IDLE_COMPACT_RECHECK", "20")))  # in case something just arrived
+    reason, data = check()
+    if reason:
+        log(f"not compacting (second check): {reason} {data}")
+        return
+    summary = f"context ≈{round(data['ctx'] / 1000)}k, idle {data['idle_min']} min" + \
+        (f", the owner wrote {data['owner_min']} min ago" if data.get("owner_min") is not None else "")
+    if CHECK:
+        log(f"WOULD COMPACT now ({summary})")
+        return
+    mark = os.path.join(STATE, "idle-compact.json")
+    with open(mark, "w") as f:
+        json.dump({"at": time.time(), "minutes": data["idle_min"]}, f)
+    if os.geteuid() == 0 and not TEST_HOME:
+        os.chown(mark, UID, -1)
+    tmux("send-keys", "-t", SESSION, "-l", "/compact")
+    time.sleep(1)
+    tmux("send-keys", "-t", SESSION, "Enter")
+    log(f"/compact while idle ({summary})", restarts=True)
+    # Wait for the result (10 minutes at most), only to log it.
+    main_t = sorted(glob.glob(os.path.join(PROJECT, "*.jsonl")), key=os.path.getmtime)[-1]
+    size = os.path.getsize(main_t)
+    for _ in range(int(float(os.environ.get("IDLE_COMPACT_WAIT", "600")) / 5)):
+        time.sleep(5)
+        with open(main_t, "rb") as f:
+            f.seek(size)
+            new = f.read().decode("utf-8", "ignore")
+        if '"compact_boundary"' in new:
+            pre = re.findall(r'"preTokens":\s*(\d+)', new)
+            log(f"compacted while idle: done ({pre[-1] if pre else '?'} tokens before)", restarts=True)
+            return
+    log("compacted while idle: no end of the compaction seen in 10 min (look at its tmux)", restarts=True)
+
+
+if __name__ == "__main__":
+    main()

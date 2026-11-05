@@ -6,7 +6,8 @@ The idea comes from Hermes Agent's session_search: a SQLite FTS5 index (BM25 ran
   recall show <session> <n> [--window 6]       # the messages around a result
   recall index                                 # incremental; search already does it
 By default it searches what the owner said, what the assistant answered and the diary;
---all also includes commands and tool results. Times are shown in local time; --since/--until compare UTC dates.
+--all also includes commands, tool results and the helpers' (subagents') own work. If no message has all the words,
+it searches again for any of them. Times are shown in local time; --since/--until compare UTC dates.
 Paths can be overridden with RECALL_PROJECTS, RECALL_DIARY and RECALL_DB.
 """
 import argparse, glob, json, os, re, sqlite3
@@ -87,6 +88,12 @@ def transcript_pieces(path):
                     yield ts, "owner" if is_voice else "result", ("(voice) " if is_voice else "") + str(rc)
 
 
+def helper_pieces(path):
+    """A helper's (subagent's) conversation: its own text counts as "helper", not as the assistant."""
+    for ts, who, text in transcript_pieces(path):
+        yield ts, ("helper" if who == "assistant" else who), text
+
+
 def diary_pieces(path):
     day = os.path.basename(path)[:10]
     yield f"{day}T23:59:00Z", "diary", open(path, encoding="utf-8").read()
@@ -95,13 +102,14 @@ def diary_pieces(path):
 def index(db, quiet=False):
     new = 0
     sources = [(p, transcript_pieces) for p in glob.glob(f"{PROJECTS}/*.jsonl")]
+    sources += [(p, helper_pieces) for p in glob.glob(f"{PROJECTS}/*/subagents/agent-*.jsonl")]
     sources += [(p, diary_pieces) for p in glob.glob(f"{DIARY}/*.md")]
     for path, reader in sources:
         st = os.stat(path)
         row = db.execute("SELECT size, mtime FROM files WHERE path=?", (path,)).fetchone()
         if row and row[0] == st.st_size and row[1] == st.st_mtime:
             continue
-        session = ("diary:" if reader is diary_pieces else "") + os.path.basename(path).rsplit(".", 1)[0]
+        session = {diary_pieces: "diary:", helper_pieces: "helper:"}.get(reader, "") + os.path.basename(path).rsplit(".", 1)[0]
         # Re-index the whole file: simpler than tracking offsets, and only a few files are live.
         for rid, text in db.execute("SELECT id, text FROM msg WHERE session=?", (session,)).fetchall():
             db.execute("INSERT INTO fts(fts, rowid, text) VALUES('delete', ?, ?)", (rid, text))
@@ -127,18 +135,18 @@ def local(ts):
         return ts[:16]
 
 
-def fts_query(text):
-    """Plain words -> AND of prefixes; FTS5 syntax typed by the user is kept as it is."""
+def fts_query(text, any_word=False):
+    """Plain words -> AND of prefixes (OR with any_word); FTS5 syntax typed by the user is kept as it is."""
     if re.search(r'["*()]|\b(AND|OR|NOT|NEAR)\b', text):
         return text
-    return " ".join(f'"{w}"*' for w in re.findall(r"\w+", text))
+    return (" OR " if any_word else " ").join(f'"{w}"*' for w in re.findall(r"\w+", text))
 
 
-def search(db, a):
+def search(db, a, any_word=False):
     who = None if a.all else ("owner", "assistant", "diary")
     sql = """SELECT m.session, m.n, m.ts, m.who, snippet(fts, 0, '«', '»', ' … ', 24), bm25(fts) AS r
              FROM fts JOIN msg m ON m.id = fts.rowid WHERE fts MATCH ?"""
-    args = [fts_query(a.text)]
+    args = [fts_query(a.text, any_word)]
     if who:
         sql += f" AND m.who IN ({','.join('?' * len(who))})"
         args += who
@@ -156,6 +164,11 @@ def search(db, a):
         out.append(f"{local(ts)} · {who_} · {session} {n}\n   {' '.join(piece.split())}")
         if len(out) >= a.n:
             break
+    if not out and not any_word and len(re.findall(r"\w+", a.text)) > 1 and fts_query(a.text) != a.text:
+        # No message has every word (often one of them is one too many): try again with any of them, best first
+        # (BM25 ranks higher the messages that have more of the words).
+        print("(No message has all the words; these have some of them:)")
+        return search(db, a, any_word=True)
     print("\n".join(out) if out else "No results. Try other words, --all, or drop the dates.")
 
 
