@@ -167,8 +167,13 @@ fi
 # All the guides and the changelog, refreshed on every run, so the assistant can read them on its own machine.
 # (The two copies under assistant-n8n/docs/ are for CLAUDE.md files from 1.3.0 and 1.4.0 that point there.)
 for f in "$REPO"/docs/*.md "$REPO/CHANGELOG.md"; do install -D -m 644 "$f" "$D$SHARE/docs/$(basename "$f")"; done
+for f in "$REPO"/docs/recipes/*.md; do install -D -m 644 "$f" "$D$SHARE/docs/recipes/$(basename "$f")"; done
 for f in n8n.md wakeup.md; do install -D -m 644 "$REPO/docs/$f" "$D/usr/local/share/assistant-n8n/docs/$f"; done
-echo "  copied   the n8n kit to /usr/local/share/assistant-n8n/ (not installed) and the guides to $SHARE/docs/"
+# The small tools (templates/tools/), root-owned: an allow rule for one of them cannot be widened by editing it.
+for f in "$SRC"/tools/*; do
+  case "$f" in *.sh|*.py) install -D -m 755 "$f" "$D$SHARE/tools/$(basename "$f")" ;; esac
+done
+echo "  copied   the n8n kit to /usr/local/share/assistant-n8n/ (not installed), the guides and recipes to $SHARE/docs/ and the tools to $SHARE/tools/"
 
 # The version and settings of this install. From a git clone, git describe (the release tag, or the tag plus the
 # commits after it); otherwise the newest release in CHANGELOG.md, "+unreleased" if there are changes after it.

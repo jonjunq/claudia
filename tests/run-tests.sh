@@ -65,6 +65,8 @@ check "re-install reuses the settings of the first install" grep -q "You are \*\
 check "install records its version and settings" bash -c "grep -qE '^VERSION=.+' '$T/usr/local/share/assistant/install.conf' && grep -q '^NAME=Ada$' '$T/usr/local/share/assistant/install.conf' && grep -q '^GITHUB_REPO=[^/]*/[^/]*$' '$T/usr/local/share/assistant/install.conf'"
 check "install without a terminal leaves the release notice undecided" grep -q '^RELEASE_WATCH=$' "$T/usr/local/share/assistant/install.conf"
 check "install copies the guides and the changelog for the assistant" test -e "$T/usr/local/share/assistant/docs/updating.md" -a -e "$T/usr/local/share/assistant/docs/CHANGELOG.md"
+check "install copies the recipes for the assistant" bash -c "test -e '$T/usr/local/share/assistant/docs/recipes/README.md' && test \$(ls '$T/usr/local/share/assistant/docs/recipes/' | wc -l) -eq \$(ls docs/recipes/*.md | wc -l)"
+check "install copies the tools root-owned and executable" bash -c "test -x '$T/usr/local/share/assistant/tools/unsubscribe.py' -a -x '$T/usr/local/share/assistant/tools/card-fill.sh'"
 [ -n "$out" ] || ko "install printed nothing"
 
 # --upgrade, from a copy of the repo without git (a downloaded release): a "next release" changes some templates
@@ -633,6 +635,9 @@ tr_run FAKE_GROQ=500,500 FAKE_CF=500 >/dev/null; rc=$?
 check "transcribe: exit 1 when every engine fails" bash -c "test $rc = 1 && grep -q 'Could not transcribe' '$TR/err'"
 out=$(tr_run TRANSCRIBE_NO_GROQ=1 FAKE_CF=200)
 check "transcribe: Cloudflare alone works" bash -c "test '$out' = 'hello from cloudflare' && ! grep -q '^groq' '$TR/log'"
+
+# unsubscribe.py: one-click unsubscription only from signed emails, only https, never to a private address
+check "unsubscribe tool (offline checks)" python3 -I tests/unsubscribe-test.py
 
 # card-fill.sh: saves the card 600 outside the workspace, checks the last digits, refuses a malformed number
 CF="$T/cardhome"; mkdir -p "$CF"
