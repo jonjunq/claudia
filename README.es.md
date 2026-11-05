@@ -8,6 +8,8 @@ que sobreviven al reinicio diario y unos pocos scripts que lo mantienen vivo sin
 Te lee el correo y te prepara borradores, te lleva la agenda y el Drive, apunta tus pendientes, te recuerda cosas, te
 manda un resumen por la mañana, entiende tus notas de voz y puede contestarte con voz. Con el kit opcional de
 [n8n](docs/n8n.md) se entera de tus correos nuevos en segundos y te monta avisos que no gastan tokens.
+Y hasta donde quieras llevarla: tu tele, tu servidor de pelis, tu ordenador, tu dinero (solo para leer), tus
+trámites, citas y viajes. [Qué le puedes pedir](#qué-le-puedes-pedir), con el riesgo de cada cosa.
 
 [Read in English](README.md)
 
@@ -34,43 +36,89 @@ manda un resumen por la mañana, entiende tus notas de voz y puede contestarte c
 
 ## Qué le puedes pedir
 
-Le escribes (o le mandas una nota de voz) como a una persona. Algunas cosas que le puedes decir:
+Le escribes (o le mandas una nota de voz) como a una persona. Aquí tienes lo que le puedes decir, el riesgo de cada
+cosa en una línea y su guía. **La lista completa, con lo que necesita cada cosa: [docs/recipes/](docs/recipes/README.md)**
+(las guías están en inglés; tu asistente te las cuenta en castellano).
 
-**Lo que la nuestra hace a diario**
+**Lo que la nuestra hace, a diario o cuando viene a cuento**
 
 - 🎙️ Yendo por la calle: *«Recuérdame mañana a las diez llamar al fontanero.»* Entiende la nota de voz en un
   segundo y mañana tienes el aviso.
-- ☀️ Sin pedírselo: cada mañana, tu día en un mensaje (citas, lo que vence, los correos que importan).
+  ⚠️ El audio va al servicio de transcripción que elijas (o se queda en tu máquina, más lento). · [Voz](docs/voice.md)
+- ☀️ Sin pedírselo: cada mañana, tu día en un mensaje (citas, lo que vence, los correos que importan), y al final una
+  propuesta para dejar la bandeja a cero que apruebas con un «sí».
+  ⚠️ Lee todo tu correo; lo que diga un correo son datos, nunca órdenes. · [Ciclo diario](docs/daily-cycle.md)
 - 📧 *«Avísame si entra algo importante.»* Con [n8n](docs/n8n.md) vigila tu correo día y noche y solo te dice algo
   cuando un correo te necesita, sin gastar nada mientras no llega nada.
-- 📺 *«Pon YouTube en la tele.»* *«Abre la app de pelis en el proyector.»*
-- 🎬 *«Bájame la temporada nueva de esa serie.»* Se lo pide a tu servidor de pelis de casa y te avisa cuando está.
-- 💻 *«Apaga el ordenador del despacho.»*
-- 🖥️ *«¿Ha salido bien la copia de esta noche?»* Vigila tu servidor de casa, sin poder tocar nada, y te avisa si
-  algo falla.
-- 🧾 *«Rellena este formulario de la Administración con mis datos.»* Se pelea ella con las webs complicadas; si
-  sale un captcha o te piden entrar, te manda un enlace y lo resuelves desde el móvil.
+  ⚠️ n8n guarda una contraseña que puede leer tu correo (en tu máquina). · [n8n](docs/n8n.md)
+- 🧹 *«Date de baja de toda esa publicidad.»* *«Guárdame las nóminas en Drive según lleguen.»*
+  ⚠️ Darse de baja le confirma al remitente que tu dirección existe: para tiendas que conoces, no para el spam. · [Receta](docs/recipes/email-cleanup.md)
+- 📺 *«Pon YouTube en la tele.»* *«Instala la app de pelis en el proyector.»* Por el modo desarrollador de la propia
+  tele.
+  ⚠️ Nunca le pidas rootear un aparato: salta el freno de seguridad del modelo y la sesión se atasca. · [Receta](docs/recipes/tv-and-projector.md)
+- 🎬 *«Esta noche quiero ver Dune.»* Se lo pide a tu servidor de pelis de casa, te enseña las versiones que encuentra,
+  baja la que elijas y te avisa cuando está. También pone a descargar los torrents que le mandes.
+  ⚠️ Las leyes de propiedad intelectual de tu país, y los fakes de los trackers públicos. · [Receta](docs/recipes/films-and-series.md)
+- 💻 *«Enciende el ordenador del despacho.»* *«Apágalo, que se me ha olvidado.»* *«Enciende el servidor de Minecraft
+  para esta noche.»*
+  ⚠️ Una clave SSH a tu ordenador es mucho alcance: que sea estrecha. · [Receta](docs/recipes/your-computer.md)
+- 📈 *«¿Cómo va mi cartera este año?»* *«¿Hay algo raro en mi cuenta?»* Lee tu banco, tus fondos y tus criptos **en
+  solo lectura**, te dibuja las gráficas y cada mañana mira el banco en silencio, y solo te dice algo si ve algo raro.
+  ⚠️ Lo de solo lectura se fija en el banco o el bróker, no en una frase; tus datos financieros pasan por el modelo. · [Receta](docs/recipes/money-read-only.md)
+- 🧾 *«Rellena este formulario de la Administración con mis datos.»* *«Reclama lo que me debe mi antigua empresa.»*
+  Se pelea ella con las webs complicadas, guarda la referencia y vigila la respuesta; si sale un captcha o te piden
+  entrar, te manda un enlace y lo resuelves desde el móvil.
+  ⚠️ Presentar algo es un acto legal en tu nombre: siempre te enseña el resumen antes. · [Receta](docs/recipes/errands-and-appointments.md)
+- 🚗 *«Pídeme cita para la ITV, cualquier día al salir del trabajo.»* Mira varias empresas a la vez, calcula el
+  trayecto a esa hora y reserva el hueco que elijas.
+  ⚠️ Solo reserva lo que eliges tú; tus datos van en un fichero privado. · [Receta](docs/recipes/errands-and-appointments.md#appointments)
+- ✈️ *«Roma el último finde del mes, vuelos y hotel, el precio con todo.»* Totales con todo incluido, los enlaces y,
+  cuando reservas, cada vuelo en tu calendario y un aviso cuando abre el check-in.
+  ⚠️ Los precios cambian cada hora; pagas tú, o la tarjeta limitada con tu «sí». · [Receta](docs/recipes/trips.md)
+- 📱 *«Mira este reel y dime si es verdad.»* Enlaces, reels y vídeos largos: los transcribe, mira unos fotogramas y
+  comprueba lo que dicen. Con una cuenta de Instagram suya, le compartes los reels desde la propia app.
+  ⚠️ Esa vía de Instagram usa una API no oficial: va contra las normas de Instagram y puede costar la cuenta, así
+  que solo con una cuenta suya, nunca la tuya. · [Vídeos](docs/recipes/links-and-videos.md) · [Redes](docs/recipes/social-media.md)
+- 🎓 *«¿Qué tengo que entregar esta semana?»* *«¿Cuántos días de vacaciones me quedan?»* Tu campus y el portal del
+  trabajo, solo para leer.
+  ⚠️ Mandan las normas de tu centro y de tu empresa. · [Receta](docs/recipes/study-and-work.md)
+- 🖥️ *«¿Ha salido bien la copia de esta noche?»* Vigila tu servidor de casa sin poder tocar nada.
+  ⚠️ Los tokens tienen que ser de solo lectura de verdad. · [Guía](docs/homelab-read-access.md)
+- 🗺️ *«Explícamelo con un diagrama.»* Un dibujo o una página que lo explica, en vez de un muro de texto.
+  ⚠️ Es una skill de terceros: revísala antes de instalarla. · [Revisar skills](docs/vetting-skills.md)
 - 🔎 *«¿Qué te dije el mes pasado de la caldera?»* Busca en vuestras conversaciones antiguas.
+  ⚠️ Todo lo que le cuentas se queda en su máquina: por eso la máquina tiene que ser tuya. · [Memoria](docs/memory.md)
 
-**Lo que puede hacer si se lo montas** (posible con lo que hay aquí; no todo lo hemos probado nosotros)
+**Lo que puede hacer si se lo montas** (posible con lo que hay aquí; no lo hemos probado nosotros)
 
-- 💡 *«Apaga las luces del salón.»* Con [Home Assistant](https://www.home-assistant.io) y un acceso limitado a los
-  aparatos que tú elijas.
-- ✈️ *«Queremos irnos a la costa el finde del 14.»* Busca opciones, te enseña dos o tres con precio y, cuando le
-  dices que sí, paga con una [tarjeta virtual con su propio límite pequeño](docs/permissions.md#optional-paying-with-a-limited-card).
-  Las piezas están; aún no hemos hecho una compra real con ella.
-- 📣 Sus propias cuentas en redes sociales: prepara las publicaciones, las sube cuando apruebas cada una y contesta
-  comentarios.
-- 📮 *«Reclama a la aerolínea el reembolso.»* Busca el formulario, lo rellena, guarda la referencia, vigila tu
-  correo esperando la respuesta y te avisa si no contestan.
+- 💡 *«Apaga las luces del salón.»* Con la integración MCP Server de [Home Assistant](https://www.home-assistant.io),
+  que solo le deja tocar los aparatos que tú expones.
+  ⚠️ No expongas nada peligroso de encender por error (cerraduras, alarmas, hornos). · [Receta](docs/recipes/smart-home.md)
+- 🛒 *«Pide las pilas.»* *«Suscríbeme a eso y avísame antes de que renueve.»* Paga con una
+  [tarjeta virtual con su propio saldo pequeño](docs/permissions.md#optional-paying-with-a-limited-card), solo después
+  de tu «sí» a ese importe. Las piezas están; aún no hemos hecho una compra real con ella.
+  ⚠️ El límite de la tarjeta es la barrera que aguanta aunque la engañen: que sea pequeño. · [Receta](docs/permissions.md#optional-paying-with-a-limited-card)
+- 🏷️ *«Vende mi cámara vieja, aquí tienes las fotos.»* Una cuenta suya en una web de segunda mano: escribe el
+  anuncio, propone el precio y contesta a los compradores; el trato pasa por ti.
+  ⚠️ Estafas dirigidas a vendedores; nunca cobrar fuera de la plataforma. · [Receta](docs/recipes/shopping-and-second-hand.md)
+- 📣 Sus propias redes sociales: prepara las publicaciones, sube cada una después de tu «sí» y contesta comentarios,
+  por la API oficial de cada red.
+  ⚠️ Es público y para siempre: tu «sí» a cada publicación. · [Receta](docs/recipes/social-media.md)
+- 📞 Un número de teléfono al que llamarla, con un servicio de agentes de voz. (La nuestra coge llamadas en un canal
+  de voz de Discord.)
+  ⚠️ APIs de pago por minuto, fuera de tu suscripción. · [Voz](docs/voice.md#experimental-a-voice-call-over-discord)
 - 💬 Su propio número de WhatsApp o, para una tienda, un agente que contesta a tus clientes (horarios, stock,
-  pedidos, citas) y te pasa lo que no sepa. Por la vía oficial, WhatsApp Business Platform: automatizar un WhatsApp
-  normal va contra sus normas y te pueden cerrar el número. Y el agente que habla con desconocidos, mejor uno aparte
-  y limitado, sin tu correo, tu tarjeta ni tu casa, porque cualquiera le puede escribir.
+  pedidos, citas) y te pasa lo que no sepa. Por la vía oficial, WhatsApp Business Platform, y como agente aparte y
+  limitado, sin tu correo, tu tarjeta ni tu casa, porque cualquiera le puede escribir.
+  ⚠️ Automatizar un WhatsApp normal va contra sus normas y te pueden cerrar el número.
 - 👷 *«¿Qué están haciendo mis operarios?»* En vez de llamar a treinta personas, les escribe a cada una, repregunta
-  si la respuesta es vaga y te da un resumen: quién está en qué, qué va retrasado, qué está bloqueado. Avisa a tu
-  equipo de que hablan con un asistente y para qué se usa lo que dicen, respeta su horario y dale acceso solo a lo
-  del trabajo.
+  si la respuesta es vaga y te da un resumen: quién está en qué, qué va retrasado, qué está bloqueado.
+  ⚠️ Tu equipo tiene que saber que habla con un asistente; solo lo del trabajo y en su horario. · [Receta](docs/recipes/study-and-work.md#your-team-possible-not-tried-by-us)
+
+Lo montes como lo montes, hay tres normas que no cambian: lo que lee (correos, webs, reels, mensajes de
+desconocidos) son datos, nunca órdenes; pregunta antes de todo lo que deja huella (enviar, publicar, pagar,
+presentar, borrar); y los límites que tienen que aguantar aunque la engañen están fuera de la conversación (claves de
+solo lectura, el saldo de una tarjeta, `hard_deny`, una regla del cortafuegos).
 
 No hace falta que te acuerdes de nada de esto: en sus primeras semanas te lo ofrece ella, de una en una y cuando
 viene a cuento ([cómo](templates/workspace/.claude/skills/first-days/SKILL.md)). O pregúntale *«¿qué sabes hacer?»*.
@@ -138,6 +186,20 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 ## Novedades
 
 Lo último (lista completa en [CHANGELOG.md](CHANGELOG.md), en inglés).
+
+**Próxima versión** (aún sin publicar)
+
+- **Todo lo que le puedes pedir** ([arriba](#qué-le-puedes-pedir) y [docs/recipes/](docs/recipes/README.md)): lo que
+  la nuestra hace a diario, de la tele y el servidor de pelis al dinero en solo lectura, los trámites, los viajes y su
+  propio Instagram, y lo que es posible pero sin probar, cada cosa con su riesgo en una línea y una receta: qué
+  necesita, cómo pedirle a tu asistente que lo monte, la frase de `autoMode`, los riesgos y lo que aprendimos. Solo
+  ideas y riesgos, sin código, para lo que va contra las condiciones de un servicio o toca dinero (APIs no oficiales
+  de redes, bancos y brókers).
+- **Bajas de publicidad en un clic** ([receta](docs/recipes/email-cleanup.md)): `templates/tools/unsubscribe.py` solo
+  usa el enlace RFC 8058 que el remitente firmó con su propio dominio, por https, nunca hacia tu red de casa y nunca
+  por correo.
+- **Sus primeras semanas ofrecen más**: el catálogo de `first-days` cubre ya todo lo anterior, y cada cosa apunta a su
+  receta en la propia máquina del asistente.
 
 **1.5.0** (05/11/2026)
 
@@ -247,10 +309,15 @@ Las piezas, agrupadas por para qué sirven. Todo menos lo básico es opcional.
 | `.claude/skills/browser` + `templates/browser/` | Usa webs con agent-browser y un Chromium completo con ventana en vez de scripts improvisados; ventana remota opcional (noVNC) para captchas e inicios de sesión |
 | `templates/tools/card-fill.sh` | Guarda una tarjeta virtual limitada para los pagos opcionales, sin que pase por el chat |
 | `templates/tools/vet-skill.sh` | Revisa una skill de terceros con SkillSpector antes de instalarla |
+| `templates/tools/unsubscribe.py` | Bajas de publicidad en un clic, solo con el enlace que firmó el remitente (RFC 8058) |
+| `docs/recipes/` | Cómo montar todo lo de [Qué le puedes pedir](#qué-le-puedes-pedir), con sus riesgos; se instala para que el asistente lo lea |
 
 ## Documentación (en inglés)
 
 - [Instalación](docs/setup.md): máquina, usuario, Claude Code, plugin de Telegram, servicio, primer arranque.
+- [Recetas: todo lo que le puedes pedir](docs/recipes/README.md): la tele, pelis y series, tu ordenador, la casa
+  domótica, el dinero en solo lectura, redes sociales, cuentas suyas, vídeos, la bandeja limpia, trámites y citas,
+  viajes, segunda mano, tus estudios y el trabajo. Qué necesita cada cosa, cómo pedírsela y los riesgos.
 - [Personalidad y memoria](docs/personality-and-memory.md): cómo escribir el `CLAUDE.md`, las notas y la memoria.
 - [Permisos](docs/permissions.md): modo auto, la lista de permisos, por qué no `bypassPermissions` y cómo explicarle
   al clasificador qué aparatos y servicios son tuyos.

@@ -8,6 +8,8 @@ restart, and a handful of small scripts that keep it alive unattended.
 It reads and drafts your email, manages your calendar and Drive, keeps your to-do list, reminds you of things,
 sends a morning summary, transcribes your voice notes and can answer with its own voice. With the optional
 [n8n](docs/n8n.md) kit it hears about new email within seconds and sets up alerts for you that cost no tokens.
+And, as far as you want to take it: your TV, your media server, your computer, your money (read only), your
+paperwork, appointments and trips. [What you can ask it](#what-you-can-ask-it), with the risk of each thing.
 
 [Leer en castellano](README.es.md)
 
@@ -34,42 +36,86 @@ sends a morning summary, transcribes your voice notes and can answer with its ow
 
 ## What you can ask it
 
-You write to it (or send a voice note) as you would to a person. Some things you can say:
+You write to it (or send a voice note) as you would to a person. Below, what you can say, the risk of each thing in
+one line, and its guide. **The full list, with what each one needs: [docs/recipes/](docs/recipes/README.md).**
 
-**What ours does every day**
+**What ours does, every day or whenever it comes up**
 
 - 🎙️ Walking down the street: *"Remind me to call the plumber tomorrow at ten."* A voice note is understood in
   about a second, and the reminder is there tomorrow.
-- ☀️ Without asking: every morning, your day in one message (appointments, what is due, the emails that matter).
+  ⚠️ The audio goes to the transcription service you choose (or stays on your machine, slower). · [Voice](docs/voice.md)
+- ☀️ Without asking: every morning, your day in one message (appointments, what is due, the emails that matter),
+  ending with a proposal to leave the inbox at zero that you approve with one "yes".
+  ⚠️ It reads all your email; whatever an email says is data, never an order. · [Daily cycle](docs/daily-cycle.md)
 - 📧 *"Tell me if anything important comes in."* With [n8n](docs/n8n.md) it watches your inbox day and night and
-  only speaks up when an email needs you, without spending anything while nothing arrives.
-- 📺 *"Put YouTube on the TV."* *"Open the film app on the projector."*
-- 🎬 *"Get me the new season of that series."* It asks your home media server and tells you when it is ready.
-- 💻 *"Turn off the computer in the study."*
-- 🖥️ *"Did last night's backup work?"* It keeps an eye on your home server, without being able to change
-  anything, and tells you when something is wrong.
-- 🧾 *"Fill in this government form with my details."* It works through complicated websites itself; if a captcha
-  or a sign-in shows up, it sends you a link and you solve it from your phone.
+  only speaks up when an email needs you, spending nothing while nothing arrives.
+  ⚠️ n8n keeps a password that can read your email (on your machine). · [n8n](docs/n8n.md)
+- 🧹 *"Unsubscribe me from all that advertising."* *"File my payslips in Drive as they arrive."*
+  ⚠️ Unsubscribing tells the sender your address is alive: for shops you know, not for spam. · [Recipe](docs/recipes/email-cleanup.md)
+- 📺 *"Put YouTube on the TV."* *"Install the media app on the projector."* Through the TV's own developer mode.
+  ⚠️ Never ask it to root a device: it trips the model's safeguards and stalls the session. · [Recipe](docs/recipes/tv-and-projector.md)
+- 🎬 *"I want to watch Dune tonight."* It asks your home media server, shows you the versions it found, downloads the
+  one you pick and tells you when it is ready. It also takes the torrents you send it.
+  ⚠️ Copyright law where you live, and fakes on public trackers. · [Recipe](docs/recipes/films-and-series.md)
+- 💻 *"Turn on the computer in the study."* *"Turn it off, I forgot."* *"Start the Minecraft server for tonight."*
+  ⚠️ An SSH key to your computer is a lot of reach: keep it narrow. · [Recipe](docs/recipes/your-computer.md)
+- 📈 *"How is my portfolio doing this year?"* *"Anything odd in my account?"* It reads your bank, your funds and your
+  crypto **read only**, draws the charts, and checks the bank quietly every morning, speaking up only if something
+  looks wrong.
+  ⚠️ Read-only must be set at the provider, not in a prompt; your financial data passes through the model. · [Recipe](docs/recipes/money-read-only.md)
+- 🧾 *"Fill in this government form with my details."* *"Claim what my old employer owes me."* It works through
+  complicated websites itself, keeps the reference and watches for the answer; if a captcha or a sign-in shows up,
+  it sends you a link and you solve it from your phone.
+  ⚠️ Submitting is a legal act in your name: it shows you the summary first, every time. · [Recipe](docs/recipes/errands-and-appointments.md)
+- 🚗 *"Book the car inspection, any weekday after work."* It looks at several companies at once, checks the travel
+  time at that hour and books the slot you choose.
+  ⚠️ It books only what you pick; your details live in a private file. · [Recipe](docs/recipes/errands-and-appointments.md#appointments)
+- ✈️ *"Rome the last weekend of the month, flights and a hotel, the whole price."* Totals with everything, the links,
+  and once you book, every flight in your calendar and a reminder when check-in opens.
+  ⚠️ Prices move by the hour; you pay, or the limited card does with your yes. · [Recipe](docs/recipes/trips.md)
+- 📱 *"Watch this reel and tell me if it's true."* Links, reels and long videos: it transcribes them, looks at a few
+  frames and checks the claims. On an Instagram account of its own, you share reels with it straight from the app.
+  ⚠️ That Instagram route uses an unofficial API: it breaks Instagram's terms and can cost the account, so only ever
+  its own account, never yours. · [Videos](docs/recipes/links-and-videos.md) · [Social media](docs/recipes/social-media.md)
+- 🎓 *"What do I have to hand in this week?"* *"How many holiday days do I have left?"* Your course and your work
+  portal, read only.
+  ⚠️ Your school's and your employer's rules come first. · [Recipe](docs/recipes/study-and-work.md)
+- 🖥️ *"Did last night's backup work?"* It keeps an eye on your home server without being able to change anything.
+  ⚠️ The tokens must really be read-only. · [Guide](docs/homelab-read-access.md)
+- 🗺️ *"Explain it to me in a diagram."* A picture or a one-page explainer instead of a wall of text.
+  ⚠️ It is a third-party skill: check it before installing. · [Vetting skills](docs/vetting-skills.md)
 - 🔎 *"What did I tell you about the boiler last month?"* It searches your old conversations.
+  ⚠️ Everything you tell it stays on its machine: that is why the machine must be yours. · [Memory](docs/memory.md)
 
-**What it can do if you set it up** (possible with what is here; we have not tried all of these ourselves)
+**What it can do if you set it up** (possible with what is here; not tried by us)
 
-- 💡 *"Turn off the living-room lights."* With [Home Assistant](https://www.home-assistant.io) and a token limited
-  to the devices you choose.
-- ✈️ *"We want to go to the coast the weekend of the 14th."* It looks for options, shows you two or three with
-  prices, and when you say yes it pays with a [virtual card with its own small limit](docs/permissions.md#optional-paying-with-a-limited-card).
-  The pieces are here; we have not made a real purchase with it yet.
-- 📣 Social media accounts of its own: it drafts the posts, publishes them after you approve each one, and answers
-  comments.
-- 📮 *"Claim the refund from the airline."* It finds the form, fills it in, keeps the reference, watches your email
-  for their answer and reminds you if they do not reply.
+- 💡 *"Turn off the living-room lights."* With [Home Assistant](https://www.home-assistant.io)'s MCP Server
+  integration, which only lets it touch the devices you expose.
+  ⚠️ Expose nothing that is dangerous to switch by mistake (locks, alarms, ovens). · [Recipe](docs/recipes/smart-home.md)
+- 🛒 *"Order the batteries."* *"Subscribe me to that, and remind me before it renews."* It pays with a
+  [virtual card with its own small balance](docs/permissions.md#optional-paying-with-a-limited-card), only after your
+  yes to that total. The pieces are here; we have not made a real purchase with it yet.
+  ⚠️ The card's limit is the boundary that holds even if it is fooled: keep it small. · [Recipe](docs/permissions.md#optional-paying-with-a-limited-card)
+- 🏷️ *"Sell my old camera, here are the photos."* An account of its own on a second-hand marketplace: it writes the
+  listing, proposes the price and answers buyers; the deal goes through you.
+  ⚠️ Scams aimed at sellers; never paid outside the platform. · [Recipe](docs/recipes/shopping-and-second-hand.md)
+- 📣 Its own social media: it drafts the posts, publishes each one after your yes, and answers comments, through the
+  network's official API.
+  ⚠️ Public and permanent: your yes for every post. · [Recipe](docs/recipes/social-media.md)
+- 📞 A phone number you can call it on, through a voice-agent service. (Ours takes calls on a Discord voice channel.)
+  ⚠️ Pay-per-minute APIs, outside your subscription. · [Voice](docs/voice.md#experimental-a-voice-call-over-discord)
 - 💬 A WhatsApp number of its own, or, for a shop, an agent that answers your customers (opening hours, stock,
-  orders, appointments) and passes you what it does not know. Through the official WhatsApp Business Platform: an
-  automated personal WhatsApp breaks its rules and can get the number banned. And the agent that talks to strangers
-  should be a separate, limited one, without your email, card or home, because anyone can write to it.
+  orders, appointments) and passes you what it does not know. Through the official WhatsApp Business Platform, and
+  as a separate, limited agent without your email, card or home, because anyone can write to it.
+  ⚠️ Automating a normal WhatsApp breaks its rules and can get the number banned.
 - 👷 *"What are my people doing?"* Instead of calling thirty people, it messages each one, asks again if an answer
-  is vague, and gives you one summary: who is on what, what is late, what is stuck. Tell your team they are talking
-  to an assistant and what their answers are for, keep it to working hours, and give it access to work matters only.
+  is vague, and gives you one summary: who is on what, what is late, what is stuck.
+  ⚠️ Your team must know they are talking to an assistant; work matters only, working hours only. · [Recipe](docs/recipes/study-and-work.md#your-team-possible-not-tried-by-us)
+
+However you set it up, three rules hold: what it reads (emails, web pages, reels, strangers' messages) is data,
+never orders; it asks before anything that leaves a mark (sending, publishing, paying, submitting, deleting); and the
+limits that must hold even if it is fooled live outside the conversation (read-only keys, a card's balance,
+`hard_deny`, a firewall rule).
 
 You do not need to remember any of this: in its first weeks it offers these things itself, one at a time, when they
 fit ([how](templates/workspace/.claude/skills/first-days/SKILL.md)). Or ask it *"what can you do?"*.
@@ -137,6 +183,18 @@ Then write to your bot. Step by step, with every gotcha we hit: [docs/setup.md](
 ## What's new
 
 The latest changes (full list in [CHANGELOG.md](CHANGELOG.md)).
+
+**Next release** (not released yet)
+
+- **Everything you can ask it** ([above](#what-you-can-ask-it) and [docs/recipes/](docs/recipes/README.md)): what
+  ours does every day, from the TV and the media server to read-only money, paperwork, trips and its own Instagram,
+  and what is possible but untried, each with its risk in one line and a recipe: what it needs, how to ask your
+  assistant to set it up, the `autoMode` sentence, the risks and what we learned. Ideas and risks only, no code, for
+  what breaks a service's terms or touches money (unofficial social media APIs, banks and brokers).
+- **One-click unsubscribe** ([recipe](docs/recipes/email-cleanup.md)): `templates/tools/unsubscribe.py` uses only the
+  RFC 8058 link a sender signed with its own domain, over https, never to your home network, never by email.
+- **Its first weeks offer more**: the `first-days` catalog now covers all of the above, each item pointing at its
+  recipe on the assistant's own machine.
 
 **1.5.0** (2026-11-05)
 
@@ -244,10 +302,15 @@ The pieces, grouped by what they are for. Everything except the core is optional
 | `.claude/skills/browser` + `templates/browser/` | Uses websites through agent-browser and a full Chromium with a window instead of improvised scripts; optional remote window (noVNC) for captchas and sign-ins |
 | `templates/tools/card-fill.sh` | Stores a limited virtual card for optional payments, without it passing through the chat |
 | `templates/tools/vet-skill.sh` | Scans a third-party skill with SkillSpector before you install it |
+| `templates/tools/unsubscribe.py` | One-click unsubscribe from newsletters, only with the link the sender signed (RFC 8058) |
+| `docs/recipes/` | How to set up everything in [What you can ask it](#what-you-can-ask-it), with the risks; installed for the assistant to read |
 
 ## Documentation
 
 - [Setup](docs/setup.md): machine, user, Claude Code, Telegram plugin, service, first run.
+- [Recipes: everything you can ask it](docs/recipes/README.md): the TV, films and series, your computer, the smart
+  home, money read only, social media, accounts of its own, videos, a clean inbox, paperwork and appointments,
+  trips, second-hand, your course and work. What each needs, how to ask for it, and the risks.
 - [Personality and memory](docs/personality-and-memory.md): writing `CLAUDE.md`, the notes, the memory.
 - [Permissions](docs/permissions.md): auto mode, the allowlist, why not `bypassPermissions`, and teaching the
   classifier which devices and services are yours.

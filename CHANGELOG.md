@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+- **Everything you can ask it**: the README's "What you can ask it" (English and Spanish) now lists what our
+  assistant does every day or whenever it comes up (the TV and the projector, films, series and torrents, the
+  computer and game servers, money read only, paperwork and appointments, trips, videos and reels, a course and a
+  work portal, a clean inbox, diagrams) apart from what is possible but untried (smart home, buying with the card,
+  selling second-hand, posting on social media, a phone number, WhatsApp, a team summary), each with its risk in
+  one line and a link to its guide.
+- **docs/recipes/**: thirteen recipes and a full catalog (`docs/recipes/README.md`: what each thing needs, its main
+  risk, its guide). Each recipe says what it needs, gives a message to ask your assistant to set it up, the
+  `autoMode` sentence where one is needed (generic examples), the risks and what we learned. For what breaks a
+  service's terms or touches money, ideas and risks only, no code: unofficial social media APIs (only ever an
+  account of the assistant's own, with the rules we follow so it lasts) and banks, brokers and exchanges (read-only
+  at the provider: exports, read-only keys, open-banking consent; never an online-banking password).
+- **`templates/tools/unsubscribe.py`**: one-click unsubscribe (RFC 8058) from a sender's latest email over IMAP,
+  read-only. It only sends the POST when the email offers one-click over https, the owner's provider saw a DKIM pass
+  for a domain aligned with From whose signature covers both List-Unsubscribe headers (only the topmost
+  Authentication-Results counts), and the host is a public address; no redirects, never `mailto:`, never a link
+  from the body. `--dry-run`, `--eml` for a saved message. Folders by their special-use flags, so it works whatever
+  the mailbox language.
+- `install.sh` copies `docs/recipes/` next to the other guides, and the tools to `/usr/local/share/assistant/tools/`
+  (root-owned, so an allow rule for one of them cannot be widened by editing it).
+- **first-days**: the catalog offers the new things (`photo-dates`, `inbox-zero`, `links-videos`, `filing`,
+  `money-read`, `social`, `second-hand`, `study-work`, `diagrams`) and the existing items point to their recipe; the
+  first-weeks phase ends when the everyday and automation items have an answer (or after four weeks, as before).
+- Fixed: the README said a Home Assistant token could be limited to some devices; Home Assistant tokens cannot. The
+  recipe uses Home Assistant's MCP Server integration, which only reaches the entities exposed to Assist.
+- Tests: the recipes and the tools are installed; `tests/unsubscribe-test.py` (offline: which emails it acts on,
+  forged Authentication-Results, alignment, private addresses, HTTP errors, the exact POST, the command line).
+
 ## 1.5.1 — 2026-11-05
 
 - **Idle compaction while the cache is still warm**: `assistant-idle-compact` now waits 52 minutes instead of 90, and

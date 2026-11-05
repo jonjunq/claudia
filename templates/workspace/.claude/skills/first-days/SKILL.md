@@ -33,14 +33,16 @@ Read it at the start of each conversation; update it after each offer. One line 
 - The first time (`started:` is empty): write today's date, check what is already set up and mark it `already`.
   Introduce yourself in 3-4 lines (who you are, that they can write or talk to you any time, one example), with no
   offer in that message. If `notes/diary/` has more than two weeks of pages, they know you: skip the introduction.
-- **The phase ends** when every item has an answer, or 4 weeks after `started` (2 if they already knew you): write
-  `phase: done`, and send one short message: they can always ask "what can you do?", and you will only suggest
-  things when they fit. From then on, offer something only when it fits a real need of theirs, or when an update
-  brings something new (once).
+- **The phase ends** when every item of the first two groups has an answer, or 4 weeks after `started` (2 if they
+  already knew you): write `phase: done`, and send one short message: they can always ask "what can you do?", and
+  you will only suggest things when they fit. From then on, offer something only when it fits a real need of
+  theirs, or when an update brings something new (once).
 
 ## Catalog
 Suggested order for the common ones; the "when it comes up" ones, whenever they do. Guides in
-`/usr/local/share/assistant/docs/`.
+`/usr/local/share/assistant/docs/`, recipes (what it needs, how to set it up, the risks) in its `recipes/` folder:
+read the recipe before offering, so you can say the cost and the risk in one line. Keep these ids: they are the
+lines of `notes/first-days.md`.
 
 **Everyday (offer early)**
 - `connectors` — email, calendar and Drive. Check: do you have the Gmail / Google Calendar tools? Missing: only
@@ -54,6 +56,15 @@ Suggested order for the common ones; the "when it comes up" ones, whenever they 
   a free Groq account, or a local engine that is slower. Risk: the audio goes to that service. Replies with my own
   voice (`speak.sh`, ElevenLabs, paid beyond a small free tier): only if they liked voice notes.
 - `recall` — "ask me about anything we talked about weeks ago, I can look it up". Nothing to set up: say it once.
+- `photo-dates` — the first time they mention a paper with a date (an insurance, a letter, a ticket): "send me a
+  photo and I'll put the dates in your calendar". Nothing to set up.
+- `inbox-zero` — once the morning summary runs: "shall I end it with a proposal to leave your inbox at zero, email by
+  email, that you approve with one yes? I can also unsubscribe you from newsletters you never read". Needs a mail
+  app password for unsubscribing (`tools/unsubscribe.py`). Risk: an unsubscribe confirms the address, so only senders
+  they recognise. recipes/email-cleanup.md.
+- `links-videos` — the first time they send a video link: "send me any reel or video and I'll tell you what it says
+  and whether it holds up, or keep a list and summarise it at the weekend". Needs yt-dlp and ffmpeg (you install
+  them if you can). recipes/links-and-videos.md.
 
 **Automations that cost nothing while idle (n8n)**
 - `email-watch` — instead of you checking the inbox every so often (each check is a turn of their subscription,
@@ -68,6 +79,8 @@ Suggested order for the common ones; the "when it comes up" ones, whenever they 
   `yes` = already offered at install (mark `already`; if `RELEASE_WATCH_HOW=n8n`, set up the workflow now, skill
   `updating`). Empty or `no`: offer it early, in the first days, once (it costs nothing: a small daily check, no
   n8n needed); a no is final. Skill `updating`.
+- `filing` — when a payslip, an invoice or a receipt arrives: "I can file these in your Drive as they arrive, and
+  remind you before a warranty ends". Needs the email watch. recipes/email-cleanup.md.
 - `page-watch` — when they mention a parcel, an order, a price or something out of stock: "I can watch that page
   and tell you when it changes, and the watch switches itself off when it is delivered". n8n.md.
 
@@ -77,24 +90,45 @@ Suggested order for the common ones; the "when it comes up" ones, whenever they 
   phone." browser.md (remote window: optional, ask the admin if it is not there).
 - `errands` — claims and paperwork: "I can claim that refund for you: I find the form, fill it in, keep the
   reference, watch for their reply in your email and remind you if they do not answer." Their details and their
-  yes before sending anything.
+  yes before sending anything. Also appointments ("I can book the car inspection after work and tell you how long
+  the drive is") and document expiry dates. Risk: ID scans are very sensitive, keep only what forms need, in a
+  private file. recipes/errands-and-appointments.md.
 - `tv-media` — if they have a smart TV, a projector or a media server: "tell me 'put YouTube on the TV' and I do
-  it", "ask me for a film and I'll have it ready on your media server". Needs the device's developer mode or the
-  server's API, and an `autoMode` sentence (permissions.md).
-- `home` — if they use Home Assistant: "I could switch lights and plugs or tell you if the heater is on". Not
-  something this kit ships: a Home Assistant token limited to those devices and a short skill. Say it is possible,
-  not tested.
+  it", "ask me for a film and I'll have it ready on your media server", "send me a .torrent and I'll queue it".
+  Needs the device's developer mode or the server's API, and an `autoMode` sentence only they can write. Risks, in
+  plain words: never rooting a device; downloading films may be illegal where they live.
+  recipes/tv-and-projector.md, recipes/films-and-series.md.
+- `home` — if they use Home Assistant: "I could switch lights and plugs or tell you if the heater is on". Through
+  Home Assistant's MCP Server integration, exposing only harmless devices. Possible, not tested by the kit's authors:
+  say so. recipes/smart-home.md.
 - `home-server` — if they have a home server: "I can keep an eye on it and tell you if a backup failed or a disk
   is filling up, without being able to change anything". homelab-read-access.md.
 - `pc-power` — turning a computer on or off at their request (wake-on-LAN, or one narrow permission on that one
-  machine). Only if they ask for something like it.
+  machine), mapping a network drive, starting a game server. Only if they ask for something like it. Risk: an SSH
+  key to their computer is a lot of reach. recipes/your-computer.md.
+- `money-read` — only if they bring up their savings, investments or a bank worry: "I could see your accounts in
+  read only, draw how they evolve and warn you if something odd shows up; I could never move money". Read the recipe
+  first and say both risks plainly: read-only must be set at their bank or broker (a read-only key, open-banking
+  consent, or exports they send you), and their financial data would pass through the model. Never ask for an
+  online-banking password. recipes/money-read-only.md.
 - `trips-payments` — when they plan a trip or a purchase: "tell me 'we want to go to the coast that weekend': I find
   options, show you two or three with prices, and once you say yes I can pay with a virtual card that has its own
   small limit". Off by default; the card is theirs to create and its limit is the risk (permissions.md, "paying with
-  a limited card"). New: say so honestly.
-- `own-accounts` — accounts of your own (an email alias, social media): "I could have my own account and post or
-  answer for you, always showing you the post before it goes out". Needs an `allow` sentence (permissions.md);
-  publishing is public, so their yes for each post.
+  a limited card"). New: say so honestly. recipes/trips.md.
+- `own-accounts` — signing up for services for them, and an email address of your own for accounts you run: "I can
+  sign up for things for you with an alias, and keep the passwords privately". Needs an `allow` sentence
+  (permissions.md). recipes/its-own-accounts.md.
+- `social` — an account of your own on a social network, to watch what they share with you or to post for them
+  (their yes for each post). Say plainly: the official API is the safe route; the unofficial ones (e.g. for
+  Instagram) break the network's terms and can cost the account, so only ever an account of yours, never theirs.
+  recipes/social-media.md.
+- `second-hand` — when they want to buy or sell something used: "I can find it second-hand near you and warn you
+  about scams", "I could sell it for you with an account of my own". recipes/shopping-and-second-hand.md.
+- `study-work` — if they study online or have an HR portal: "I can tell you every Monday what is due on your course,
+  or how many holiday days you have left". Read only; their school's and employer's rules first.
+  recipes/study-and-work.md.
+- `diagrams` — when an explanation would be clearer drawn: "I can send you this as a diagram". Needs a third-party
+  diagram skill: check it first (vetting-skills.md) and install it with their yes.
 - `whatsapp` — a number of your own on WhatsApp, or for a business an agent that answers their customers (opening
   hours, stock, orders, appointments) and passes to them what it does not know. Two things to say plainly: only
   through the official WhatsApp Business Platform (automating a normal WhatsApp breaks its rules and the number can
