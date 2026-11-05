@@ -27,7 +27,10 @@ limits, and moved to the DeepSeek API directly.
   `sleep` it decided to add, 11 s of a pointless port check. Better instructions helped; the model was the limit.
 - **Paying twice.** We already paid for a Claude subscription. A subscription cannot power Hermes: Anthropic does
   not allow third-party apps to route requests through Pro/Max credentials, and Hermes' own "Anthropic OAuth" option,
-  when we looked, required Max plus separately purchased extra usage. A Claude API key works, billed per token.
+  when we looked, required Max plus separately purchased extra usage. Since 4 April 2026 Anthropic says it plainly:
+  the subscription no longer covers third-party harnesses such as OpenClaw or Hermes, which need paid API usage
+  ([TechRadar](https://www.techradar.com/pro/bad-news-claude-users-anthropic-says-youll-need-to-pay-to-use-openclaw-now)).
+  Claude Code itself is still covered. A Claude API key works with Hermes, billed per token.
 
 ## 2. A claude.ai Project as an assistant
 
@@ -54,12 +57,13 @@ binary signed in with your own subscription, which is the use the terms describe
 
 - **Shared limits.** Everything it does comes out of the same 5-hour and weekly limits as your own Claude use. If you
   code heavily with Claude, you will feel it; `/usage` and its warnings exist for this.
-- **One session, one conversation.** While it works on something long, new messages wait. Context fills up, hence
-  the nightly restart and `/clear`.
+- **One session, one conversation.** Context fills up, hence the nightly restart, compaction and `/clear`. Long
+  work used to make your messages wait; since 1.5.0 heavy work goes to helpers (subagents) in the background and the
+  assistant stays free for you ([context.md](context.md)), but it is still one conversation, not one per topic.
 - **It is a terminal program run unattended.** Dialogs and prompts that assume someone is at the keyboard can stall
   it; you need the plumbing in this repo (restart loop, dialog acceptor, permission watcher, daily cycle).
-- **No built-in chat commands**: the plugin only has pairing commands. We added `/usage` and `/clear`; changing model
-  means editing a file.
+- **No built-in chat commands**: the plugin only has pairing commands. We added `/usage` (answered by the patched
+  plugin without the model) and `/clear`; changing model means editing a file.
 - **Research preview**: the channel flags and protocol may change.
 - **Personal use only.** Signing in with your subscription is for you. Not a bot for your team, your family or your
   customers on one subscription: see [Is this allowed?](../README.md#is-this-allowed) and use an API key for that.
@@ -75,6 +79,44 @@ binary signed in with your own subscription, which is the use the terms describe
 | Just want to steer a Claude Code session from your phone, no assistant persona | Claude Code's [Remote Control](https://code.claude.com/docs/en/remote-control) |
 
 We kept Hermes for a while alongside, for its free buttons, and moved day-to-day use to the Claude Code assistant.
-Two of its ideas we copied after reading its code: searching old conversations (`session_search`) and a background
-review that improves skills and memory; see [memory.md](memory.md).
+
+## What we took from them
+
+Reading the others' code and docs is cheaper than inventing. What this repo borrows, and from whom:
+
+| Idea | From | Here |
+|---|---|---|
+| Search old conversations with SQLite FTS5, no model calls | Hermes (`session_search`) | `recall` ([memory.md](memory.md)) |
+| A background review that improves skills and memory | Hermes | the nightly review |
+| Mark skills nobody uses (Hermes' curator goes on to archive them) | Hermes (curator) | the review lists them after 30 days; nothing is deleted |
+| Only what the owner said or what was seen to work may become memory | OpenClaw ("Dreaming") | the review's provenance rule |
+| Write things down around a compaction | OpenClaw, Hermes | Compact Instructions + the after-compact hook ([context.md](context.md)) |
+| Compact or reset after an idle spell | OpenClaw (`reset: idle`) | Claude Code's own idle compaction, and an optional fallback timer |
+| Delegate heavy work to isolated children, in parallel | Hermes (`delegate_task`), OpenClaw, Manus | the four helpers, on the same model |
+| Answer fixed commands without the model | Hermes (`quick_commands`) | `/usage` from the plugin |
+| A stable, lean prefix: carry only what is used | Manus (context engineering) | the settings that trim the fixed context |
+
+What we did not take: a heartbeat that wakes the model on a timer (n8n plus the [wake-up](wakeup.md) costs nothing
+while idle), a smaller model for the helpers (quality first; Hermes lets you choose a model per subagent, we force
+the same one), public skill registries without vetting ([vetting-skills.md](vetting-skills.md)), and vector search
+for `recall` (it rarely misses; see [memory.md](memory.md#recall-search-old-conversations)).
+
+## Where the others are now (November 2026)
+
+Checked in early November 2026; they move fast, so look again before deciding.
+
+- **Hermes Agent** ([v0.22.7](https://github.com/NousResearch/hermes-agent/releases), 3 November): memory as two
+  small files frozen at the start of each session, `session_search`, compression in two phases (old tool results
+  pruned without a model, then an iterative summary, with `prepare_ahead`), a curator that marks unused skills
+  after 30 days and archives them after 90, and `delegate_task` with isolated children that can each run on a
+  different model. Any provider, many channels. With Claude, an API key.
+- **OpenClaw** (2026.10.3): Markdown memory with hybrid vector + BM25 search, a memory flush before compacting,
+  pruning of tool results when the cache expires, sessions per channel with idle resets, a heartbeat. Its security
+  record is poor (hundreds of malicious skills on its registry, many exposed instances, a published CVE in 2026), and
+  the Claude subscription no longer covers it.
+- Commercial assistants (ChatGPT's Scheduled Tasks, Google's Gemini agents, Manus on Telegram) are proactive but
+  run in their provider's cloud and do not touch your own machines.
+
+None of this changes the choice above for us: the best model on a flat subscription, with real access to our things
+and permissions we control, is still only possible with Claude Code itself.
 (For "a company of agents" we also tried other tools; that is a different problem and not covered here.)

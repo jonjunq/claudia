@@ -131,6 +131,23 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 
 Lo último (lista completa en [CHANGELOG.md](CHANGELOG.md), en inglés).
 
+**1.5.0** (05/11/2026)
+
+- **Te sigue contestando mientras trabaja** ([docs/context.md](docs/context.md)): lo pesado (trámites largos en el
+  navegador, montones de PDF y capturas, búsquedas largas, código) lo hacen cuatro ayudantes en segundo plano con el
+  mismo modelo, así que tu siguiente mensaje no espera y la conversación principal no se llena. Lo que necesita tu
+  «sí» nunca se delega.
+- **Arranca más ligera**: fuera las herramientas, skills e instrucciones de conectores que no usa nunca. Medido en
+  la nuestra: la primera llamada de una conversación −17 %, la segunda −23 %, y lo mismo en cada llamada siguiente.
+- **Compactar sin perder lo importante**: queda escrito qué tiene que sobrevivir al resumen, y justo después de
+  compactar recupera tus últimos mensajes tal cual. Opcional: compactar tras un buen rato sin actividad.
+- **`/usage` lo contesta el propio bot**, al momento y sin gastar, aunque ella esté ocupada.
+- **Un repaso nocturno más prudente**: solo pasa a la memoria lo que dijiste tú o lo que se vio funcionar; nada que
+  venga solo de un correo o una web. Te lista las skills que nadie ha usado en un mes.
+- **Aviso de versiones desde la instalación**: una pregunta al final de `install.sh` y una comprobación diaria
+  pequeña sin necesidad de n8n; nunca actualiza sin tu «sí».
+- **La comparativa** con Hermes y OpenClaw, al día de noviembre de 2026, y lo que hemos tomado de ellos.
+
 **1.4.0** (05/11/2026)
 
 - **Sus primeras semanas, proactiva** ([la skill](templates/workspace/.claude/skills/first-days/SKILL.md)): te
@@ -190,7 +207,7 @@ Las piezas, agrupadas por para qué sirven. Todo menos lo básico es opcional.
 | `bin/start.sh` + `assistant.service` | Ejecuta Claude Code en tmux y lo recupera con `--continue` si se cierra |
 | `assistant-daily-restart` + cron | Cada noche: le pide que guarde el día, actualiza Claude Code y empieza una conversación limpia |
 | `settings.json` | Modo auto y una lista de permisos: leer y preparar borradores lo hace solo; enviar y borrar te lo pregunta por Telegram |
-| `bin/statusline.sh` | Guarda el contexto y el uso del plan para que pueda responder a `/usage` desde Telegram |
+| `bin/statusline.sh` | Guarda el contexto y el uso del plan, con lo que el bot contesta a `/usage` en Telegram |
 | `autoMode.hard_deny` en `settings.json` | Pagos y dinero bloqueados del todo, lo pida quien lo pida |
 | `bin/clear-context.sh` | `/clear` desde Telegram: conversación nueva a media jornada, después de apuntar lo pendiente |
 | `bin/permission-watch.sh` | Te avisa por Telegram cuando se queda parado en un aviso de permiso de su terminal o cambia de modelo tras un freno de seguridad |
@@ -201,8 +218,11 @@ Las piezas, agrupadas por para qué sirven. Todo menos lo básico es opcional.
 |---|---|
 | `templates/telegram/` + hooks en `settings.json` | Mensaje «⏳ Trabajando» mientras trabaja, le llegan los mensajes que citas, peticiones de permiso con botones Permitir / Denegar, aprobar una vez lo que bloqueó el clasificador, mensajes ricos (títulos, tablas) con `send-rich.py` y notas de voz transcritas antes de llegarle |
 | `templates/memory/` + skill `recall` | Busca en conversaciones antiguas (`recall`), repasa skills y memoria cada noche y guarda un historial git para deshacer |
+| `.claude/agents/` (`browser`, `reader`, `researcher`, `coder`) | Ayudantes para el trabajo pesado, en segundo plano y con el mismo modelo, para que te siga contestando y la conversación no crezca |
+| `after-compact.py` + Compact Instructions | Tras compactar, tus últimos mensajes y lo pendiente vuelven tal cual; opcional `assistant-idle-compact` para los ratos largos sin actividad |
 | skill `first-days` + `notes/first-days.md` | Sus primeras semanas: ofrece lo que sabe hacer, de una en una, y recuerda lo que contestaste |
 | skill `updating` + `install.sh --upgrade` | Actualiza a una versión nueva con tu OK, fusionando las plantillas con tus cambios en vez de pisarlos |
+| `assistant-release-watch` + timer | Sin n8n: una vez al día le avisa de una versión nueva (solo el número), para que te lo cuente |
 
 **Reaccionar sin gastar tokens**
 
@@ -227,6 +247,8 @@ Las piezas, agrupadas por para qué sirven. Todo menos lo básico es opcional.
 - [Permisos](docs/permissions.md): modo auto, la lista de permisos, por qué no `bypassPermissions` y cómo explicarle
   al clasificador qué aparatos y servicios son tuyos.
 - [Ciclo diario, rutinas y comandos](docs/daily-cycle.md): cierre del día, resumen matutino, `/usage`, `/clear`.
+- [Contexto: ayudantes, arranque ligero, compactación](docs/context.md): el trabajo pesado en subagentes, lo que
+  carga el contexto fijo y compactar sin perder lo importante, con mediciones.
 - [Recordar, repaso nocturno e historial](docs/memory.md): buscar en conversaciones antiguas, mejorar skills y memoria
   cada noche y deshacerlo, con lo que cuesta.
 - [Extras de Telegram](docs/telegram-extras.md): estado «trabajando» en directo, mensajes citados, aprobar permisos con

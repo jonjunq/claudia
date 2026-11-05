@@ -130,6 +130,23 @@ Then write to your bot. Step by step, with every gotcha we hit: [docs/setup.md](
 
 The latest changes (full list in [CHANGELOG.md](CHANGELOG.md)).
 
+**1.5.0** (2026-11-05)
+
+- **It keeps talking to you while it works** ([docs/context.md](docs/context.md)): heavy work (long browser
+  errands, piles of PDFs and screenshots, long research, code) goes to four helpers that run in the background on
+  the same model, so your next message does not wait and the main conversation does not fill up. What needs your yes
+  is never delegated.
+- **A lighter start**: tools, skills and connector instructions it never uses are left out. Measured on ours: the
+  first call of a conversation -17 %, the second -23 %, and the same on every call after.
+- **Safer compaction**: what must survive a summary is spelled out, and right after compacting it gets your last
+  messages back word for word. Optional: compacting after a long idle spell.
+- **`/usage` answered by the bot itself**, at once and at no cost, even while it is busy.
+- **A more careful nightly review**: only what you said or what was seen to work becomes memory; nothing from an
+  email or a web page alone. Skills nobody used in a month are listed for you.
+- **Release notices from the install**: one question at the end of `install.sh`, a small daily check without n8n;
+  it never updates without your yes.
+- **The comparison** with Hermes and OpenClaw, updated for November 2026, and what we took from them.
+
 **1.4.0** (2026-11-05)
 
 - **Its first weeks, proactive** ([the skill](templates/workspace/.claude/skills/first-days/SKILL.md)): it offers
@@ -187,7 +204,7 @@ The pieces, grouped by what they are for. Everything except the core is optional
 | `bin/start.sh` + `assistant.service` | Runs Claude Code in tmux and brings it back with `--continue` if it exits |
 | `assistant-daily-restart` + cron | Every night: asks it to save the day, updates Claude Code, starts a fresh conversation |
 | `settings.json` | Auto mode, plus an allowlist: reads and drafts run alone, sending and deleting ask you on Telegram |
-| `bin/statusline.sh` | Saves context and plan usage so it can answer `/usage` from Telegram |
+| `bin/statusline.sh` | Saves context and plan usage, which the bot uses to answer `/usage` on Telegram |
 | `autoMode.hard_deny` in `settings.json` | Payments and money are blocked outright, whatever anyone asks |
 | `bin/clear-context.sh` | `/clear` from Telegram: fresh conversation mid-day, after saving what's pending |
 | `bin/permission-watch.sh` | Tells you on Telegram when it is stuck on a prompt in its terminal, or switches model after a safeguard flag |
@@ -198,8 +215,11 @@ The pieces, grouped by what they are for. Everything except the core is optional
 |---|---|
 | `templates/telegram/` + hooks in `settings.json` | "⏳ Working" message while it works, quoted messages reach it, permission requests with Allow / Deny buttons, one-time approval of what the classifier blocked, rich messages (headings, tables) with `send-rich.py`, voice notes transcribed before they reach it |
 | `templates/memory/` + `recall` skill | Searches old conversations (`recall`), reviews skills and memory every night, keeps a git history to undo |
+| `.claude/agents/` (`browser`, `reader`, `researcher`, `coder`) | Helpers for heavy work, in the background and on the same model, so it keeps answering you and the conversation stays small |
+| `after-compact.py` + Compact Instructions | After a compaction, your last messages and what is pending come back word for word; optional `assistant-idle-compact` for long idle spells |
 | `first-days` skill + `notes/first-days.md` | Its first weeks: offers what it can do, one thing at a time, and remembers your answers |
 | `updating` skill + `install.sh --upgrade` | Updates to a new release with your yes, merging the templates with your changes instead of overwriting them |
+| `assistant-release-watch` + timer | Without n8n: once a day, tells it about a new release (numbers only), so it can tell you |
 
 **Reacting to the world without spending tokens**
 
@@ -224,6 +244,8 @@ The pieces, grouped by what they are for. Everything except the core is optional
 - [Permissions](docs/permissions.md): auto mode, the allowlist, why not `bypassPermissions`, and teaching the
   classifier which devices and services are yours.
 - [Daily cycle, routines and commands](docs/daily-cycle.md): end of day, morning summary, `/usage`, `/clear`.
+- [Context: helpers, a lighter start, compaction](docs/context.md): heavy work in subagents, what the fixed context
+  carries, compaction that keeps what matters, with measurements.
 - [Recall, nightly review and history](docs/memory.md): searching old conversations, improving skills and memory
   every night, and undoing it, with what it costs.
 - [Telegram extras](docs/telegram-extras.md): a live "working" status, quoted messages, approving permissions with

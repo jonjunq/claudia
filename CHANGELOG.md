@@ -1,5 +1,60 @@
 # Changelog
 
+## 1.5.0 — 2026-11-05
+
+- **Helpers for heavy work** ([docs/context.md](docs/context.md)): four subagents in
+  `templates/workspace/.claude/agents/` (`browser`, `reader`, `researcher`, `coder`), on the same model as the session
+  (`model: inherit`, and `start.sh` exports `CLAUDE_CODE_SUBAGENT_MODEL` + `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`, so
+  built-in agents do not drop to a smaller model; `SUBAGENT_MODEL` in `assistant.env` to choose another), without the
+  Telegram reply tools, n8n or `CronCreate`, and without the assistant's `CLAUDE.md` (their own rules instead). A new
+  `CLAUDE.md` section says when to delegate (more than ~10 steps, a lot of text, more than 3-4 images), how to write a
+  complete brief, to stay free for the owner while a helper works in the background, and that whatever needs the
+  owner's yes (payments, sign-ups, emails, accounts, publishing workflows) is never delegated, and why.
+- The Telegram hooks understand helpers: their events never open a "⏳ Working" turn (a background helper used to
+  keep it on until it finished), a foreground helper's step shows as `helper <name> · …`, and permission requests and
+  classifier blocks from a helper say `(helper <name>)`.
+- **A lighter start** (`templates/settings.json`): `disableWorkflows`, `feedbackDrafts: "off"`, `deny` for
+  `AskUserQuestion` (a terminal menu the owner never sees), `ScheduleWakeup`, `ReportFindings` and
+  `Agent(statusline-setup)`, `skillOverrides` for developer skills, `autoDreamEnabled: false` (the nightly review
+  already consolidates memory) and `bashOutputMaxChars: 15000`. Measured on one installation: the first call of a
+  conversation 58,041 → 48,427 tokens (-17 %), the second 67,184 → 51,968 (-23 %). `deniedMcpServers` for unused
+  claude.ai connectors is documented as an optional example, since everyone's connectors differ.
+- **Compaction that keeps what matters**: a "Compact Instructions" section in `CLAUDE.md`, and
+  `templates/memory/after-compact.py`, a `SessionStart` hook (matcher `compact`) that hands back the owner's last
+  messages and the assistant's last answers, a pending permission, and a short checklist after every compaction.
+- **Idle compaction, optional** (`install.sh <user> --idle-compact yes`): `assistant-idle-compact` + its timer type
+  `/compact` (never `/clear`) after 90 minutes without messages or activity, only with more than 120k of context,
+  no turn, permission, dialog or helper open, between 06:30 and 23:00, checked twice. It is the fallback for Claude
+  Code's own `idleCompaction`, which is on by default but did not run every day for us.
+- **`/usage` without the model**: plugin patch v3 answers it in the plugin itself, at once and at no cost, even while
+  the assistant is busy, only for the allowlist (`$STATE_DIR/usage.log` keeps the time only). Checked against the
+  real plugin 0.0.7 in `tests/plugin-e2e.py`.
+- **Capped output**: a `CLAUDE.md` section for the assistant's own work (`head`/`tail`/`grep`, screenshots of the
+  useful area at ≤1280 px, the PDF pages that matter).
+- **Nightly review**: a provenance rule (only what the owner said or what was seen to work becomes memory or a
+  skill; never content whose only source is an email, a page, a document or a notice), every conversation line
+  labelled with who wrote it (`helper` included), added lines that read like planted instructions rejected, and the
+  skills and references nobody used in 30 days listed in `notes/last-review.md` (never deleted).
+- **`recall`**: when no message has all the words it searches again for any of them (and says so); helpers' work is
+  indexed as `helper` (with `--all`). The git history keeps `.claude/agents/` too.
+- **Release notices from the install**: at the end of its first run `install.sh` asks whether to turn them on
+  (`--release-watch yes|no` from a script). Without n8n, `assistant-release-watch` + its daily timer ask GitHub for
+  the latest release and wake the assistant through the wake-up with one line, numbers only, once per release; with
+  n8n already installed, the existing workflow template is used instead. The choice goes to `install.conf`
+  (`RELEASE_WATCH`, `RELEASE_WATCH_HOW`); if it was not accepted, the `first-days` skill offers it once, early.
+  Nothing is ever updated without the owner's yes.
+- **docs/comparison.md**: since 4 April 2026 the Claude subscription does not cover third-party harnesses such as
+  OpenClaw or Hermes; where Hermes (v0.22.7) and OpenClaw are now; what we took from them and what we did not.
+- **A video** at the top of the README (English and Spanish).
+- Tests: helpers installed and filled in, the hooks with foreground and background helpers, the helper label on
+  permission requests, `/usage` in the patch, the settings, `after-compact.py`, the idle compaction (compacts, and
+  waits for permissions, dialogs, helpers, hours, small contexts and recent activity), the release watch against a
+  fake GitHub and wake-up (newer, once, pre-releases, nothing of the release text, wake-up down), the review's
+  injection check and unused skills, `recall`'s retry and helpers, and the install flags.
+- Upgrading from 1.4.0: `install.sh <user> --upgrade` from the `v1.5.0` tag. Your `CLAUDE.md` and `settings.json`
+  get a merged `.new` if you changed them (review the new sections and settings before taking it); the helpers, the
+  hooks, the patch and the new scripts are added or replaced. Restart the session last.
+
 ## 1.4.0 — 2026-11-05
 
 - **First weeks, proactive** (`templates/workspace/.claude/skills/first-days/`): a new owner should not need the
