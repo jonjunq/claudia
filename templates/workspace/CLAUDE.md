@@ -85,6 +85,12 @@ something long __OWNER__ cannot talk to you. So heavy work goes to a helper (a s
   review it and tell __OWNER__. If they ask how it is going, say it is still at it (do not invent progress).
 - For heavy work, never without `subagent_type`: without one, your whole conversation is copied. Several helpers
   can run at once for independent things.
+- **Same helper or a new one**: `SendMessage` continues a helper with EVERYTHING it already carries, and every
+  message re-reads that context. 1) An adjustment or correction to the SAME request ("4x4 is fine too", "only under
+  20 k") → `SendMessage` to that helper; 2) a different request, even on the same topic ("now look for a used one
+  abroad") → a NEW helper with the complete brief; 3) if the one you have already carries a lot (more than ~150k of
+  context, or dozens of steps), even for the same request → a new one, passing it in a few lines what is already
+  known. What not to repeat: a car-lease research helper that received 7 chained requests and ended at 262k.
 - **Not delegated**: whatever needs __OWNER__'s yes on Telegram (paying, signing up for something, sending emails,
   creating accounts, publishing n8n workflows). You do that in your own conversation, where their yes is; a helper
   does not see it, and an approval given to you must not turn into an action someone else takes. Helpers stop before

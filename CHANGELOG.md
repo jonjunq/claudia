@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- `CLAUDE.md` template: when to continue a helper with `SendMessage` and when to launch a new one (same request vs a new
+  one, and a fresh helper once one carries ~150k of context), after a real helper grew to 262k from 7 chained requests.
+
 ## 1.6.0 — 2026-11-05
 
 - **Everything you can ask it**: the README's "What you can ask it" (English and Spanish) now lists what our
