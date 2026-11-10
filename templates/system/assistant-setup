@@ -204,10 +204,13 @@ install_pdf() {
 }
 install_links_videos() {
   command -v ffmpeg >/dev/null || install_system
-  venv_pip "$HL/yt-dlp" '"yt-dlp[default]"'
+  # YouTube needs a JavaScript runtime for its challenges (yt-dlp's EJS). Deno is the one yt-dlp recommends and enables
+  # by default; from PyPI it lands in the same venv, where yt-dlp finds it with no setting, and updates with it.
+  # (Bun, here for the Telegram plugin, is deprecated there and only up to 1.3.14; Debian 13's Node is too old.)
+  venv_pip "$HL/yt-dlp" '"yt-dlp[default]" deno'
   asu 'mkdir -p ~/.local/bin && ln -sf ~/yt-dlp/bin/yt-dlp ~/.local/bin/yt-dlp'
-  # YouTube needs a JavaScript runtime for some videos; Bun is already here for the Telegram plugin.
-  asu '[ -e ~/.config/yt-dlp/config ] || { [ -x ~/.bun/bin/bun ] && mkdir -p ~/.config/yt-dlp && echo "--js-runtimes bun:$HOME/.bun/bin/bun" > ~/.config/yt-dlp/config; }; true'
+  # Earlier versions of this step pointed yt-dlp at Bun: that line goes (yt-dlp warns about Bun 1.4).
+  asu 'f=~/.config/yt-dlp/config; if [ -f "$f" ] && grep -q "^--js-runtimes bun:$HOME/.bun/bin/bun\$" "$f"; then sed -i "\#^--js-runtimes bun:$HOME/.bun/bin/bun\$#d" "$f"; [ -s "$f" ] || rm -f "$f"; fi; true'
   say "yt-dlp $(asu '"$HOME/.local/bin/yt-dlp" --version' 2>/dev/null)"
 }
 # /usr/local/bin/agent-browser must be the copy installed above. n8n carries an old one of its own (n8n ->

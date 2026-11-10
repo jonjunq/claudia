@@ -112,6 +112,13 @@ Will be 1.7.0: new code that gets installed.
   joins the bot's menu; the doctor warns when the plugin carries an older patch or the menu lacks it.
   `tests/model-switch-test.py` drives the script against a fake Claude Code terminal in tmux, and
   `tests/plugin-e2e.py` checks the bot's side against the real plugin (0.0.7).
+- **yt-dlp with Deno for YouTube**: `install links-videos` used to point yt-dlp at Bun (`--js-runtimes bun:…` in
+  `~/.config/yt-dlp/config`), and yt-dlp now warns "bun version 1.4.3 is not supported! 1.3.14 is the last supported
+  bun version": its EJS deprecated Bun and supports it only up to 1.3.14, while the kit's Bun (for the Telegram
+  plugin) keeps updating. It now installs Deno from PyPI in the yt-dlp venv (the runtime yt-dlp recommends and the
+  only one it enables by default: found there with no setting, updated with yt-dlp; about 100 MB), and removes the
+  Bun line it wrote before. `assistant-doctor` reads the "JS runtimes" line of `yt-dlp -v` and warns, with the fix,
+  when none of them is a supported version.
 
 ## 1.6.0 — 2026-11-05
 

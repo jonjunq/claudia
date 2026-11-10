@@ -91,7 +91,7 @@ mkdir -p "$H/yt-dlp/bin" "$H/yt-dlp/lib/python3.13/site-packages/yt_dlp-2026.10.
          "$H/parakeet/model" "$H/parakeet/lib/python3.13/site-packages/onnx_asr-0.12.0.dist-info" \
          "$T/usr/local/lib/node_modules/agent-browser" "$T/usr/bin" "$H/.browser/clean" "$H/.agent-browser" \
          "$H/.claude/skills/diagram-design"
-printf '#!/bin/sh\necho 2026.10.26\n' > "$H/yt-dlp/bin/yt-dlp"; chmod +x "$H/yt-dlp/bin/yt-dlp"; ln -sf "$H/yt-dlp/bin/yt-dlp" "$H/.local/bin/yt-dlp"
+printf '#!/bin/sh\nif [ "$1" = -v ]; then echo "[debug] JS runtimes: ${FAKE_JS:-deno-2.9.8}" >&2; echo "yt-dlp: error: You must provide at least one URL." >&2; exit 2; fi\necho 2026.10.26\n' > "$H/yt-dlp/bin/yt-dlp"; chmod +x "$H/yt-dlp/bin/yt-dlp"; ln -sf "$H/yt-dlp/bin/yt-dlp" "$H/.local/bin/yt-dlp"
 echo '{"version": "0.41.2"}' > "$T/usr/local/lib/node_modules/agent-browser/package.json"
 touch "$T/usr/bin/chromium"; cp "$T/usr/local/lib/assistant-browser/agent-browser-config.json" "$H/.agent-browser/config.json"
 echo "---" > "$H/.claude/skills/diagram-design/SKILL.md"
@@ -132,6 +132,16 @@ ln -sfn /usr/local/lib/node_modules/agent-browser/bin/agent-browser-linux-x64 "$
 bjson=$(doc --json --offline --only browser)
 jcheck "doctor: the agent-browser command of the installed copy is fine" '.capabilities[] | select(.id == "browser") | .status == "ok"' "$bjson"
 rm -f "${T:?}/usr/local/bin/agent-browser"; rm -rf "${T:?}/usr/local/lib/node_modules/n8n"
+# yt-dlp's JavaScript runtime for YouTube, from `yt-dlp -v`: Deno is fine; only a Bun newer than EJS supports is a warning
+yjson=$(doc --json --offline --only links-videos)
+jcheck "doctor: yt-dlp names its JavaScript runtime" '.capabilities[] | select(.id == "links-videos") | .status == "ok" and (.detail | test("deno 2.9.8"))' "$yjson"
+YT="$H/yt-dlp/bin/yt-dlp"; cp "$YT" "$T/yt-dlp.ok"
+printf '#!/bin/sh\nif [ "$1" = -v ]; then echo "[debug] JS runtimes: bun-1.4.3" >&2; exit 2; fi\necho 2026.10.26\n' > "$YT"
+yjson=$(doc --json --offline --only links-videos)
+jcheck "doctor: yt-dlp with only Bun 1.4 (past what EJS supports) is a warning that adds Deno" '.capabilities[] | select(.id == "links-videos") | .status == "warn" and (.detail | test("bun-1.4.3")) and (.fix | test("install links-videos"))' "$yjson"
+printf '#!/bin/sh\nif [ "$1" = -v ]; then echo "[debug] JS runtimes: bun-1.3.14" >&2; exit 2; fi\necho 2026.10.26\n' > "$YT"
+jcheck "doctor: yt-dlp with a supported Bun is fine" '.capabilities[] | select(.id == "links-videos") | .status == "ok"' "$(doc --json --offline --only links-videos)"
+cp "$T/yt-dlp.ok" "$YT"
 jcheck "doctor: the Telegram check names the bot" '.capabilities[] | select(.id == "telegram") | .detail | test("@test_bot")' "$json"
 check "doctor: it asked Groq with the key and Telegram for the bot and its menu" bash -c "grep -q '^GET /openai/v1/models' '$FALOG' && grep -q '\"method\": \"getMe\"' '$TGLOG' && grep -q '\"method\": \"getMyCommands\"' '$TGLOG'"
 text=$(doc)

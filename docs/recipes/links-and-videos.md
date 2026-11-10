@@ -10,7 +10,11 @@ whether it holds up and whether it is useful to you. Or it notes it in one line 
 ## What it needs
 
 - [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) (in a Python virtualenv, or your distribution's package; update it
-  often, sites change every few weeks) and `ffmpeg`.
+  often, sites change every few weeks) and `ffmpeg`. For YouTube it also needs a JavaScript runtime
+  ([EJS](https://github.com/yt-dlp/yt-dlp/wiki/EJS)): `assistant-setup install links-videos` puts
+  [Deno](https://pypi.org/project/deno/), the one yt-dlp recommends and enables by default, in the same venv, where
+  yt-dlp finds it without any setting and updates with it. Bun is deprecated there (only up to 1.3.14) and Debian
+  13's Node is older than the 22 it needs. `assistant-doctor` reads the "JS runtimes" line of `yt-dlp -v`.
 - Its voice-note transcription ([voice.md](../voice.md)): the same `transcribe.sh` works for the audio of a video.
 - The flow it follows: download to a temporary folder → `ffmpeg` extracts the audio → `transcribe.sh` → `ffmpeg`
   takes a frame every few seconds into one contact sheet → it reads the transcript and looks at the sheet. A sheet of

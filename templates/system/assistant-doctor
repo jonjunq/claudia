@@ -442,10 +442,36 @@ def c_pdf(c):
     return R("ok", f"PyMuPDF {v} and pymupdf4llm {v4}; read a test PDF" + (" as Markdown" if c.deep else ""))
 
 
+# Versions of the JavaScript runtimes yt-dlp's EJS supports (github.com/yt-dlp/yt-dlp/wiki/EJS), in its order of
+# priority: it uses the first one found. Bun is deprecated there and supported only up to 1.3.14.
+JS_RUNTIMES = {"deno": ((2, 3), None), "node": ((22,), None), "quickjs": (None, None), "bun": ((1, 2, 11), (1, 3, 14))}
+
+
+def js_runtime(out):
+    """(status, text) from the "[debug] JS runtimes: deno-2.9.8, bun-1.4.3" line of `yt-dlp -v`."""
+    m = re.search(r"JS runtimes: (.+)", out)
+    if not m:
+        return "warn", "yt-dlp did not say which JavaScript runtime it has"
+    found = {}
+    for item in m.group(1).split(","):
+        name, _, ver = item.strip().partition("-")
+        found[name] = ver
+    for name, (low, high) in JS_RUNTIMES.items():
+        if name not in found:
+            continue
+        v = tuple(int(x) for x in re.findall(r"\d+", found[name])[:3])
+        if (not low or v >= low) and (not high or v[:len(high)] <= high):
+            return "ok", f"{name} {found[name]}"
+    return "warn", ("no JavaScript runtime yt-dlp supports (" + m.group(1).strip() + "): some YouTube videos fail")
+
+
 def c_links_videos(c):
     v = venv_version(c.H + "/yt-dlp", "yt-dlp")
     if v and os.path.exists(c.H + "/.local/bin/yt-dlp"):
-        return R("ok", "yt-dlp " + v)
+        st, js = js_runtime(c.run([c.H + "/.local/bin/yt-dlp", "-v"], timeout=30)[1])
+        if st != "ok":
+            return R("warn", f"yt-dlp {v}, but {js}", asroot("assistant-setup install links-videos") + " (adds Deno)")
+        return R("ok", f"yt-dlp {v} with {js} for YouTube")
     if c.run(["sh", "-c", "command -v yt-dlp"])[0] == 0:
         return R("ok", "yt-dlp (installed by other means)")
     return R("fail", "yt-dlp is not installed", "assistant-setup install links-videos", False)
