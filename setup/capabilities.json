@@ -1,0 +1,412 @@
+{
+ "schema": 1,
+ "about": "Everything the installer can set up, in one place. setup/INSTALL.md (the installer's guide) and assistant-doctor (the checks) both read this file; tests/run-tests.sh fails if a capability has no check in the doctor, or the doctor checks something that is not here. Defaults: required = the assistant does not work without it; yes = installed unless the owner says no; ask = offered at install with its risk, installed only on a yes; later = offered by the assistant itself when it fits (skill first-days). Declines are lines '- <id>: no <date>' in ~/assistant/notes/first-days.md. upstream = where its code comes from, for the version watch: watch = the owner hears about new versions (never applied without a yes); auto = it updates itself (noted, never notified); system = updated with the machine's own packages.",
+ "human": [
+  {
+   "id": "telegram-bot",
+   "title": "A Telegram bot of your own",
+   "why": "It is the chat where you will talk to your assistant.",
+   "link": "https://t.me/BotFather",
+   "steps": [
+    "Install Telegram on your phone if you do not have it, and sign in.",
+    "Open https://t.me/BotFather (or search for @BotFather in Telegram; it has a blue tick).",
+    "Send it /newbot.",
+    "It asks for a name: write the assistant's name (for example Claudia).",
+    "It asks for a username: any name ending in 'bot' that is still free (for example claudia_of_alex_bot).",
+    "It answers with a token, a long line like 123456789:AAH...: copy it and paste it here."
+   ],
+   "gives": "TELEGRAM_BOT_TOKEN"
+  },
+  {
+   "id": "claude-login",
+   "title": "Sign in with your Claude subscription",
+   "why": "The assistant runs on your Claude Pro or Max plan, not on a paid API.",
+   "link": "https://claude.ai",
+   "steps": [
+    "Only needed if the assistant runs as a different user from this conversation: I will send you a link.",
+    "Open it, sign in with the Claude account that has the subscription and approve.",
+    "It shows a code: copy it and paste it here."
+   ],
+   "gives": "a sign-in for the assistant's user"
+  },
+  {
+   "id": "groq-key",
+   "title": "A free Groq key, for voice notes",
+   "why": "Your voice notes are turned into text in about a second. Free: up to 2,000 notes a day.",
+   "link": "https://console.groq.com/keys",
+   "steps": [
+    "Open https://console.groq.com/keys and sign in (a Google account or an email is enough).",
+    "Press 'Create API Key', give it any name (for example assistant) and confirm.",
+    "Copy the key (it starts with gsk_) and paste it here. It is shown only once."
+   ],
+   "gives": "GROQ_API_KEY"
+  },
+  {
+   "id": "connectors",
+   "title": "Your email, calendar and Drive",
+   "why": "So it can read and draft your email, manage your calendar and find your files.",
+   "link": "https://claude.ai/settings/connectors",
+   "steps": [
+    "Open https://claude.ai/settings/connectors with the same Claude account.",
+    "Connect Gmail, Google Calendar and Google Drive (press each one, then 'Connect', and accept in Google).",
+    "Tell me when it is done. Not using Google? Tell me what you use."
+   ],
+   "gives": "the claude.ai connectors"
+  },
+  {
+   "id": "elevenlabs-key",
+   "title": "An ElevenLabs key, if you want it to answer with a voice",
+   "why": "Spoken answers with a natural voice. A small free monthly allowance; more is paid.",
+   "link": "https://elevenlabs.io/app/settings/api-keys",
+   "steps": [
+    "Create a free account at https://elevenlabs.io.",
+    "Open https://elevenlabs.io/app/settings/api-keys and press 'Create API key'.",
+    "Allow at least 'Text to Speech' and reading 'Voices'.",
+    "Copy the key and paste it here; I will show you the voices to choose from."
+   ],
+   "gives": "ELEVENLABS_API_KEY"
+  },
+  {
+   "id": "cloudflare-ai",
+   "title": "A Cloudflare token, as a second engine for voice notes",
+   "why": "If Groq is down or over its limit, voice notes still come out right in a few seconds. Free daily allowance.",
+   "link": "https://dash.cloudflare.com/profile/api-tokens",
+   "steps": [
+    "Sign in at https://dash.cloudflare.com (a free account is enough).",
+    "Open https://dash.cloudflare.com/profile/api-tokens, 'Create Token', then 'Create Custom Token'.",
+    "Permissions: Account, Workers AI, Read. Nothing else. Create it and copy the token.",
+    "Copy also your Account ID (on the dashboard's home page, or in the address bar after dash.cloudflare.com/).",
+    "Paste both here."
+   ],
+   "gives": "CF_AI_TOKEN and CF_AI_ACCOUNT_ID"
+  },
+  {
+   "id": "window-access",
+   "title": "A way to open its browser window from your phone",
+   "why": "When a website shows a captcha or a sign-in, you solve it in its own browser from your phone.",
+   "link": "https://tailscale.com/download",
+   "steps": [
+    "The simplest: install Tailscale on your phone and sign in; I set it up on this side.",
+    "If you already run a reverse proxy with a login, tell me and I use that instead."
+   ],
+   "gives": "a private link to the window"
+  },
+  {
+   "id": "gmail-app-password",
+   "title": "A Gmail app password, for watching your inbox",
+   "why": "A small tool on this machine hears about new email within seconds, at no cost while nothing arrives.",
+   "link": "https://myaccount.google.com/apppasswords",
+   "steps": [
+    "Your Google account needs 2-step verification on (https://myaccount.google.com/signinoptions/twosv).",
+    "Open https://myaccount.google.com/apppasswords, give it a name (for example assistant) and create it.",
+    "Copy the 16 letters. Your assistant asks for them when it sets the watch up; you can revoke them there any time."
+   ],
+   "gives": "an app password for n8n"
+  }
+ ],
+ "capabilities": [
+  {
+   "id": "system",
+   "group": "base",
+   "title": "The machine's basic tools",
+   "gives": "tmux, jq, curl, git, ffmpeg, Python and the time zone the reminders use.",
+   "default": "required",
+   "needs": [],
+   "root": true,
+   "install": "assistant-setup install system",
+   "guide": "setup.md",
+   "upstream": [
+    {"name": "System packages", "what": "the machine's own programs", "kind": "system"}
+   ]
+  },
+  {
+   "id": "claude",
+   "group": "base",
+   "title": "Claude Code, signed in with your subscription",
+   "gives": "The assistant itself: Claude Code, signed in with the Claude plan, trusting its workspace.",
+   "default": "required",
+   "needs": ["claude-login"],
+   "root": false,
+   "install": "assistant-setup install claude",
+   "guide": "setup.md",
+   "upstream": [
+    {"name": "Claude Code", "what": "the program the assistant runs on", "kind": "auto", "repo": "anthropics/claude-code", "how": "updated every night by the daily restart"}
+   ]
+  },
+  {
+   "id": "workspace",
+   "group": "base",
+   "title": "Its workspace, rules and scripts",
+   "gives": "CLAUDE.md (its personality and rules), its notes, settings, guides and the small scripts that keep it alive.",
+   "default": "required",
+   "needs": [],
+   "root": true,
+   "install": "install.sh <user> from the repo",
+   "guide": "setup.md",
+   "upstream": [
+    {"name": "The assistant", "what": "this assistant's own kit: its rules, scripts and guides", "kind": "self"}
+   ]
+  },
+  {
+   "id": "telegram",
+   "group": "base",
+   "title": "Telegram",
+   "gives": "You write to it, or talk to it, from Telegram; only your account gets through.",
+   "default": "required",
+   "needs": ["telegram-bot"],
+   "root": false,
+   "install": "assistant-setup install telegram, then assistant-setup telegram-token and assistant-setup telegram-owner",
+   "guide": "setup.md",
+   "upstream": [
+    {"name": "Telegram plugin", "what": "the official piece that connects Claude Code to Telegram", "kind": "plugin", "plugin": "telegram@claude-plugins-official"},
+    {"name": "Bun", "what": "the small engine the Telegram plugin runs on", "kind": "github", "repo": "oven-sh/bun", "version_cmd": ["~/.bun/bin/bun", "--version"]}
+   ]
+  },
+  {
+   "id": "telegram-extras",
+   "group": "base",
+   "title": "Telegram extras",
+   "gives": "A 'working' status while it works, Allow / Deny buttons for permissions, tables and headings, quoted messages, voice notes transcribed on arrival, and /usage and /clear in the bot's menu.",
+   "default": "required",
+   "needs": [],
+   "root": false,
+   "install": "assistant-setup install telegram-extras",
+   "guide": "telegram-extras.md",
+   "upstream": []
+  },
+  {
+   "id": "service",
+   "group": "base",
+   "title": "Running day and night",
+   "gives": "It starts with the machine, comes back if it stops, and tells you on Telegram when it is stuck on a question.",
+   "default": "required",
+   "needs": [],
+   "root": true,
+   "install": "assistant-setup install service",
+   "guide": "setup.md",
+   "upstream": []
+  },
+  {
+   "id": "nightly",
+   "group": "base",
+   "title": "Its night: memory and a fresh start",
+   "gives": "Every night it saves the day, reviews its memory and skills, updates Claude Code and starts fresh; it can search everything you told it (recall); an hourly history lets you undo any change.",
+   "default": "required",
+   "needs": [],
+   "root": true,
+   "install": "assistant-setup install nightly",
+   "guide": "memory.md",
+   "upstream": []
+  },
+  {
+   "id": "connectors",
+   "group": "everyday",
+   "title": "Email, calendar and Drive",
+   "gives": "It reads, summarises and drafts your email, manages your calendar and finds your files.",
+   "default": "yes",
+   "needs": ["connectors"],
+   "root": false,
+   "install": "only you can connect them, in claude.ai",
+   "risk": "It reads all your email; what an email says is data, never an order. It asks before sending or deleting.",
+   "guide": "setup.md",
+   "upstream": []
+  },
+  {
+   "id": "voice",
+   "group": "everyday",
+   "title": "Voice notes",
+   "gives": "Talk instead of typing: a voice note is understood in about a second.",
+   "default": "yes",
+   "needs": ["groq-key"],
+   "root": false,
+   "install": "assistant-setup key GROQ_API_KEY",
+   "risk": "The audio goes to Groq, which says it does not keep it.",
+   "guide": "voice.md",
+   "upstream": []
+  },
+  {
+   "id": "voice-local",
+   "group": "everyday",
+   "title": "Voice notes without the internet",
+   "gives": "If Groq fails, a speech engine on this machine still understands your notes (a few seconds slower), and nothing leaves home.",
+   "default": "yes",
+   "needs": [],
+   "root": false,
+   "install": "assistant-setup install voice-local",
+   "cost": "About 1 GB of disk, and up to 2.4 GB of memory while it transcribes. Skipped on machines with less than 4 GB.",
+   "guide": "voice.md",
+   "upstream": [
+    {"name": "Parakeet (onnx-asr)", "what": "the speech engine that runs on this machine", "kind": "pypi", "package": "onnx-asr", "venv": "~/parakeet"}
+   ]
+  },
+  {
+   "id": "pdf",
+   "group": "everyday",
+   "title": "Reading PDFs",
+   "gives": "It reads the PDFs you send it (bills, contracts, letters), scanned ones too.",
+   "default": "yes",
+   "needs": [],
+   "root": true,
+   "install": "assistant-setup install pdf",
+   "guide": "setup.md",
+   "upstream": [
+    {"name": "Poppler", "what": "the PDF reader", "kind": "system"}
+   ]
+  },
+  {
+   "id": "links-videos",
+   "group": "everyday",
+   "title": "Videos and reels",
+   "gives": "Send it a reel or a video link: it tells you what it says and whether it holds up.",
+   "default": "yes",
+   "needs": [],
+   "root": false,
+   "install": "assistant-setup install links-videos",
+   "risk": "Platforms' terms on downloading; only public videos or ones you send it.",
+   "guide": "recipes/links-and-videos.md",
+   "upstream": [
+    {"name": "yt-dlp", "what": "the video downloader", "kind": "pypi", "package": "yt-dlp", "venv": "~/yt-dlp"}
+   ]
+  },
+  {
+   "id": "browser",
+   "group": "everyday",
+   "title": "A real browser",
+   "gives": "It fills in forms, books appointments and uses websites that have no app, with a normal browser.",
+   "default": "yes",
+   "needs": [],
+   "root": true,
+   "install": "assistant-setup install browser",
+   "cost": "About 1.2 GB of memory while a page is open.",
+   "risk": "Web pages are untrusted text; it asks before submitting or paying anything.",
+   "guide": "browser.md",
+   "upstream": [
+    {"name": "agent-browser", "what": "the tool it drives the browser with", "kind": "npm", "package": "agent-browser"},
+    {"name": "Chromium", "what": "the browser itself", "kind": "system"}
+   ]
+  },
+  {
+   "id": "wakeup",
+   "group": "everyday",
+   "title": "Notices without spending",
+   "gives": "Other tools (the version watch, n8n) can wake it with a one-line notice; nothing is spent while nothing happens.",
+   "default": "yes",
+   "needs": [],
+   "root": true,
+   "install": "assistant-setup install wakeup",
+   "guide": "wakeup.md",
+   "upstream": []
+  },
+  {
+   "id": "updates",
+   "group": "everyday",
+   "title": "New versions, explained",
+   "gives": "Once a day it checks for new versions of itself and of every tool it uses, and tells you in plain words what they bring. It never updates without your yes.",
+   "default": "yes",
+   "needs": [],
+   "root": true,
+   "install": "assistant-setup install updates",
+   "guide": "updating.md",
+   "upstream": []
+  },
+  {
+   "id": "idle-compact",
+   "group": "everyday",
+   "title": "Tidying the conversation while idle",
+   "gives": "After an hour without messages it summarises a long conversation, so the next message is cheaper and faster.",
+   "default": "yes",
+   "needs": [],
+   "root": true,
+   "install": "assistant-setup install idle-compact",
+   "guide": "context.md",
+   "upstream": []
+  },
+  {
+   "id": "voice-reply",
+   "group": "optional",
+   "title": "Answers with its own voice",
+   "gives": "When you ask, it answers with a voice note in a natural voice.",
+   "default": "ask",
+   "needs": ["elevenlabs-key"],
+   "root": false,
+   "install": "assistant-setup key ELEVENLABS_API_KEY, then assistant-setup voices and assistant-setup set TTS_VOICE_ID",
+   "risk": "The text goes to ElevenLabs; beyond a small free monthly allowance it is paid.",
+   "guide": "voice.md",
+   "upstream": []
+  },
+  {
+   "id": "voice-backup",
+   "group": "optional",
+   "title": "A second engine for voice notes",
+   "gives": "If Groq is down or over its limit, Cloudflare transcribes your notes in a few seconds, with the same quality.",
+   "default": "ask",
+   "needs": ["cloudflare-ai"],
+   "root": false,
+   "install": "assistant-setup key CF_AI_TOKEN and assistant-setup key CF_AI_ACCOUNT_ID",
+   "risk": "The audio goes to Cloudflare too. A token that can only use Workers AI.",
+   "guide": "voice.md",
+   "upstream": []
+  },
+  {
+   "id": "voice-best",
+   "group": "optional",
+   "title": "Best-quality transcription on request",
+   "gives": "When a transcript looks wrong, it can redo it with the largest model, on this machine.",
+   "default": "ask",
+   "needs": [],
+   "root": false,
+   "install": "assistant-setup install voice-best",
+   "cost": "About 4 GB of disk; minutes per note on an ordinary processor.",
+   "guide": "voice.md",
+   "upstream": [
+    {"name": "faster-whisper", "what": "the large speech engine for best quality", "kind": "pypi", "package": "faster-whisper", "venv": "~/whisper"}
+   ]
+  },
+  {
+   "id": "browser-window",
+   "group": "optional",
+   "title": "Its browser window, on your phone",
+   "gives": "When a site shows a captcha or a sign-in, it sends you a link and you solve it in its own browser.",
+   "default": "ask",
+   "needs": ["window-access"],
+   "root": true,
+   "install": "assistant-setup install browser-window",
+   "risk": "Whoever opens that link drives a browser signed in to its accounts: it must be reachable only by you (a VPN such as Tailscale, or a login with a second factor).",
+   "guide": "browser.md",
+   "upstream": [
+    {"name": "noVNC and x11vnc", "what": "what shows the window in a web page", "kind": "system"}
+   ]
+  },
+  {
+   "id": "email-watch",
+   "group": "optional",
+   "title": "Your inbox watched day and night",
+   "gives": "A small free automation tool (n8n) on this machine tells it about a new email within seconds, and it tells you only if it matters. It also lets it build alerts that cost nothing (a parcel, a price, a page).",
+   "default": "ask",
+   "needs": ["gmail-app-password"],
+   "root": true,
+   "install": "assistant-setup install email-watch",
+   "cost": "About 500 MB of memory. Needs Node.js 24 or newer.",
+   "risk": "n8n keeps a password that can read your email, on this machine.",
+   "guide": "n8n.md",
+   "upstream": [
+    {"name": "n8n", "what": "the automation tool that watches your inbox", "kind": "npm", "package": "n8n", "dist_tag": "stable", "how": "it updates with a backup and rolls back if it breaks: n8n-admin update"}
+   ]
+  },
+  {
+   "id": "diagrams",
+   "group": "later",
+   "title": "Diagrams and one-page explainers",
+   "gives": "A picture or a one-page explainer instead of a wall of text.",
+   "default": "later",
+   "needs": [],
+   "root": false,
+   "install": "the assistant checks it first and installs it with your yes (vetting-skills.md)",
+   "risk": "A third-party skill: it is checked before installing.",
+   "guide": "vetting-skills.md",
+   "upstream": [
+    {"name": "diagram-design", "what": "the skill it draws diagrams with", "kind": "skill", "repo": "cathrynlavery/diagram-design"}
+   ]
+  }
+ ]
+}

@@ -1,0 +1,680 @@
+#!/usr/bin/env python3
+"""assistant-doctor: is everything the assistant can have installed, and does it work? (setup/INSTALL.md)
+
+For every capability in capabilities.json it prints one line: ✅ works, ⚠️ works with a caveat, ❌ missing or broken
+(with the fix in one line), ⏭ declined on purpose (a line "- <id>: no" in notes/first-days.md, or RELEASE_WATCH /
+IDLE_COMPACT=no in install.conf), ○ optional and not set up yet (to offer), ❔ cannot be checked from here.
+
+  assistant-doctor               the report, for a person
+  assistant-doctor --json        the same, for the installer or the assistant
+  assistant-doctor --offline     no network at all (keys are only checked to be there)
+  assistant-doctor --deep        also opens the browser once, as the assistant's user
+  assistant-doctor --only a,b    only those capabilities
+  assistant-doctor --watch-list  what the version watch must cover (JSON), from what is installed
+  assistant-doctor --list-checks the capability ids this doctor knows how to check
+
+Free and safe to run at any time: it spends no Claude tokens, never prints a key or a token, and about keys it only
+asks "is it there, and does the service accept it?" with a read-only request (Telegram getMe, Groq's model list,
+Cloudflare's Workers AI model search, ElevenLabs' voice). Run as root or as the assistant's user; as root, what runs
+as the user (claude, tmux, bun) runs through runuser, never as root. Exit code 1 if anything is ❌.
+DESTDIR, ASSISTANT_MANIFEST, TELEGRAM_API, GROQ_API, CLOUDFLARE_API and ELEVENLABS_API are for the tests.
+"""
+import glob
+import json
+import os
+import pwd
+import re
+import shutil
+import socket
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+
+D = os.environ.get("DESTDIR", "")
+SHARE = "/usr/local/share/assistant"
+HERE = os.path.dirname(os.path.realpath(__file__))
+TELEGRAM_API = os.environ.get("TELEGRAM_API", "https://api.telegram.org")
+GROQ_API = os.environ.get("GROQ_API", "https://api.groq.com")
+CLOUDFLARE_API = os.environ.get("CLOUDFLARE_API", "https://api.cloudflare.com")
+ELEVENLABS_API = os.environ.get("ELEVENLABS_API", "https://api.elevenlabs.io")
+SYMBOL = {"ok": "✅", "warn": "⚠️ ", "fail": "❌", "skip": "⏭ ", "offer": "○ ", "unknown": "❔"}
+GROUPS = [("base", "Base"), ("everyday", "Everyday"), ("optional", "Optional"), ("later", "Offered later, when it fits")]
+DIALOG = re.compile(r"Do you want to proceed|Enter to confirm|Yes, I trust|trust this folder|Choose the text style|"
+                    r"Select login method|Press Enter to continue|Paste code here|Esc to cancel")
+
+
+def P(path):
+    return D + path
+
+
+def read(path, default=""):
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return f.read()
+    except OSError:
+        return default
+
+
+def kv(path):
+    """KEY=VALUE lines (shell style, # comments, optional quotes)."""
+    out = {}
+    for line in read(path).splitlines():
+        m = re.match(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$", line)
+        if m:
+            v = m.group(2).strip()
+            if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+                v = v[1:-1]
+            out[m.group(1)] = v
+    return out
+
+
+def jload(path):
+    try:
+        return json.loads(read(path)) if os.path.exists(path) else None
+    except ValueError:
+        return None
+
+
+def find_manifest():
+    for p in (os.environ.get("ASSISTANT_MANIFEST"), P(SHARE + "/capabilities.json"),
+              os.path.join(HERE, "..", "..", "setup", "capabilities.json")):
+        if p and os.path.exists(p):
+            return json.loads(read(p))
+    sys.exit("assistant-doctor: no capabilities.json (run install.sh, or set ASSISTANT_MANIFEST)")
+
+
+class Ctx:
+    def __init__(self, user, offline, deep):
+        self.conf = kv(P(SHARE + "/install.conf"))
+        self.user = user or self.conf.get("INSTALL_USER") or pwd.getpwuid(os.geteuid()).pw_name
+        self.offline, self.deep = offline, deep
+        if D:
+            self.home = "/root" if self.user == "root" else "/home/" + self.user
+        else:
+            try:
+                self.home = pwd.getpwnam(self.user).pw_dir
+            except KeyError:
+                self.home = None
+        self.H = D + (self.home or "/nonexistent")
+        self.ws = self.H + "/assistant"
+        self.env = kv(self.ws + "/assistant.env")
+        for k, v in self.env.items():
+            self.env[k] = v.replace("${HOME}", self.H).replace("$HOME", self.H)
+        self.keys = kv(self.H + "/.config/assistant/keys.env")
+        self.decisions = {}
+        for line in read(self.ws + "/notes/first-days.md").splitlines():
+            m = re.match(r"^- ([a-z0-9-]+): (already|offered|yes|no|later)\b\s*(\S*)", line)
+            if m:
+                self.decisions[m.group(1)] = (m.group(2), m.group(3))
+        self.tg_env = kv(self.H + "/.claude/channels/telegram/.env")
+        self.access = jload(self.H + "/.claude/channels/telegram/access.json") or {}
+        self.settings = read(self.H + "/.claude/settings.json")
+        self.claude_json = jload(self.H + "/.claude.json") or {}
+
+    def tilde(self, p):
+        return self.H + p[1:] if p.startswith("~") else p
+
+    def run(self, cmd, timeout=20, as_user=True):
+        """Runs a command (as the assistant's user if as_user), returns (rc, output). Never raises."""
+        cmd = [self.tilde(c) if c.startswith("~/") else c for c in cmd]
+        env = {"HOME": self.H, "LANG": "C.UTF-8", "TERM": "dumb",
+               "PATH": f"{self.H}/.local/bin:{self.H}/.bun/bin:" + os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin")}
+        if as_user and os.geteuid() == 0 and self.user != "root":
+            cmd = ["runuser", "-u", self.user, "--", "env"] + [f"{k}={v}" for k, v in env.items()] + cmd
+            env = dict(os.environ)
+        else:
+            env = dict(os.environ, **env)
+        try:
+            p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env, stdin=subprocess.DEVNULL)
+            return p.returncode, (p.stdout + p.stderr).strip()
+        except (OSError, subprocess.TimeoutExpired) as e:
+            return 127, str(e)
+
+    def unit(self, name, what="is-enabled"):
+        if not shutil.which("systemctl"):
+            return None
+        return subprocess.run(["systemctl", what, "-q", name], capture_output=True).returncode == 0
+
+    def http(self, url, headers=None, data=None, timeout=10):
+        """(status code, parsed JSON or None). Code None = could not reach it."""
+        req = urllib.request.Request(url, headers=dict(headers or {}, **{"User-Agent": "assistant-doctor"}), data=data)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                body = r.read(200000)
+                code = r.status
+        except urllib.error.HTTPError as e:
+            body, code = e.read(2000), e.code
+        except (urllib.error.URLError, OSError, ValueError):
+            return None, None
+        try:
+            return code, json.loads(body)
+        except ValueError:
+            return code, None
+
+    def telegram(self, method, **params):
+        token = self.tg_env.get("TELEGRAM_BOT_TOKEN", "")
+        data = json.dumps(params).encode()   # always a POST, like the plugin and the hooks
+        return self.http(f"{TELEGRAM_API}/bot{token}/{method}", {"Content-Type": "application/json"}, data)
+
+    def owner_chat(self):
+        return self.env.get("TELEGRAM_CHAT_ID") or next(iter(self.access.get("allowFrom") or []), "")
+
+    def mem_gb(self):
+        m = re.search(r"MemTotal:\s+(\d+)", read("/proc/meminfo"))
+        return int(m.group(1)) / 1048576 if m else 0
+
+
+def R(status, detail="", fix="", installed=None):
+    return {"status": status, "detail": detail, "fix": fix,
+            "installed": status in ("ok", "warn") if installed is None else installed}
+
+
+def asroot(cmd):
+    return cmd if os.geteuid() == 0 else "as root: " + cmd
+
+
+# ---- the checks, one per capability id (the test makes sure this list and capabilities.json match) ----
+
+def c_system(c):
+    missing = [x for x in ("tmux", "jq", "curl", "git", "python3", "ffmpeg", "unzip") if not shutil.which(x)]
+    if subprocess.run(["python3", "-c", "import ensurepip, venv"], capture_output=True).returncode != 0:
+        missing.append("python3-venv")
+    if missing:
+        return R("fail", "missing: " + ", ".join(missing), asroot("assistant-setup install system"))
+    want = c.conf.get("TIMEZONE", "")
+    have = read(P("/etc/timezone")).strip()
+    if not D:
+        rc = subprocess.run(["timedatectl", "show", "-p", "Timezone", "--value"], capture_output=True, text=True) \
+            if shutil.which("timedatectl") else None
+        if rc and rc.returncode == 0 and rc.stdout.strip():
+            have = rc.stdout.strip()
+        elif not have and os.path.islink("/etc/localtime"):
+            have = os.readlink("/etc/localtime").split("zoneinfo/")[-1]
+    if want and have and want != have:
+        return R("warn", f"the machine's time zone is {have}, the assistant's is {want}",
+                 asroot(f"timedatectl set-timezone {want}"))
+    return R("ok", f"time zone {have or want or 'unknown'}")
+
+
+def c_claude(c):
+    if not c.home:
+        return R("fail", f"there is no user {c.user}", "create the user, then run install.sh for it")
+    if not (os.path.exists(c.H + "/.local/bin/claude") or c.run(["sh", "-c", "command -v claude"])[0] == 0):
+        return R("fail", "Claude Code is not installed for " + c.user, "assistant-setup install claude", False)
+    rc, out = c.run(["claude", "auth", "status", "--json"], timeout=30)
+    try:
+        st = json.loads(out[out.index("{"):])
+    except ValueError:
+        st = {}
+    if not st.get("loggedIn"):
+        return R("fail", "Claude Code is installed but not signed in", "assistant-setup login (sends you a link)", True)
+    if st.get("authMethod") != "claude.ai":
+        return R("fail", "signed in with an API key, not with the Claude subscription",
+                 "assistant-setup login (sign in with the subscription)", True)
+    plan = st.get("subscriptionType") or "subscription"
+    proj = (c.claude_json.get("projects") or {}).get(c.home + "/assistant") or {}
+    if not (c.claude_json.get("hasCompletedOnboarding") and proj.get("hasTrustDialogAccepted")):
+        return R("fail", f"signed in ({plan}), but its first-start questions are not answered yet",
+                 "assistant-setup trust", True)
+    return R("ok", f"signed in with the {plan} plan")
+
+
+def c_workspace(c):
+    if not c.conf:
+        return R("fail", "not installed", "from the repo, as root: ./install.sh <user> (setup/INSTALL.md)", False)
+    claude_md = read(c.ws + "/CLAUDE.md")
+    if not claude_md or "__" + "NAME__" in claude_md:   # (split so install.sh does not fill it in)
+        return R("fail", "no workspace in " + c.home + "/assistant", "install.sh " + c.user + " from the repo", False)
+    if "statusline.sh" not in c.settings:
+        return R("fail", "~/.claude/settings.json is not the assistant's",
+                 asroot("assistant-setup merge-settings"), True)
+    pending = [p for d in (c.ws, c.ws + "/notes", c.ws + "/bin", c.H + "/.claude") for p in glob.glob(d + "/*.new")]
+    pending += glob.glob(c.ws + "/.claude/*/*/*.new") + glob.glob(c.ws + "/.claude/*/*.new")
+    v = c.conf.get("VERSION", "?")
+    if pending:
+        return R("warn", f"version {v}; {len(pending)} merged file(s) from an upgrade to review",
+                 "review each .new (docs/updating.md, skill updating)")
+    return R("ok", "version " + v)
+
+
+def plugin_dir(c):
+    inst = (jload(c.H + "/.claude/plugins/installed_plugins.json") or {}).get("plugins") or {}
+    rec = (inst.get("telegram@claude-plugins-official") or [{}])[0]
+    return rec.get("installPath", "").replace(c.home, c.H, 1) if c.home else "", rec.get("version")
+
+
+def c_telegram(c):
+    pdir, ver = plugin_dir(c)
+    if not pdir or not os.path.isdir(pdir):
+        return R("fail", "the Telegram plugin is not installed", "assistant-setup install telegram", False)
+    if not os.path.exists(c.H + "/.bun/bin/bun") and c.run(["sh", "-c", "command -v bun"])[0] != 0:
+        return R("fail", "Bun (which the plugin runs on) is missing", "assistant-setup install telegram")
+    if not c.tg_env.get("TELEGRAM_BOT_TOKEN"):
+        return R("fail", "no bot token yet", "assistant-setup telegram-token (paste the token from @BotFather)", True)
+    bot = ""
+    if not c.offline:
+        code, js = c.telegram("getMe")
+        if code in (401, 404):
+            return R("fail", "Telegram rejects the bot token", "a new token from @BotFather: assistant-setup telegram-token", True)
+        if code == 200 and js and js.get("ok"):
+            bot = "@" + js["result"].get("username", "")
+    allow = c.access.get("allowFrom") or []
+    if not allow:
+        return R("fail", f"bot {bot or 'set'}, but nobody is on its allowlist yet",
+                 "assistant-setup telegram-owner (then the owner writes to the bot)", True)
+    if c.access.get("dmPolicy") != "allowlist":
+        return R("warn", f"policy is '{c.access.get('dmPolicy', 'pairing')}': strangers can ask to pair",
+                 "assistant-setup telegram-owner --lock")
+    return R("ok", f"plugin {ver}, bot {bot or '(not checked offline)'}, {len(allow)} on the allowlist")
+
+
+def c_telegram_extras(c):
+    pdir, _ = plugin_dir(c)
+    if not pdir:
+        return R("fail", "needs the Telegram plugin first", "assistant-setup install telegram", False)
+    if "ASSISTANT-PATCH" not in read(pdir + "/server.ts"):
+        return R("fail", "the plugin is not patched (no buttons, no voice notes on arrival, no instant /usage)",
+                 "assistant-setup install telegram-extras", False)
+    if "permission-hook.py" not in c.settings:
+        return R("fail", "the permission buttons are not in settings.json", asroot("assistant-setup merge-settings"))
+    if not os.path.exists(P("/usr/local/lib/assistant-telegram/send-rich.py")):
+        return R("fail", "the rich-message tool is missing", asroot("install.sh " + c.user + " --upgrade"))
+    if not c.offline and c.tg_env.get("TELEGRAM_BOT_TOKEN") and c.owner_chat():
+        code, js = c.telegram("getMyCommands", scope={"type": "chat", "chat_id": c.owner_chat()})
+        if code == 200 and js and js.get("ok"):
+            names = {x.get("command") for x in js.get("result") or [] if isinstance(x, dict)}
+            if not {"usage", "clear"} <= names:
+                return R("warn", "patched; /usage and /clear are not in the bot's menu", "assistant-setup install telegram-extras")
+    return R("ok", "patched; buttons, rich messages and voice notes on arrival")
+
+
+def c_service(c):
+    en = [u for u in ("assistant", "assistant-permission-watch") if c.unit(u) is False]
+    if en:
+        return R("fail", "not enabled: " + ", ".join(en), asroot("assistant-setup install service"), False)
+    down = [u for u in ("assistant", "assistant-permission-watch") if c.unit(u, "is-active") is False]
+    if down:
+        return R("fail", "enabled but not running: " + ", ".join(down), asroot("systemctl restart " + " ".join(down)))
+    session = c.env.get("TMUX_SESSION", "assistant")
+    rc, _ = c.run(["tmux", "has-session", "-t", session])
+    if rc != 0:
+        return R("fail", "no tmux session '" + session + "'", asroot("systemctl restart assistant") + "; then journalctl -u assistant")
+    rc, pane = c.run(["tmux", "capture-pane", "-p", "-t", session])
+    hit = next((ln.strip() for ln in pane.splitlines() if DIALOG.search(ln)), "")
+    if hit:
+        return R("warn", "it is waiting at a question in its terminal: " + hit[:80],
+                 f"look: sudo -u {c.user} tmux attach -t {session} (detach: Ctrl+B D)")
+    return R("ok", "running in tmux '" + session + "'")
+
+
+def c_nightly(c):
+    miss = []
+    if not os.path.exists(P("/etc/cron.d/assistant")):
+        miss.append("the nightly restart (/etc/cron.d/assistant)")
+    if not os.path.exists(P("/usr/local/bin/recall")):
+        miss.append("recall")
+    if c.unit("assistant-history.timer") is False:
+        miss.append("the hourly history (assistant-history.timer)")
+    if miss:
+        return R("fail", "missing: " + ", ".join(miss), asroot("assistant-setup install nightly"), "recall" not in miss)
+    return R("ok", "nightly restart and review, recall, hourly history")
+
+
+def c_connectors(c):
+    seen = set(c.claude_json.get("claudeAiMcpEverConnected") or [])
+    want = ["Gmail", "Google Calendar", "Google Drive"]
+    have = [w for w in want if "claude.ai " + w in seen]
+    fix = "only the owner: https://claude.ai/settings/connectors, then the next start of the session sees them"
+    if len(have) == len(want):
+        return R("ok", "Gmail, Calendar and Drive seen by Claude Code")
+    if have:
+        return R("warn", "seen: " + ", ".join(have) + "; not seen: " + ", ".join(w for w in want if w not in have), fix)
+    return R("fail", "Claude Code has not seen Gmail, Calendar or Drive yet", fix)
+
+
+def key_check(c, name, url, headers, what):
+    if not c.keys.get(name):
+        return None
+    if c.offline:
+        return R("ok", f"{name} is set (not checked offline)")
+    code, _ = c.http(url, headers)
+    if code == 200:
+        return R("ok", f"{what} accepts the key")
+    if code in (401, 403):
+        return R("fail", f"{what} rejects {name}", f"a new key: assistant-setup key {name}", True)
+    return R("unknown", f"{what} did not answer (HTTP {code}); the key is set", "try again later", True)
+
+
+def c_voice(c):
+    if not shutil.which("ffmpeg"):
+        return R("fail", "ffmpeg is missing", asroot("assistant-setup install system"), False)
+    r = key_check(c, "GROQ_API_KEY", GROQ_API + "/openai/v1/models",
+                  {"Authorization": "Bearer " + c.keys.get("GROQ_API_KEY", "")}, "Groq")
+    return r or R("fail", "no Groq key", "a free key (console.groq.com/keys): assistant-setup key GROQ_API_KEY", False)
+
+
+def c_voice_backup(c):
+    acct = c.keys.get("CF_AI_ACCOUNT_ID", "")
+    if c.keys.get("CF_AI_TOKEN") and not re.fullmatch(r"[0-9a-f]{32}", acct):
+        return R("fail", "CF_AI_ACCOUNT_ID is missing or not an account id", "assistant-setup key CF_AI_ACCOUNT_ID", True)
+    r = key_check(c, "CF_AI_TOKEN", f"{CLOUDFLARE_API}/client/v4/accounts/{acct}/ai/models/search?per_page=1",
+                  {"Authorization": "Bearer " + c.keys.get("CF_AI_TOKEN", "")}, "Cloudflare Workers AI")
+    return r or R("fail", "no Cloudflare token", "assistant-setup key CF_AI_TOKEN and CF_AI_ACCOUNT_ID", False)
+
+
+def venv_version(path, package):
+    norm = re.sub(r"[-_.]+", "_", package).lower()
+    for d in glob.glob(path + "/lib/python3*/site-packages/*.dist-info"):
+        name = os.path.basename(d)[:-len(".dist-info")]
+        pkg, _, ver = name.rpartition("-")
+        if re.sub(r"[-_.]+", "_", pkg).lower() == norm:
+            return ver
+    return None
+
+
+def c_voice_local(c):
+    venv = c.env.get("PARAKEET_VENV") or c.H + "/parakeet"
+    if venv_version(venv, "onnx-asr") and os.path.isdir(venv + "/model"):
+        return R("ok", "Parakeet " + venv_version(venv, "onnx-asr"))
+    if c.mem_gb() and c.mem_gb() < 3.5:
+        return R("skip", f"this machine has {c.mem_gb():.1f} GB of memory; Parakeet needs about 4",
+                 "more memory, then assistant-setup install voice-local", False)
+    return R("fail", "no local speech engine", "assistant-setup install voice-local (about 1 GB)", False)
+
+
+def c_voice_best(c):
+    venv = c.env.get("WHISPER_VENV") or c.H + "/whisper"
+    v = venv_version(venv, "faster-whisper")
+    if v:
+        return R("ok", "faster-whisper " + v)
+    return R("fail", "not installed", "assistant-setup install voice-best (about 4 GB)", False)
+
+
+def c_voice_reply(c):
+    if not c.keys.get("ELEVENLABS_API_KEY"):
+        return R("fail", "no ElevenLabs key", "assistant-setup key ELEVENLABS_API_KEY", False)
+    vid = c.env.get("TTS_VOICE_ID", "")
+    if not re.fullmatch(r"[A-Za-z0-9]{8,40}", vid):
+        return R("fail", "no voice chosen", "assistant-setup voices, then assistant-setup set TTS_VOICE_ID", True)
+    return key_check(c, "ELEVENLABS_API_KEY", f"{ELEVENLABS_API}/v1/voices/{vid}",
+                     {"xi-api-key": c.keys.get("ELEVENLABS_API_KEY", "")}, "ElevenLabs")
+
+
+def c_pdf(c):
+    miss = [x for x in ("pdftotext", "pdftoppm") if not shutil.which(x)]
+    if miss:
+        return R("fail", "missing: " + ", ".join(miss), asroot("assistant-setup install pdf"), False)
+    return R("ok", "pdftotext and pdftoppm")
+
+
+def c_links_videos(c):
+    v = venv_version(c.H + "/yt-dlp", "yt-dlp")
+    if v and os.path.exists(c.H + "/.local/bin/yt-dlp"):
+        return R("ok", "yt-dlp " + v)
+    if c.run(["sh", "-c", "command -v yt-dlp"])[0] == 0:
+        return R("ok", "yt-dlp (installed by other means)")
+    return R("fail", "yt-dlp is not installed", "assistant-setup install links-videos", False)
+
+
+def npm_version(package):
+    for root in ("/usr/local/lib/node_modules", "/usr/lib/node_modules"):
+        js = jload(P(f"{root}/{package}/package.json"))
+        if js and js.get("version"):
+            return js["version"]
+    return None
+
+
+def c_browser(c):
+    cfg = jload(c.H + "/.agent-browser/config.json") or {}
+    exe = cfg.get("executablePath", "")
+    miss = []
+    if not (npm_version("agent-browser") or shutil.which("agent-browser")):
+        miss.append("agent-browser")
+    if exe and not os.path.exists(P(exe)):
+        miss.append(exe)
+    if not shutil.which("Xvfb") and not os.path.exists(P("/usr/bin/Xvfb")):
+        miss.append("Xvfb")
+    if miss:
+        return R("fail", "missing: " + ", ".join(miss), asroot("assistant-setup install browser"), False)
+    if not cfg or not os.path.isdir(c.H + "/.browser/clean"):
+        return R("fail", "installed, but not set up for " + c.user, asroot("assistant-setup install browser"), True)
+    if c.deep:
+        rc, out = c.run(["sh", "-c", "agent-browser open about:blank >/dev/null && agent-browser eval navigator.userAgent;"
+                         " agent-browser close >/dev/null 2>&1"], timeout=90)
+        if rc != 0 or "Mozilla" not in out:
+            return R("fail", "it does not start: " + out[-160:], "docs/browser.md (Install, and the GPU note)", True)
+        if "HeadlessChrome" in out:
+            return R("warn", "it starts, but as the headless shell that websites block", "docs/browser.md")
+        return R("ok", "agent-browser " + (npm_version("agent-browser") or "") + "; opened a page with a full browser")
+    return R("ok", "agent-browser " + (npm_version("agent-browser") or "") + " with a full browser")
+
+
+def c_browser_window(c):
+    off = [u for u in ("assistant-window-vnc", "assistant-window-web") if c.unit(u) is False]
+    if off:
+        return R("fail", "not enabled", asroot("assistant-setup install browser-window"), False)
+    if not os.path.exists(P("/etc/assistant-window/vncpasswd")):
+        return R("fail", "no window password", asroot("assistant-setup install browser-window"), True)
+    if not os.path.exists(c.H + "/.config/assistant/window-link"):
+        return R("warn", "running on this machine, but no link to reach it from the phone yet",
+                 asroot("assistant-setup window-link <the address you reach it at>"))
+    return R("ok", "running; the assistant has the link")
+
+
+def wakeup_listen(c):
+    listen = kv(P("/etc/assistant-wakeup.env")).get("WAKEUP_LISTEN") or "127.0.0.1:8770"
+    host, _, port = listen.rpartition(":")
+    return host or "127.0.0.1", int(port or 8770)
+
+
+def c_wakeup(c):
+    if c.unit("assistant-wakeup") is False:
+        return R("fail", "not enabled", asroot("assistant-setup install wakeup"), False)
+    if c.unit("assistant-wakeup", "is-active") is False:
+        return R("fail", "enabled but not running", asroot("systemctl restart assistant-wakeup") + "; journalctl -u assistant-wakeup")
+    host, port = wakeup_listen(c)
+    try:
+        socket.create_connection((host, port), 2).close()
+    except OSError:
+        return R("warn", f"running, but nothing answers on {host}:{port}", asroot("systemctl restart assistant-wakeup"))
+    return R("ok", f"listening on {host}:{port}")
+
+
+def c_idle_compact(c):
+    if c.conf.get("IDLE_COMPACT") == "no":
+        return R("skip", "turned off at install (IDLE_COMPACT=no)", "assistant-setup install idle-compact", False)
+    if c.conf.get("IDLE_COMPACT") == "yes" and c.unit("assistant-idle-compact.timer") is not False:
+        return R("ok", "on")
+    return R("fail", "off", asroot("assistant-setup install idle-compact"), False)
+
+
+def c_email_watch(c):
+    if c.unit("n8n", "is-active"):
+        return R("ok", "n8n is running; its email workflow is the assistant's to set up (n8n.md)")
+    if os.path.exists(P("/usr/local/sbin/n8n-admin")) or os.path.exists(P("/etc/n8n.env")):
+        return R("fail", "n8n is installed but not running", asroot("systemctl restart n8n") + "; journalctl -u n8n", True)
+    return R("fail", "n8n is not installed", asroot("assistant-setup install email-watch"), False)
+
+
+def skill_dirs(c):
+    return glob.glob(c.H + "/.claude/skills/*/") + glob.glob(c.ws + "/.claude/skills/*/")
+
+
+def c_diagrams(c):
+    for d in skill_dirs(c):
+        if os.path.basename(d.rstrip("/")) == "diagram-design" and os.path.exists(d + "SKILL.md"):
+            return R("ok", "the diagram-design skill" + ("" if os.path.exists(d + ".installed-from") else
+                                                         " (no .installed-from: the version watch cannot follow it)"))
+    return R("fail", "not installed", "the assistant offers it when it fits (vetting-skills.md)", False)
+
+
+def c_updates(c, watch):
+    rw, how = c.conf.get("RELEASE_WATCH", ""), c.conf.get("RELEASE_WATCH_HOW", "")
+    if rw == "no":
+        return R("skip", "turned off at install (RELEASE_WATCH=no)", asroot("assistant-setup install updates"), False)
+    if rw != "yes":
+        return R("fail", "off", asroot("assistant-setup install updates"), False)
+    if how == "n8n":
+        if not c.unit("n8n", "is-active"):
+            return R("fail", "the watch is an n8n workflow, and n8n is not running", asroot("systemctl restart n8n"))
+    elif c.unit("assistant-release-watch.timer") is False:
+        return R("fail", "the daily check (assistant-release-watch.timer) is off", asroot("assistant-setup install updates"))
+    have = jload(P(SHARE + "/watch.json"))
+    if not have:
+        return R("fail", "no watch list yet", asroot("assistant-setup watch"), True)
+    want = {w["id"] for w in watch if w["updates"] == "watch"}
+    got = {w["id"] for w in have.get("watch", []) if w.get("updates") == "watch"}
+    if want != got:
+        bits = []
+        if want - got:
+            bits.append("not watched: " + ", ".join(sorted(want - got)))
+        if got - want:
+            bits.append("watched but not installed: " + ", ".join(sorted(got - want)))
+        return R("fail", "; ".join(bits), asroot("assistant-setup watch"), True)
+    return R("ok", f"{len(want)} things watched, every day ({'n8n' if how == 'n8n' else 'assistant-release-watch.timer'})")
+
+
+CHECKS = {"system": c_system, "claude": c_claude, "workspace": c_workspace, "telegram": c_telegram,
+          "telegram-extras": c_telegram_extras, "service": c_service, "nightly": c_nightly,
+          "connectors": c_connectors, "voice": c_voice, "voice-local": c_voice_local, "pdf": c_pdf,
+          "links-videos": c_links_videos, "browser": c_browser, "wakeup": c_wakeup, "updates": c_updates,
+          "idle-compact": c_idle_compact, "voice-reply": c_voice_reply, "voice-backup": c_voice_backup,
+          "voice-best": c_voice_best, "browser-window": c_browser_window, "email-watch": c_email_watch,
+          "diagrams": c_diagrams}
+
+
+# ---- what the version watch must cover ----
+
+def version_of(text):
+    m = re.search(r"(\d+(?:\.\d+){1,3})", text or "")
+    return m.group(1) if m else None
+
+
+def upstream_entry(c, cap, u):
+    kind = u["kind"]
+    e = {"name": u["name"], "what": u["what"], "kind": kind, "capabilities": [cap],
+         "updates": {"auto": "auto", "system": "system"}.get(kind, "watch")}
+    for k in ("repo", "package", "dist_tag", "plugin", "how"):
+        if k in u:
+            e[k] = u[k]
+    if kind == "self":
+        e["repo"] = c.conf.get("GITHUB_REPO", "")
+        e["installed"] = c.conf.get("VERSION")
+        e["id"] = "self:" + e["repo"]
+    elif kind == "plugin":
+        pdir, ver = plugin_dir(c)
+        e["installed"] = ver
+        name, _, market = u["plugin"].partition("@")
+        for p in (f"/.claude/plugins/marketplaces/{market}/external_plugins/{name}/.claude-plugin/plugin.json",
+                  f"/.claude/plugins/marketplaces/{market}/plugins/{name}/.claude-plugin/plugin.json"):
+            js = jload(c.H + p)
+            if js:
+                e["latest"] = js.get("version")
+                break
+        e["id"] = "plugin:" + u["plugin"]
+    elif kind == "pypi":
+        e["installed"] = venv_version(c.tilde(u["venv"]), u["package"])
+        e["id"] = "pypi:" + u["package"]
+    elif kind == "npm":
+        e["installed"] = npm_version(u["package"])
+        e["id"] = "npm:" + u["package"]
+    elif kind == "github":
+        e["installed"] = version_of(c.run(u["version_cmd"], timeout=10)[1]) if "version_cmd" in u else None
+        e["id"] = "github:" + u["repo"]
+    elif kind == "skill":
+        return None   # skills are found by their .installed-from (below), wherever they live
+    else:
+        e["id"] = kind + ":" + (u.get("repo") or re.sub(r"[^a-z0-9]+", "-", u["name"].lower()).strip("-"))
+    return e
+
+
+def watch_list(c, manifest, results):
+    out = {}
+    for cap in manifest["capabilities"]:
+        if not results[cap["id"]]["installed"]:
+            continue
+        for u in cap.get("upstream", []):
+            e = upstream_entry(c, cap["id"], u)
+            if not e:
+                continue
+            if e["id"] in out:
+                out[e["id"]]["capabilities"].append(cap["id"])
+            else:
+                out[e["id"]] = e
+    # Third-party skills, installed by the assistant with a .installed-from (vetting-skills.md): repo= and commit=
+    for d in skill_dirs(c):
+        src = kv(d + ".installed-from")
+        repo, commit = src.get("repo", ""), src.get("commit", "")
+        if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo) and re.fullmatch(r"[0-9a-f]{7,40}", commit):
+            name = os.path.basename(d.rstrip("/"))
+            sid = "skill:" + repo
+            if sid not in out:
+                out[sid] = {"id": sid, "name": name, "what": "a skill from " + repo, "kind": "skill", "repo": repo,
+                            "installed": commit, "updates": "watch", "capabilities": ["diagrams"] if name == "diagram-design" else []}
+    return sorted(out.values(), key=lambda e: e["id"])
+
+
+def main():
+    a = sys.argv[1:]
+    if "--list-checks" in a:
+        print("\n".join(CHECKS))
+        return 0
+    user = a[a.index("--user") + 1] if "--user" in a else None
+    only = set(a[a.index("--only") + 1].split(",")) if "--only" in a else None
+    wl = "--watch-list" in a
+    c = Ctx(user, offline="--offline" in a or wl, deep="--deep" in a)
+    manifest = find_manifest()
+    results = {}
+    for cap in manifest["capabilities"]:
+        cid = cap["id"]
+        fn = CHECKS.get(cid)
+        if cid == "updates":
+            continue
+        try:
+            r = fn(c) if fn else R("unknown", "this doctor has no check for it", "update the assistant")
+        except Exception as e:  # a broken check must not hide the others
+            r = R("unknown", "the check failed: " + str(e)[:120], "")
+        results[cid] = r
+    watch = watch_list(c, manifest, {k: results.get(k, {"installed": False}) for k in (x["id"] for x in manifest["capabilities"])})
+    if wl:
+        print(json.dumps(watch, indent=1))
+        return 0
+    results["updates"] = c_updates(c, watch)
+    rows = []
+    for cap in manifest["capabilities"]:
+        cid = cap["id"]
+        if cid not in results or (only and cid not in only):
+            continue
+        r = dict(results[cid])
+        dec, when = c.decisions.get(cid, ("", ""))
+        if r["status"] in ("fail", "unknown") and dec == "no":
+            r.update(status="skip", detail="declined" + (" on " + when if when else ""))
+        elif r["status"] == "fail" and cap["default"] in ("ask", "later") and dec != "yes":
+            r.update(status="offer")
+        rows.append({"id": cid, "group": cap["group"], "title": cap["title"], "default": cap["default"],
+                     "needs": cap.get("needs", []), **r})
+    summary = {s: sum(1 for r in rows if r["status"] == s) for s in SYMBOL}
+    if "--json" in a:
+        print(json.dumps({"user": c.user, "home": c.home, "version": c.conf.get("VERSION"), "offline": c.offline,
+                          "checked_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "summary": summary,
+                          "capabilities": rows}, indent=1, ensure_ascii=False))
+    else:
+        print(f"assistant-doctor · user {c.user} · version {c.conf.get('VERSION', 'not installed')}"
+              + (" · offline" if c.offline else ""))
+        for g, label in GROUPS:
+            part = [r for r in rows if r["group"] == g]
+            if not part:
+                continue
+            print(f"\n{label}")
+            for r in part:
+                print(f"  {SYMBOL[r['status']]} {r['id']:<16} {r['title']}" + (f" · {r['detail']}" if r["detail"] else ""))
+                if r["status"] in ("fail", "warn", "offer", "unknown") and r["fix"]:
+                    print(f"  {'':<19}→ {r['fix']}")
+        print("\n" + " · ".join(f"{n} {SYMBOL[s].strip()}" for s, n in summary.items() if n))
+    return 1 if summary["fail"] else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

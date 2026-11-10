@@ -5,6 +5,7 @@ An optional third argument is a JSON scenario for tests that run the real plugin
   {"updates": [...]}            returned once by getUpdates (later calls wait a second and return nothing)
   {"file": "/path/to/audio"}    what getFile points to and GET /file/bot<token>/... serves
   {"hang_downloads": true}      file downloads never answer (to test the plugin's timeouts)
+  {"commands": [...]}           what getMyCommands returns (for assistant-doctor)
 The scenario file is re-read on every request, so a test can change it between steps."""
 import json, sys, time, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -62,6 +63,8 @@ class H(BaseHTTPRequestHandler):
         if method == "getFile":
             return self.reply({"file_id": fields.get("file_id", ""), "file_unique_id": "U1",
                                "file_path": "voice/file_1.oga"})
+        if method == "getMyCommands":
+            return self.reply(sc.get("commands", []))
         if method in ("deleteWebhook", "setMyCommands", "sendChatAction", "setMessageReaction"):
             return self.reply(True)
         self.reply({"message_id": 5})

@@ -169,11 +169,18 @@ fi
 for f in "$REPO"/docs/*.md "$REPO/CHANGELOG.md"; do install -D -m 644 "$f" "$D$SHARE/docs/$(basename "$f")"; done
 for f in "$REPO"/docs/recipes/*.md; do install -D -m 644 "$f" "$D$SHARE/docs/recipes/$(basename "$f")"; done
 for f in n8n.md wakeup.md; do install -D -m 644 "$REPO/docs/$f" "$D/usr/local/share/assistant-n8n/docs/$f"; done
+# The installer's pieces (setup/INSTALL.md): the list of capabilities, assistant-setup and assistant-doctor. Root-owned
+# and refreshed on every run, like the tools below; the assistant and the installer both read the list.
+install -D -m 644 "$REPO/setup/capabilities.json" "$D$SHARE/capabilities.json"
+install -D -m 644 "$REPO/setup/INSTALL.md" "$D$SHARE/docs/INSTALL.md"
+install -D -m 755 "$SRC/system/assistant-doctor" "$D/usr/local/bin/assistant-doctor"
+install -D -m 755 "$SRC/system/assistant-setup" "$D/usr/local/bin/assistant-setup"
 # The small tools (templates/tools/), root-owned: an allow rule for one of them cannot be widened by editing it.
 for f in "$SRC"/tools/*; do
   case "$f" in *.sh|*.py) install -D -m 755 "$f" "$D$SHARE/tools/$(basename "$f")" ;; esac
 done
 echo "  copied   the n8n kit to /usr/local/share/assistant-n8n/ (not installed), the guides and recipes to $SHARE/docs/ and the tools to $SHARE/tools/"
+echo "  copied   assistant-doctor and assistant-setup to /usr/local/bin/, the list of capabilities to $SHARE/"
 
 # The version and settings of this install. From a git clone, git describe (the release tag, or the tag plus the
 # commits after it); otherwise the newest release in CHANGELOG.md, "+unreleased" if there are changes after it.
@@ -185,15 +192,16 @@ fi
 SOURCE=$(git -c safe.directory="$REPO" -C "$REPO" remote get-url origin 2>/dev/null | sed -E 's#//[^@/]*@#//#' || true)
 SOURCE=${SOURCE:-https://github.com/jonjunq/claudia}
 GITHUB_REPO=$(echo "$SOURCE" | sed -nE 's#^.*github\.com[:/]([^/]+/[^/]+)$#\1#p' | sed 's/\.git$//')
-# Release notices: asked once, at the end of the first install run from a terminal (never during an upgrade the
-# assistant runs). With n8n already here, its workflow template does it and the assistant sets it up; otherwise a small
-# daily timer does. Either way it only tells the assistant, which tells you; nothing is ever updated without your yes.
+# Version notices: asked once, at the end of the first install run from a terminal (never during an upgrade the
+# assistant runs; the installer of setup/INSTALL.md passes --release-watch). With n8n here, an n8n workflow does it;
+# otherwise a small daily timer. Either way it only tells the assistant, which tells you; nothing is ever updated
+# without your yes.
 HAS_N8N=0
 if [ -x "$D/usr/local/sbin/n8n-admin" ] || { [ -z "$D" ] && systemctl is-active -q n8n 2>/dev/null; }; then HAS_N8N=1; fi
 if [ -z "$RELEASE_WATCH" ] && [ -t 0 ] && [ -t 1 ]; then
   echo
-  echo "Release notices: once a day, check whether there is a new version of the assistant and tell it, so it can tell"
-  echo "$OWNER what the new version brings. It never updates without $OWNER's yes."
+  echo "Version notices: once a day, check for new versions of the assistant and of the tools it was installed with, and"
+  echo "tell it, so it can tell $OWNER in plain words what they bring. It never updates without $OWNER's yes."
   read -r -p "Turn it on? [Y/n] " answer
   case "$answer" in [nN]*) RELEASE_WATCH=no ;; *) RELEASE_WATCH=yes ;; esac
 fi
@@ -220,10 +228,18 @@ CONFEOF
 chmod 644 "$D$CONF"
 echo "  wrote    $CONF (version $VERSION)"
 [ -z "$D" ] && systemctl daemon-reload
+# The version watch follows what is installed (assistant-setup watch): with n8n, an n8n workflow it imports and
+# publishes itself; otherwise the daily timer. Rebuilt on every run, so an upgrade that brings a new capability or a
+# new upstream is covered at once.
+if [ "$RELEASE_WATCH" = yes ]; then
+  if DESTDIR="$D" ASSISTANT_DOCTOR="$D/usr/local/bin/assistant-doctor" "$D/usr/local/bin/assistant-setup" --user "$U" watch --quiet; then
+    echo "  watching new versions of the assistant and of its tools ($(sed -n 's/^RELEASE_WATCH_HOW=//p' "$D$CONF"))"
+  else
+    echo "  ! the version watch could not be set up: assistant-setup watch"
+  fi
+fi
 if [ -z "$D" ]; then
-  if [ "$RW_HOW" = timer ]; then
-    systemctl enable --now -q assistant-wakeup assistant-release-watch.timer && echo "  enabled  the daily release notice (assistant-release-watch.timer, through assistant-wakeup)"
-  elif [ "$RELEASE_WATCH" = no ]; then
+  if [ "$RELEASE_WATCH" = no ]; then
     systemctl disable --now -q assistant-release-watch.timer 2>/dev/null || true
   fi
   if [ "$IDLE_COMPACT" = yes ]; then
@@ -232,11 +248,7 @@ if [ -z "$D" ]; then
     systemctl disable --now -q assistant-idle-compact.timer 2>/dev/null || true
   fi
 fi
-case "$RW_HOW" in
-  n8n) echo "  release notice: n8n is here, so the assistant sets up its release-watch workflow (docs/updating.md)" ;;
-  timer) [ -n "$D" ] && echo "  release notice: on (assistant-release-watch.timer)" ;;
-  *) [ "$RELEASE_WATCH" = no ] && echo "  release notice: off (the assistant will offer it once in its first days)" ;;
-esac
+[ "$RELEASE_WATCH" = no ] && echo "  version notices: off (the assistant will offer them once in its first days)"
 
 if [ "$UPGRADE" = 1 ]; then
   cat <<EOF
@@ -251,20 +263,14 @@ fi
 
 cat <<EOF
 
-Next steps (details in docs/setup.md):
-  1. As $U: claude            -> log in with your Claude subscription, then:
-       /plugin install telegram@claude-plugins-official
-       /telegram:configure <token from @BotFather>
-     exit, run: claude --channels plugin:telegram@claude-plugins-official
-     message your bot, then: /telegram:access pair <code>   and   /telegram:access policy allowlist
-  2. Read and adapt $H/assistant/CLAUDE.md
-  3. As root: systemctl enable --now assistant assistant-permission-watch assistant-history.timer
-  4. Attach to watch it: sudo -u $U tmux attach -t assistant   (detach: Ctrl+B D)
-Optional:
-  - Release notices, if you did not turn them on now: install.sh $U --release-watch yes (or ask the assistant)
-  - Compact the conversation after a long idle spell, if Claude Code's own idle compaction does not run for you
-    (docs/context.md): install.sh $U --idle-compact yes
-  - Wake-up instead of Monitors (docs/wakeup.md): systemctl enable --now assistant-wakeup
-  - n8n for alerts that need no thinking (docs/n8n.md): /usr/local/share/assistant-n8n/install-n8n.sh --help
-  - A full browser with a window, and a remote window for captchas (docs/browser.md)
+Next steps (the easy way: open Claude Code in the repo and say "install yourself", setup/INSTALL.md):
+  1. What is still missing, and the command that fixes each thing: assistant-doctor
+  2. As $U: claude            -> log in with your Claude subscription (or, as root: assistant-setup login)
+  3. Telegram: assistant-setup install telegram, then the token from @BotFather on stdin:
+       assistant-setup telegram-token   and   assistant-setup telegram-owner   (you write to the bot)
+  4. Read and adapt $H/assistant/CLAUDE.md
+  5. As root: assistant-setup install service nightly
+  6. Attach to watch it: sudo -u $U tmux attach -t assistant   (detach: Ctrl+B D)
+Everything else (voice notes, PDFs, videos, the browser, n8n...): assistant-setup install <id>, the ids are in
+assistant-doctor. By hand, step by step: docs/setup.md
 EOF

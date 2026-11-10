@@ -1,0 +1,478 @@
+#!/bin/bash
+# assistant-setup: installs and sets up the assistant's capabilities one by one (setup/INSTALL.md), so the Claude Code
+# that installs it (or the assistant itself, or you) never improvises. What each capability is, and what it needs:
+# /usr/local/share/assistant/capabilities.json. What is missing: assistant-doctor.
+#
+#   assistant-setup install <id>...      install, or bring up to date, those capabilities (most need root)
+#   assistant-setup remove <id>          switch a capability off (and remove what it installed in the user's home)
+#   assistant-setup decline <id> [note]  the owner does not want it: recorded, never offered again
+#   assistant-setup accept <id>          the owner said yes to it (before it is installed)
+#   assistant-setup key <NAME>           saves a key read from stdin in ~/.config/assistant/keys.env (mode 600)
+#   assistant-setup set <NAME>           saves a setting read from stdin in ~/assistant/assistant.env
+#   assistant-setup telegram-token       saves the bot token read from stdin (checked with Telegram first)
+#   assistant-setup telegram-owner [--wait S] [--lock]
+#                                        waits for the owner's first message to the bot and lets only them in
+#   assistant-setup login                starts the Claude sign-in for the assistant's user and prints the link
+#   assistant-setup login-code           types the code from the sign-in page (stdin) and checks the result
+#   assistant-setup trust                answers Claude Code's first-start questions for the workspace
+#   assistant-setup merge-settings       merges settings.assistant.json into an existing ~/.claude/settings.json
+#   assistant-setup voices               lists the ElevenLabs voices to choose from (name and id)
+#   assistant-setup window-link <url>    the link to the remote window, for the assistant to send (browser-window)
+#   assistant-setup watch [--quiet]      (re)builds the daily version watch from what is installed
+# --user <name> picks the assistant's user (default: INSTALL_USER in install.conf). Keys and tokens are read from
+# stdin, never from the command line, and never printed. DESTDIR=/some/dir works under that prefix and starts
+# nothing (the tests); TELEGRAM_API, ELEVENLABS_API and ASSISTANT_DOCTOR are for the tests too.
+set -uo pipefail
+D="${DESTDIR:-}"
+SHARE=/usr/local/share/assistant
+CONF="$D$SHARE/install.conf"
+TELEGRAM_API=${TELEGRAM_API:-https://api.telegram.org}
+ELEVENLABS_API=${ELEVENLABS_API:-https://api.elevenlabs.io}
+DOCTOR=${ASSISTANT_DOCTOR:-$D/usr/local/bin/assistant-doctor}
+TODAY=$(date +%F)
+
+die() { echo "assistant-setup: $*" >&2; exit 1; }
+say() { echo "  $*"; }
+conf() { sed -n "s/^$1=//p" "$CONF" 2>/dev/null | tail -1; }
+conf_set() {  # KEY VALUE in install.conf (install.sh keeps it on its next run)
+  [ -e "$CONF" ] || return 0
+  if grep -q "^$1=" "$CONF"; then sed -i "s|^$1=.*|$1=$2|" "$CONF"; else echo "$1=$2" >> "$CONF"; fi
+}
+is_root() { [ "$(id -u)" -eq 0 ] || [ -n "$D" ]; }   # under DESTDIR (the tests) nothing system-wide is touched
+need_root() { is_root || die "this step needs root: sudo assistant-setup $ARGS"; }
+units() { [ -z "$D" ] && command -v systemctl >/dev/null; }
+
+U=""; ARGS="$*"
+if [ "${1:-}" = --user ]; then U=${2:-}; shift 2; fi
+U=${U:-$(conf INSTALL_USER)}
+U=${U:-$(id -un)}
+if [ -n "$D" ]; then
+  [ "$U" = root ] && HL=/root || HL=/home/$U
+else
+  HL=$(getent passwd "$U" | cut -d: -f6) || HL=""
+fi
+H=$D$HL
+WS=$H/assistant
+KEYS=$H/.config/assistant/keys.env
+TG=$H/.claude/channels/telegram
+
+# Runs a command line as the assistant's user, with its PATH (never a user-owned program as root).
+asu() {
+  local path="$HL/.local/bin:$HL/.bun/bin:/usr/local/bin:/usr/bin:/bin"
+  if [ "$(id -un)" = "$U" ] || [ -n "$D" ]; then
+    HOME=$H PATH="$H/.local/bin:$H/.bun/bin:$PATH" bash -c "$1"
+  else
+    runuser -u "$U" -- env HOME="$HL" PATH="$path" LANG=C.UTF-8 bash -c "$1"
+  fi
+}
+own() { [ "$(id -u)" -eq 0 ] && [ -z "$D" ] && chown "$U": "$@" 2>/dev/null; true; }
+apt_install() {
+  need_root
+  command -v apt-get >/dev/null || die "no apt-get here: install these with your package manager, then run me again: $*"
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -q "$@" >/dev/null || {
+    DEBIAN_FRONTEND=noninteractive apt-get update -q >/dev/null; DEBIAN_FRONTEND=noninteractive apt-get install -y -q "$@" >/dev/null; } ||
+    die "apt-get could not install: $*"
+}
+enable_units() { if units; then systemctl daemon-reload; systemctl enable --now -q "$@" || die "could not start: $*"; fi; }
+disable_units() { if units; then systemctl disable --now -q "$@" 2>/dev/null; fi; true; }
+doctor() { [ -x "$DOCTOR" ] && "$DOCTOR" --user "$U" "$@"; }
+tgtoken() { sed -n 's/^TELEGRAM_BOT_TOKEN=//p' "$TG/.env" 2>/dev/null | tr -d "\"'" | tail -1; }
+tgapi() {  # method json -> response on stdout
+  curl -sS --max-time "${3:-15}" -H 'Content-Type: application/json' -d "$2" "$TELEGRAM_API/bot$(tgtoken)/$1"
+}
+owner_chat() { jq -r '.allowFrom[0] // empty' "$TG/access.json" 2>/dev/null; }
+mem_gb() { awk '/MemTotal/ {printf "%d", $2 / 1048576 + 0.5}' /proc/meminfo; }
+venv_pip() {  # dir packages...: a venv in the user's home with those packages, upgraded if it exists
+  local dir=$1; shift
+  asu "set -e; [ -x '$dir/bin/python' ] || python3 -m venv '$dir'; '$dir/bin/pip' install -q --upgrade pip >/dev/null; '$dir/bin/pip' install -q --upgrade $*" ||
+    die "pip could not install $* into $dir"
+}
+# One line per item in the owner's state file for the first weeks (skill first-days), which assistant-doctor reads.
+decide() {  # id answer note
+  local f=$WS/notes/first-days.md line="- $1: $2 $TODAY — ${3:-}"
+  [ -e "$f" ] || die "no $f: run install.sh first"
+  if grep -q "^- $1:" "$f"; then
+    awk -v id="- $1:" -v l="$line" 'index($0, id) == 1 { print l; next } { print }' "$f" > "$f.tmp" && cat "$f.tmp" > "$f" && rm -f "$f.tmp"
+  else
+    echo "$line" >> "$f"
+  fi
+  own "$f"
+}
+
+# ---- one function per capability: install_<id> (ids with "-" become "_") ----
+
+install_system() {
+  apt_install tmux jq curl git ffmpeg python3 python3-venv unzip ca-certificates cron
+  local tz; tz=$(conf TIMEZONE)
+  if [ -n "$tz" ] && [ -e "/usr/share/zoneinfo/$tz" ]; then
+    timedatectl set-timezone "$tz" 2>/dev/null || { ln -sf "/usr/share/zoneinfo/$tz" /etc/localtime; echo "$tz" > /etc/timezone; }
+    say "time zone: $tz"
+  fi
+}
+install_claude() {
+  [ -n "$HL" ] || die "no user $U"
+  if [ ! -x "$H/.local/bin/claude" ]; then
+    asu 'curl -fsSL https://claude.ai/install.sh | bash' >/dev/null || die "the Claude Code installer failed"
+  fi
+  say "Claude Code: $(asu 'claude --version' 2>/dev/null)"
+  if asu 'claude auth status --json' 2>/dev/null | jq -e '.loggedIn' >/dev/null; then say "signed in"; else say "not signed in yet: assistant-setup login"; fi
+}
+install_workspace() { die "the workspace comes from the repo: as root, ./install.sh $U (setup/INSTALL.md)"; }
+install_telegram() {
+  if [ ! -x "$H/.bun/bin/bun" ]; then
+    asu 'curl -fsSL https://bun.sh/install | bash' >/dev/null || die "the Bun installer failed (it needs unzip)"
+  fi
+  if ! jq -e '.plugins["telegram@claude-plugins-official"]' "$H/.claude/plugins/installed_plugins.json" >/dev/null 2>&1; then
+    asu 'claude plugin install telegram@claude-plugins-official --scope user' >/dev/null 2>&1 ||
+      { asu 'claude plugin marketplace add anthropics/claude-plugins-official' >/dev/null 2>&1
+        asu 'claude plugin install telegram@claude-plugins-official --scope user' >/dev/null; } ||
+      die "could not install the Telegram plugin: run, as $U, claude plugin install telegram@claude-plugins-official"
+  fi
+  say "Telegram plugin installed"
+  [ -n "$(tgtoken)" ] || say "next: the bot token (assistant-setup telegram-token)"
+  [ -n "$(owner_chat)" ] || say "then: assistant-setup telegram-owner"
+}
+install_telegram_extras() {
+  asu 'python3 -I /usr/local/lib/assistant-telegram/patch-telegram-plugin.py' || say "the patch did not apply (see above)"
+  local chat lang usage clear
+  chat=$(owner_chat)
+  [ -n "$(tgtoken)" ] && [ -n "$chat" ] || { say "bot menu: after telegram-token and telegram-owner"; return 0; }
+  lang=$(conf LANGUAGE)
+  case "$lang" in
+    Spanish|Español|español|Castellano|castellano) usage="Uso del contexto y del plan"; clear="Empezar una conversación nueva" ;;
+    *) usage="Context and plan usage"; clear="Start a fresh conversation" ;;
+  esac
+  tgapi setMyCommands "$(jq -cn --arg c "$chat" --arg u "$usage" --arg k "$clear" \
+    '{commands: [{command: "usage", description: $u}, {command: "clear", description: $k}], scope: {type: "chat", chat_id: $c}}')" |
+    jq -e .ok >/dev/null && say "bot menu: /usage and /clear" || say "could not set the bot menu"
+}
+install_service() {
+  need_root
+  enable_units assistant assistant-permission-watch
+  units || return 0
+  for _ in $(seq 1 20); do asu "tmux has-session -t assistant" 2>/dev/null && break; sleep 1; done
+  sleep 12
+  say "the session's screen now (first-start questions must be answered before it works):"
+  asu "tmux capture-pane -p -t assistant" 2>/dev/null | grep -v '^\s*$' | tail -15 | sed 's/^/    | /'
+}
+install_nightly() { need_root; enable_units assistant-history.timer; say "nightly restart: /etc/cron.d/assistant"; }
+install_voice() { command -v ffmpeg >/dev/null || install_system; [ -n "$(keyval GROQ_API_KEY)" ] || say "needs the Groq key: assistant-setup key GROQ_API_KEY"; }
+install_voice_backup() { [ -n "$(keyval CF_AI_TOKEN)" ] || say "needs: assistant-setup key CF_AI_TOKEN and assistant-setup key CF_AI_ACCOUNT_ID"; }
+install_voice_reply() {
+  command -v ffmpeg >/dev/null || install_system
+  [ -n "$(keyval ELEVENLABS_API_KEY)" ] || { say "needs: assistant-setup key ELEVENLABS_API_KEY"; return 0; }
+  grep -q '^TTS_VOICE_ID=..' "$WS/assistant.env" || say "next: assistant-setup voices, then assistant-setup set TTS_VOICE_ID"
+}
+install_voice_local() {
+  local gb; gb=$(mem_gb)
+  [ "${gb:-0}" -ge 4 ] || [ "${FORCE:-}" = 1 ] || die "this machine has ${gb} GB of memory and Parakeet needs about 4 (FORCE=1 to try anyway)"
+  venv_pip "$HL/parakeet" '"onnx-asr[cpu,hub]"'
+  asu "cd ~/parakeet && bin/python -c 'import onnx_asr; d = \"$HL/parakeet\"
+onnx_asr.load_model(\"nemo-parakeet-tdt-0.6b-v3\", d + \"/model\", quantization=\"int8\"); onnx_asr.load_vad(\"silero\", d + \"/model-vad\")'" >/dev/null 2>&1 ||
+    die "could not download the Parakeet model"
+  say "Parakeet ready in ~/parakeet"
+}
+install_voice_best() {
+  venv_pip "$HL/whisper" faster-whisper
+  command -v nvidia-smi >/dev/null && venv_pip "$HL/whisper" nvidia-cublas-cu12 nvidia-cudnn-cu12
+  asu "\$HOME/whisper/bin/python -c 'from faster_whisper import WhisperModel; WhisperModel(\"large-v3\", device=\"cpu\", compute_type=\"int8\", download_root=\"$HL/whisper/models\")'" >/dev/null 2>&1 ||
+    die "could not download the large-v3 model"
+  say "faster-whisper ready in ~/whisper (best quality: transcribe.sh <file> large-v3)"
+}
+install_pdf() { apt_install poppler-utils; say "pdftotext and pdftoppm"; }
+install_links_videos() {
+  command -v ffmpeg >/dev/null || install_system
+  venv_pip "$HL/yt-dlp" '"yt-dlp[default]"'
+  asu 'mkdir -p ~/.local/bin && ln -sf ~/yt-dlp/bin/yt-dlp ~/.local/bin/yt-dlp'
+  # YouTube needs a JavaScript runtime for some videos; Bun is already here for the Telegram plugin.
+  asu '[ -e ~/.config/yt-dlp/config ] || { [ -x ~/.bun/bin/bun ] && mkdir -p ~/.config/yt-dlp && echo "--js-runtimes bun:$HOME/.bun/bin/bun" > ~/.config/yt-dlp/config; }; true'
+  say "yt-dlp $(asu '"$HOME/.local/bin/yt-dlp" --version' 2>/dev/null)"
+}
+install_browser() {
+  need_root
+  local ID="" ID_LIKE=""
+  # shellcheck source=/dev/null
+  . /etc/os-release 2>/dev/null
+  if [ "$ID" = ubuntu ] || [[ " $ID_LIKE " == *" ubuntu "* ]] || { [ "$ID" != debian ] && [[ " $ID_LIKE " != *" debian "* ]]; }; then
+    die "the browser step is automated for Debian; on ${ID:-this system} follow docs/browser.md (Ubuntu's chromium is a snap, which does not run in most containers)"
+  fi
+  apt_install chromium xvfb fonts-noto fonts-noto-color-emoji
+  command -v npm >/dev/null || apt_install nodejs npm
+  npm install -g --silent agent-browser >/dev/null 2>&1 || die "npm could not install agent-browser"
+  asu 'install -d -m 700 ~/.browser/clean ~/.browser/sessions; [ -e ~/.agent-browser/config.json ] || install -D -m 644 /usr/local/lib/assistant-browser/agent-browser-config.json ~/.agent-browser/config.json'
+  say "agent-browser $(npm ls -g --depth=0 agent-browser 2>/dev/null | sed -n 's/.*agent-browser@//p') with Debian's Chromium"
+}
+install_browser_window() {
+  need_root
+  apt_install x11vnc novnc websockify
+  install -d -m 755 /etc/assistant-window
+  if [ ! -e /etc/assistant-window/vncpasswd ]; then
+    local pw; pw=$(head -c 64 /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 8)
+    ( umask 077; echo "$pw" > /etc/assistant-window/vncpasswd.plain )
+    x11vnc -storepasswd "$pw" /etc/assistant-window/vncpasswd >/dev/null 2>&1
+    chown "root:$U" /etc/assistant-window/vncpasswd; chmod 640 /etc/assistant-window/vncpasswd
+  fi
+  enable_units assistant-window-vnc assistant-window-web
+  say "the window runs on this machine only (127.0.0.1:6080). To reach it from the phone, see setup/INSTALL.md"
+  say "(Tailscale: tailscale serve --bg 6080), then: assistant-setup window-link <that address>"
+}
+install_wakeup() { need_root; enable_units assistant-wakeup; }
+install_updates() { need_root; conf_set RELEASE_WATCH yes; do_watch; }
+install_idle_compact() { need_root; conf_set IDLE_COMPACT yes; enable_units assistant-idle-compact.timer; say "on"; }
+install_connectors() { say "only the owner can: https://claude.ai/settings/connectors (Gmail, Google Calendar, Google Drive)"; }
+install_email_watch() {
+  need_root
+  local v; v=$(node -v 2>/dev/null | sed -n 's/^v\([0-9]*\).*/\1/p')
+  [ "${v:-0}" -ge 24 ] || die "n8n needs Node.js 24 or newer (this machine has ${v:-none}). Install it from https://github.com/nodesource/distributions (or your distribution), then run me again"
+  /usr/local/share/assistant-n8n/install-n8n.sh --timezone "$(conf TIMEZONE)" || die "install-n8n.sh failed"
+  say "n8n is up. The assistant sets up the email watch with the owner (it asks for a Gmail app password)"
+  [ "$(conf RELEASE_WATCH)" = yes ] && do_watch
+  true
+}
+install_diagrams() { die "a third-party skill: the assistant checks it first and installs it with the owner's yes (vetting-skills.md)"; }
+
+keyval() { sed -n "s/^$1=//p" "$KEYS" 2>/dev/null | tail -1; }
+
+remove_one() {
+  case "$1" in
+    wakeup) need_root; disable_units assistant-wakeup ;;
+    idle-compact) need_root; conf_set IDLE_COMPACT no; disable_units assistant-idle-compact.timer ;;
+    updates) need_root; conf_set RELEASE_WATCH no; disable_units assistant-release-watch.timer ;;
+    browser-window) need_root; disable_units assistant-window-vnc assistant-window-web ;;
+    voice-local) asu 'rm -rf ~/parakeet' ;;
+    voice-best) asu 'rm -rf ~/whisper' ;;
+    links-videos) asu 'rm -rf ~/yt-dlp ~/.local/bin/yt-dlp' ;;
+    voice|voice-backup|voice-reply)
+      local k; for k in GROQ_API_KEY CF_AI_TOKEN CF_AI_ACCOUNT_ID ELEVENLABS_API_KEY; do
+        case "$1:$k" in voice:GROQ*|voice-backup:CF*|voice-reply:ELEVEN*) sed -i "s/^$k=.*/#$k=/" "$KEYS" ;; esac
+      done ;;
+    *) die "$1: remove it by hand (its guide says how), or decline it: assistant-setup decline $1" ;;
+  esac
+  say "removed $1"
+}
+
+# ---- the version watch: everything installed that comes from somewhere else (assistant-doctor --watch-list) ----
+do_watch() {
+  need_root
+  local list how n
+  list=$(doctor --watch-list) || die "assistant-doctor --watch-list failed"
+  how=timer
+  if [ -x "$D/usr/local/sbin/n8n-admin" ] && { [ -n "$D" ] || systemctl is-active -q n8n 2>/dev/null; }; then how=n8n; fi
+  mkdir -p "$D$SHARE"
+  jq -n --argjson w "$list" --arg how "$how" --arg at "$(date -Iseconds)" \
+    '{about: "What the daily version watch follows (assistant-setup watch; assistant-doctor checks it). Never applied without the owner'"'"'s yes.", generated: $at, how: $how, watch: $w}' \
+    > "$D$SHARE/watch.json.tmp" && mv "$D$SHARE/watch.json.tmp" "$D$SHARE/watch.json"
+  chmod 644 "$D$SHARE/watch.json"
+  n=$(jq '[.[] | select(.updates == "watch")] | length' <<<"$list")
+  [ "$(conf RELEASE_WATCH)" = yes ] || { say "watch list written ($n things); the watch itself is off (RELEASE_WATCH)"; return 0; }
+  conf_set RELEASE_WATCH_HOW "$how"
+  if [ "$how" = n8n ]; then watch_n8n "$list"; else
+    enable_units assistant-wakeup assistant-release-watch.timer
+    [ "${QUIET:-}" = 1 ] || say "the daily check (assistant-release-watch.timer) follows $n things"
+  fi
+}
+watch_n8n() {
+  local list=$1 tpl="$D/usr/local/share/assistant-n8n/workflows/release-watch-to-wakeup.json" wf cred listen token last
+  [ -e "$tpl" ] || die "no $tpl: run install.sh --upgrade"
+  last="$D$SHARE/watch-n8n.json"
+  if [ -e "$last" ] && [ "$(jq -cS '[.[] | {id, installed}]' <<<"$list")" = "$(jq -cS '[.[] | {id, installed}]' "$last")" ]; then
+    [ "${QUIET:-}" = 1 ] || say "the n8n watch is already up to date"; return 0
+  fi
+  listen=$(sed -n 's/^WAKEUP_LISTEN=//p' "$D/etc/assistant-wakeup.env" | tail -1); listen=${listen:-127.0.0.1:8770}
+  token=$(sed -n 's/^WAKEUP_TOKEN=//p' "$D/etc/assistant-wakeup.env" | tail -1)
+  wf=$(mktemp); cred=$(mktemp); chmod 600 "$cred"
+  # The list goes in as data (a JSON literal inside the Code nodes); names and links in it come from our manifest.
+  jq --arg w "$(jq -c '[.[] | select(.updates == "watch")]' <<<"$list")" --arg url "http://$listen/wake" --arg tz "$(conf TIMEZONE)" '
+    .settings.timezone = $tz
+    | .nodes |= map(if .parameters.jsCode then .parameters.jsCode |= sub("__WATCH" + "__"; $w) else . end
+                    | if .parameters.url == ("__WAKEUP_URL" + "__") then .parameters.url = $url else . end)' "$tpl" > "$wf"
+  jq -n --arg t "Bearer $token" '[{id: "assistantWakeup1", name: "Assistant wake-up", type: "httpHeaderAuth", data: {name: "Authorization", value: $t}}]' > "$cred"
+  local admin="$D/usr/local/sbin/n8n-admin"
+  "$admin" import-credentials "$cred" >/dev/null && "$admin" import "$wf" >/dev/null && "$admin" publish releaseWatch0001 >/dev/null &&
+    "$admin" restart >/dev/null || { rm -f "$wf" "$cred"; die "n8n-admin could not import the watch workflow"; }
+  rm -f "$wf" "$cred"; echo "$list" > "$last"
+  disable_units assistant-release-watch.timer
+  enable_units assistant-wakeup
+  [ "${QUIET:-}" = 1 ] || say "the n8n workflow 'Versions → wake the assistant' follows $(jq '[.[] | select(.updates == "watch")] | length' <<<"$list") things"
+}
+
+# ---- secrets and settings ----
+read_secret() { local v; IFS= read -r v || true; v=${v//$'\r'/}; v=${v#"${v%%[![:space:]]*}"}; v=${v%"${v##*[![:space:]]}"}; printf '%s' "$v"; }
+
+cmd_key() {
+  local name=${1:-} v cap
+  case "$name" in GROQ_API_KEY) cap=voice ;; CF_AI_TOKEN|CF_AI_ACCOUNT_ID) cap=voice-backup ;; ELEVENLABS_API_KEY) cap=voice-reply ;;
+    *) die "key: one of GROQ_API_KEY, CF_AI_TOKEN, CF_AI_ACCOUNT_ID, ELEVENLABS_API_KEY" ;; esac
+  v=$(read_secret)
+  [[ $v =~ ^[A-Za-z0-9_.:-]{8,300}$ ]] || die "that does not look like a key (paste only the key, nothing else)"
+  mkdir -p "$(dirname "$KEYS")"; [ -e "$KEYS" ] || install -m 600 /dev/null "$KEYS"
+  grep -v -E "^#?$name=" "$KEYS" > "$KEYS.tmp"; echo "$name=$v" >> "$KEYS.tmp"
+  chmod 600 "$KEYS.tmp"; mv "$KEYS.tmp" "$KEYS"; own "$KEYS" "$(dirname "$KEYS")"
+  say "saved $name (…${v: -4})"
+  doctor --only "$cap" | sed -n '/^ /p'
+}
+cmd_set() {
+  local name=${1:-} v f=$WS/assistant.env
+  case "$name" in TTS_VOICE_ID|TTS_LANGUAGE|TTS_SPEED|TRANSCRIBE_NAMES|MODEL|TELEGRAM_CHAT_ID|REVIEW_NOTIFY) ;;
+    *) die "set: one of TTS_VOICE_ID, TTS_LANGUAGE, TTS_SPEED, TRANSCRIBE_NAMES, MODEL, TELEGRAM_CHAT_ID, REVIEW_NOTIFY" ;; esac
+  v=$(read_secret)
+  [[ $v != *"'"* && $v != *'\'* ]] || die "no quotes or backslashes, please"
+  [ -e "$f" ] || die "no $f: run install.sh first"
+  awk -v n="$name" -v l="$name='$v'" 'BEGIN { done = 0 } index($0, n "=") == 1 { print l; done = 1; next } { print } END { if (!done) print l }' "$f" > "$f.tmp" &&
+    cat "$f.tmp" > "$f" && rm -f "$f.tmp"
+  say "$name='$v' (applies at the next restart of the session)"
+}
+cmd_telegram_token() {
+  local t r
+  t=$(read_secret)
+  [[ $t =~ ^[0-9]{5,12}:[A-Za-z0-9_-]{30,60}$ ]] || die "that does not look like a bot token (123456789:AA...)"
+  r=$(curl -sS --max-time 15 -H 'Content-Type: application/json' -d '{}' "$TELEGRAM_API/bot$t/getMe")
+  jq -e .ok <<<"$r" >/dev/null 2>&1 || die "Telegram does not accept that token: copy it again from @BotFather"
+  mkdir -p "$TG"; chmod 700 "$TG"
+  { grep -v '^TELEGRAM_BOT_TOKEN=' "$TG/.env" 2>/dev/null; echo "TELEGRAM_BOT_TOKEN=$t"; } > "$TG/.env.tmp"
+  chmod 600 "$TG/.env.tmp"; mv "$TG/.env.tmp" "$TG/.env"; own "$H/.claude" "$H/.claude/channels" "$TG" "$TG/.env"
+  say "saved; the bot is @$(jq -r .result.username <<<"$r")"
+}
+cmd_telegram_owner() {
+  local wait=300 lock=0
+  while [ $# -gt 0 ]; do case "$1" in --wait) wait=$2; shift 2 ;; --lock) lock=1; shift ;; *) die "telegram-owner [--wait S] [--lock]" ;; esac; done
+  [ -n "$(tgtoken)" ] || die "first the token: assistant-setup telegram-token"
+  local a=$TG/access.json
+  if [ "$lock" = 1 ]; then
+    [ -n "$(owner_chat)" ] || die "nobody on the allowlist yet"
+    jq '.dmPolicy = "allowlist" | .pending = {}' "$a" > "$a.tmp" && chmod 600 "$a.tmp" && mv "$a.tmp" "$a"; own "$a"; say "only the allowlist gets through"; return 0
+  fi
+  local restart=0
+  if units && systemctl is-active -q assistant 2>/dev/null; then
+    need_root; systemctl stop assistant; restart=1   # the plugin would take the message first
+  fi
+  local bot t0 offset=0 r ids who id name
+  bot=$(tgapi getMe '{}' | jq -r '.result.username // empty')
+  t0=$(date +%s)
+  echo "  waiting for a message to @$bot (up to $wait s): the owner writes anything to it from their Telegram"
+  while [ $(( $(date +%s) - t0 )) -lt "$wait" ]; do
+    r=$(tgapi getUpdates "{\"offset\": $offset, \"timeout\": 20, \"allowed_updates\": [\"message\"]}" 30) || { sleep 2; continue; }
+    offset=$(jq -r --argjson o "$offset" '[.result[]?.update_id] | if length > 0 then max + 1 else $o end' <<<"$r")
+    # Private messages sent in the last 10 minutes (an older "hello" or /start does not count).
+    who=$(jq -c --argjson since $((t0 - 600)) '[.result[]?.message | select(. != null and .chat.type == "private" and .date >= $since)
+          | {id: (.from.id | tostring), name: ([.from.first_name, .from.last_name] | map(select(.)) | join(" ")), user: (.from.username // "")}] | unique_by(.id)' <<<"$r")
+    ids=$(jq length <<<"$who")
+    [ "$ids" -gt 1 ] && { tgapi getUpdates "{\"offset\": $offset, \"timeout\": 0}" >/dev/null; [ "$restart" = 1 ] && systemctl start assistant
+      die "$ids different people wrote to the bot: only the owner should. Nothing saved; try again"; }
+    [ "$ids" = 1 ] && break
+  done
+  [ "${ids:-0}" = 1 ] || { [ "$restart" = 1 ] && systemctl start assistant; die "no message arrived in $wait s"; }
+  tgapi getUpdates "{\"offset\": $offset, \"timeout\": 0}" >/dev/null   # mark it read, so the plugin does not get it again
+  id=$(jq -r '.[0].id' <<<"$who"); name=$(jq -r '.[0].name' <<<"$who")
+  mkdir -p "$TG"
+  { jq . "$a" 2>/dev/null || echo '{}'; } | jq --arg id "$id" '{dmPolicy: "allowlist", allowFrom: ((.allowFrom // []) + [$id] | unique), groups: (.groups // {}), pending: {}}
+    + (del(.dmPolicy, .allowFrom, .groups, .pending))' > "$a.tmp" && chmod 600 "$a.tmp" && mv "$a.tmp" "$a"
+  own "$TG" "$a"
+  tgapi sendMessage "$(jq -cn --arg c "$id" --arg n "$(conf NAME)" '{chat_id: $c, text: ("✅ Connected. This is " + $n + "; I will be with you in a minute.")}')" >/dev/null
+  say "owner: $name$(jq -r '.[0].user | if . != "" then " (@" + . + ")" else "" end' <<<"$who"), Telegram id $id: only they get through now"
+  [ "$restart" = 1 ] && systemctl start assistant
+  true
+}
+cmd_login() {
+  if asu 'claude auth status --json' 2>/dev/null | jq -e '.loggedIn and .authMethod == "claude.ai"' >/dev/null; then say "already signed in"; return 0; fi
+  asu 'tmux kill-session -t assistant-login 2>/dev/null; tmux new-session -d -s assistant-login -x 250 -y 50 "claude auth login --claudeai"' ||
+    die "could not start the sign-in"
+  local url
+  for _ in $(seq 1 30); do
+    url=$(asu 'tmux capture-pane -J -p -t assistant-login' 2>/dev/null | grep -oE 'https://[^ ]*(oauth|authorize)[^ ]*' | head -1)
+    [ -n "$url" ] && break; sleep 1
+  done
+  [ -n "$url" ] || die "no sign-in link appeared; look: sudo -u $U tmux attach -t assistant-login"
+  echo "$url"
+}
+cmd_login_code() {
+  local code
+  code=$(read_secret)
+  [[ $code =~ ^[A-Za-z0-9_#.-]{8,400}$ ]] || die "that does not look like the code from the sign-in page"
+  asu "tmux send-keys -t assistant-login -l '$code' && sleep 1 && tmux send-keys -t assistant-login Enter" || die "no sign-in under way: assistant-setup login"
+  for _ in $(seq 1 45); do
+    if asu 'claude auth status --json' 2>/dev/null | jq -e '.loggedIn' >/dev/null; then
+      asu 'tmux kill-session -t assistant-login' 2>/dev/null
+      say "signed in: $(asu 'claude auth status --json' | jq -r '(.subscriptionType // "?") + " plan"')"; return 0
+    fi
+    sleep 1
+  done
+  die "not signed in yet; the screen says: $(asu 'tmux capture-pane -p -t assistant-login' 2>/dev/null | grep -v '^\s*$' | tail -3 | tr '\n' ' ')"
+}
+cmd_trust() {
+  local f=$H/.claude.json
+  [ -e "$f" ] && cp -p "$f" "$f.bak-$TODAY" || echo '{}' > "$f"
+  jq --arg ws "$HL/assistant" '.hasCompletedOnboarding = true | .projects[$ws].hasTrustDialogAccepted = true' "$f" > "$f.tmp" &&
+    chmod 600 "$f.tmp" && mv "$f.tmp" "$f" && own "$f"
+  say "Claude Code's first-start questions answered for $HL/assistant"
+}
+cmd_merge_settings() {
+  local cur=$H/.claude/settings.json new=$H/.claude/settings.assistant.json
+  [ -e "$new" ] || { say "nothing to merge (no settings.assistant.json)"; return 0; }
+  [ -e "$cur" ] || { mv "$new" "$cur"; own "$cur"; say "settings.json is the assistant's"; return 0; }
+  cp -p "$cur" "$cur.bak-$TODAY"
+  # The kit's settings win; lists (permissions, hooks, hard_deny) keep the entries of both, in order, once each.
+  jq -s 'def both(a; b): reduce ((a // []) + (b // []))[] as $x ([]; if any(.[]; . == $x) then . else . + [$x] end);
+         .[0] as $c | .[1] as $t | ($c * $t)
+         | .permissions.allow = both($c.permissions.allow; $t.permissions.allow)
+         | .permissions.ask = both($c.permissions.ask; $t.permissions.ask)
+         | .permissions.deny = both($c.permissions.deny; $t.permissions.deny)
+         | .autoMode.hard_deny = both($t.autoMode.hard_deny; $c.autoMode.hard_deny)
+         | .hooks = (reduce ((($c.hooks // {}) + ($t.hooks // {})) | keys[]) as $k ({}; .[$k] = both($c.hooks[$k]; $t.hooks[$k])))' \
+    "$cur" "$new" > "$cur.tmp" || die "could not merge (is settings.json valid JSON?); nothing changed"
+  mv "$cur.tmp" "$cur"; rm -f "$new"; own "$cur"
+  say "merged the kit's settings into settings.json (yours kept; old copy: settings.json.bak-$TODAY)"
+}
+cmd_voices() {
+  local k; k=$(keyval ELEVENLABS_API_KEY)
+  [ -n "$k" ] || die "first: assistant-setup key ELEVENLABS_API_KEY"
+  curl -fsS --max-time 20 -H "xi-api-key: $k" "$ELEVENLABS_API/v1/voices" |
+    jq -r '.voices[] | "\(.name) · \(.voice_id) · \([.labels.gender, .labels.age, .labels.accent, .labels.description] | map(select(.)) | join(", "))"' ||
+    die "ElevenLabs did not list the voices (does the key allow reading voices?)"
+}
+cmd_window_link() {
+  need_root
+  local base=${1:-} pw
+  [[ $base =~ ^https?://[A-Za-z0-9.:/_-]+$ ]] || die "window-link <https://the-address-you-reach-it-at>"
+  pw=$(cat "$D/etc/assistant-window/vncpasswd.plain" 2>/dev/null)
+  install -d -m 700 "$H/.config/assistant"
+  ( umask 077; echo "${base%/}/vnc.html?autoconnect=1&resize=scale${pw:+#password=$pw}" > "$H/.config/assistant/window-link" )
+  own "$H/.config/assistant/window-link"
+  say "saved: the assistant sends this link when a site needs you"
+}
+
+ids_known() { jq -r '.capabilities[].id' "$D$SHARE/capabilities.json" 2>/dev/null; }
+check_id() { ids_known | grep -qx "$1" || die "unknown capability: $1 (assistant-doctor lists them)"; }
+default_of() { jq -r --arg id "$1" '.capabilities[] | select(.id == $id) | .default' "$D$SHARE/capabilities.json"; }
+
+cmd=${1:-}; shift || true
+case "$cmd" in
+  install)
+    [ $# -gt 0 ] || die "install <id>..."
+    for id in "$@"; do
+      check_id "$id"; echo "$id:"
+      ( "install_${id//-/_}" ) || exit 1
+      [ "$(default_of "$id")" = ask ] && ! grep -q "^- $id: \(yes\|already\)" "$WS/notes/first-days.md" 2>/dev/null && decide "$id" yes "installed"
+    done
+    is_root && [ "$(conf RELEASE_WATCH)" = yes ] && [[ " $* " != *" updates "* ]] && QUIET=1 do_watch
+    ;;
+  remove) check_id "${1:-}"; remove_one "$1"; is_root && [ "$(conf RELEASE_WATCH)" = yes ] && QUIET=1 do_watch; true ;;
+  decline)
+    id=${1:-}; check_id "$id"; shift
+    [ "$(default_of "$id")" = required ] && die "$id is needed for the assistant to work"
+    case "$id" in updates|idle-compact) need_root; remove_one "$id" >/dev/null ;; esac
+    decide "$id" no "${*:-declined at install}"; say "$id: declined, never offered again" ;;
+  accept) check_id "${1:-}"; decide "$1" yes "${*:2}"; say "$1: yes" ;;
+  key) cmd_key "$@" ;;
+  set) cmd_set "$@" ;;
+  telegram-token) cmd_telegram_token ;;
+  telegram-owner) cmd_telegram_owner "$@" ;;
+  login) cmd_login ;;
+  login-code) cmd_login_code ;;
+  trust) cmd_trust ;;
+  merge-settings) cmd_merge_settings ;;
+  voices) cmd_voices ;;
+  window-link) cmd_window_link "$@" ;;
+  watch) [ "${1:-}" = --quiet ] && QUIET=1; do_watch ;;
+  *) sed -n '2,24p' "$0"; [ -z "$cmd" ] || [ "$cmd" = help ] || [ "$cmd" = --help ]; exit $? ;;
+esac

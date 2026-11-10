@@ -8,7 +8,7 @@ ok() { echo "ok   $1"; pass=$((pass + 1)); }
 ko() { echo "FAIL $1"; fail=$((fail + 1)); }
 check() { local name=$1; shift; if "$@" >/dev/null 2>&1; then ok "$name"; else ko "$name"; fi; }
 
-SCRIPTS=(install.sh tests/run-tests.sh templates/browser/current-display templates/system/assistant-daily-restart templates/system/recall templates/system/assistant-release-watch templates/workspace/bin/*.sh templates/tools/*.sh templates/memory/*.sh templates/n8n/install-n8n.sh templates/n8n/n8n-admin docs/diagrams/build.sh)
+SCRIPTS=(install.sh tests/run-tests.sh tests/installer-tests.sh templates/browser/current-display templates/system/assistant-daily-restart templates/system/recall templates/system/assistant-release-watch templates/system/assistant-setup templates/workspace/bin/*.sh templates/tools/*.sh templates/memory/*.sh templates/n8n/install-n8n.sh templates/n8n/n8n-admin docs/diagrams/build.sh)
 check "shellcheck" shellcheck -S warning -x "${SCRIPTS[@]}"
 for s in "${SCRIPTS[@]}"; do check "bash -n $s" bash -n "$s"; done
 check "settings.json is valid JSON" jq -e . templates/settings.json
@@ -18,7 +18,7 @@ check "settings.json trims the fixed context" jq -e '(.permissions.deny | index(
 check "settings.json re-injects context after a compaction" jq -e '.hooks.SessionStart[0].matcher == "compact" and (.hooks.SessionStart[0].hooks[0].command | test("after-compact.py"))' templates/settings.json
 check "settings.json hard-blocks payments" jq -e '.autoMode.hard_deny[0] == "$defaults" and (.autoMode.hard_deny[1] | test("payment"; "i"))' templates/settings.json
 for j in templates/n8n/workflows/*.json; do check "valid JSON $j" jq -e . "$j"; done
-for p in templates/telegram/*.py templates/memory/*.py templates/wakeup/*.py templates/tools/*.py tests/*.py docs/diagrams/*.py templates/system/assistant-idle-compact; do check "python compiles $p" python3 -m py_compile "$p"; done
+for p in templates/telegram/*.py templates/memory/*.py templates/wakeup/*.py templates/tools/*.py tests/*.py docs/diagrams/*.py templates/system/assistant-idle-compact templates/system/assistant-doctor; do check "python compiles $p" python3 -m py_compile "$p"; done
 find templates tests docs -name __pycache__ -exec rm -rf {} +
 
 # No EXIT trap for the cleanup: bash runs it in the subshells of pipelines inside functions, too early.
@@ -70,7 +70,7 @@ check "install copies the tools root-owned and executable" bash -c "test -x '$T/
 [ -n "$out" ] || ko "install printed nothing"
 
 # --upgrade, from a copy of the repo without git (a downloaded release): a "next release" changes some templates
-S="$T/src"; UP="$T/up"; UH="$UP/home/alex"; mkdir -p "$S"; cp -r install.sh templates docs CHANGELOG.md "$S/"
+S="$T/src"; UP="$T/up"; UH="$UP/home/alex"; mkdir -p "$S"; cp -r install.sh templates docs setup CHANGELOG.md "$S/"
 DESTDIR="$UP" "$S/install.sh" alex --name Ada --owner Alex >/dev/null 2>&1
 check "version from CHANGELOG.md without git" grep -qE '^VERSION=v[0-9]+[.][0-9]+[.][0-9]+([+]unreleased)?$' "$UP/usr/local/share/assistant/install.conf"
 tok=$(sed -n 's/^WAKEUP_TOKEN=//p' "$UP/etc/assistant-wakeup.env")
@@ -103,7 +103,7 @@ DESTDIR="$UP" "$S/install.sh" alex >/dev/null 2>&1
 check "a later run keeps the release-notice answer" grep -q '^RELEASE_WATCH=yes$' "$UP/usr/local/share/assistant/install.conf"
 mkdir -p "$UP/usr/local/sbin"; printf '#!/bin/sh\n' > "$UP/usr/local/sbin/n8n-admin"; chmod +x "$UP/usr/local/sbin/n8n-admin"
 rwout=$(DESTDIR="$UP" "$S/install.sh" alex 2>&1)
-check "with n8n the release notice goes to its workflow" env O="$rwout" bash -c "grep -q '^RELEASE_WATCH_HOW=n8n$' '$UP/usr/local/share/assistant/install.conf' && echo \"\$O\" | grep -q 'release-watch workflow'"
+check "with n8n the version watch goes to its workflow, set up by the install itself" env O="$rwout" bash -c "grep -q '^RELEASE_WATCH_HOW=n8n$' '$UP/usr/local/share/assistant/install.conf' && echo \"\$O\" | grep -q 'watching new versions .*(n8n)' && jq -e '.how == \"n8n\"' '$UP/usr/local/share/assistant/watch.json'"
 if DESTDIR="$UP" "$S/install.sh" alex --release-watch maybe >/dev/null 2>&1; then ko "--release-watch refuses other answers"; else ok "--release-watch refuses other answers"; fi
 
 # Fake tmux and claude to drive the scripts.
@@ -738,6 +738,11 @@ if rw >/dev/null 2>&1; then ko "release-watch fails when the wake-up is down"; e
 check "release-watch tries again next time when the wake-up was down" test ! -e "$RW/reported"
 kill "$RWPID" 2>/dev/null
 
+# The installer: capabilities.json, assistant-doctor, assistant-setup, the version watch for the tools
+# shellcheck source=tests/installer-tests.sh
+. tests/installer-tests.sh
+find templates tests -name __pycache__ -exec rm -rf {} +
+
 # The Code nodes of the n8n templates, run with Node (GitHub's runners have it)
 if command -v node >/dev/null; then
   while read -r line; do case "$line" in "ok   "*) ok "${line#ok   }" ;; "FAIL "*) ko "${line#FAIL }" ;; esac; done < <(node tests/n8n-code.test.js 2>&1)
@@ -745,6 +750,6 @@ else
   echo "skip n8n Code nodes (no node here; CI runs them)"
 fi
 
-rm -rf "$T"
+if [ -n "${KEEP_TEST_DIR:-}" ]; then echo "kept $T"; else rm -rf "$T"; fi
 echo; echo "passed $pass, failed $fail"
 [ "$fail" -eq 0 ]
