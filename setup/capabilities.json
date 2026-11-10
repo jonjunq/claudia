@@ -390,11 +390,12 @@
    "needs": ["gmail-app-password"],
    "root": true,
    "install": "assistant-setup install email-watch",
-   "cost": "About 500 MB of memory. Needs Node.js 24 or newer.",
+   "cost": "About 500 MB of memory. It needs Node.js 24: if this machine's is missing or older, it adds NodeSource's package repository (the usual source of current Node.js for Debian and Ubuntu) and installs it from there.",
    "risk": "n8n keeps a password that can read your email, on this machine.",
    "guide": "n8n.md",
    "upstream": [
-    {"name": "n8n", "what": "the automation tool that watches your inbox", "kind": "npm", "package": "n8n", "dist_tag": "stable", "how": "it updates with a backup and rolls back if it breaks: n8n-admin update"}
+    {"name": "n8n", "what": "the automation tool that watches your inbox", "kind": "npm", "package": "n8n", "dist_tag": "stable", "how": "it updates with a backup and rolls back if it breaks: n8n-admin update"},
+    {"name": "Node.js", "what": "the engine n8n runs on", "kind": "system", "version_cmd": ["node", "-v"], "apt_source": "/etc/apt/sources.list.d/nodesource.list", "how": "updated with the machine's packages, from NodeSource's repository when assistant-setup added it"}
    ]
   },
   {

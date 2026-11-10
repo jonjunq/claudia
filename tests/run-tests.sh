@@ -560,7 +560,7 @@ printf '#!/bin/bash\necho "useradd $*" >> "$FAKE_LOG"\n' > "$N/useradd"
 chmod +x "$N"/*
 : > "$FAKE_LOG"
 inst=$(PATH="$N:$PATH" FAKE_N8N_VERSION="$NV" DESTDIR="$T/n8nroot" templates/n8n/install-n8n.sh --timezone Europe/Madrid --owner-email owner@example.com 2>&1)
-check "install-n8n installs the stable release with --force" grep -q 'npm install -g --force n8n@2.46.5' "$FAKE_LOG"
+check "install-n8n installs the stable release with --force" grep -q 'npm install -g --prefix /usr/local --force n8n@2.46.5' "$FAKE_LOG"
 check "install-n8n sends the owner's password on stdin, never on curl's command line" bash -c "grep -q 'curl-argv.*owner/setup' '$FAKE_LOG' && ! grep -q 'password' '$FAKE_LOG'"
 check "install-n8n creates the n8n system user" grep -q 'useradd --system --home-dir /var/lib/n8n' "$FAKE_LOG"
 check "install-n8n writes a private env with a key and no placeholders" bash -c "test \$(stat -c %a '$T/n8nroot/etc/n8n.env') = 600 && grep -qE '^N8N_ENCRYPTION_KEY=[0-9a-f]{64}$' '$T/n8nroot/etc/n8n.env' && ! grep -q '__[A-Z]*__' '$T/n8nroot/etc/n8n.env'"

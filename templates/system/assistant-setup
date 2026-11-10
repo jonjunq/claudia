@@ -243,11 +243,50 @@ install_wakeup() { need_root; enable_units assistant-wakeup; }
 install_updates() { need_root; conf_set RELEASE_WATCH yes; do_watch; }
 install_idle_compact() { need_root; conf_set IDLE_COMPACT yes; enable_units assistant-idle-compact.timer; say "on"; }
 install_connectors() { say "only the owner can: https://claude.ai/settings/connectors (Gmail, Google Calendar, Google Drive)"; }
+# Node.js for n8n: the machine's own when it is new enough. Otherwise (missing, or older than n8n needs) NodeSource's
+# apt repository, the usual source of current Node.js for Debian and Ubuntu: its key checked against the
+# fingerprint below and kept apart (signed-by, only for that repository), and only the nodejs package taken from it.
+# No setup script is downloaded and run. From then on it is updated with the machine's own packages.
+NODE_MIN=24
+NODESOURCE_FPR=6F71F525282841EEDAF851B42F59B5F99B1BE0B4
+NODESOURCE_KEY=${NODESOURCE_KEY:-https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key}
+node_major() { node -v 2>/dev/null | sed -n 's/^v\([0-9]*\).*/\1/p'; }
+ensure_node() {
+  need_root
+  local v ID="" ID_LIKE="" tmp fpr
+  v=$(node_major)
+  [ "${v:-0}" -ge "$NODE_MIN" ] && return 0
+  # shellcheck source=/dev/null
+  . "${OS_RELEASE:-/etc/os-release}" 2>/dev/null
+  case " $ID $ID_LIKE " in *" debian "*|*" ubuntu "*) ;;
+    *) die "n8n needs Node.js $NODE_MIN or newer (this machine has ${v:-none}): install it with your package manager, then run me again" ;; esac
+  say "n8n needs Node.js $NODE_MIN or newer (this machine has ${v:-none}): adding NodeSource's package repository for it"
+  command -v gpg >/dev/null || apt_install gpg
+  command -v curl >/dev/null || apt_install curl ca-certificates
+  tmp=$(mktemp -d); install -d -m 700 "$tmp/gnupg"
+  curl -fsSL --max-time 60 "$NODESOURCE_KEY" -o "$tmp/key.asc" || { rm -rf "$tmp"; die "could not download NodeSource's key"; }
+  GNUPGHOME=$tmp/gnupg gpg --batch --quiet --yes --dearmor -o "$tmp/nodesource.gpg" "$tmp/key.asc" 2>/dev/null
+  fpr=$(GNUPGHOME=$tmp/gnupg gpg --batch --show-keys --with-colons "$tmp/nodesource.gpg" 2>/dev/null | awk -F: '$1 == "fpr" { print $10; exit }')
+  if [ "$fpr" != "$NODESOURCE_FPR" ]; then
+    rm -rf "$tmp"; die "NodeSource's key is not the one expected (got ${fpr:-none}): nothing changed. Install Node.js $NODE_MIN yourself, then run me again"
+  fi
+  install -d -m 755 "$D/etc/apt/keyrings" "$D/etc/apt/sources.list.d" "$D/etc/apt/preferences.d"
+  install -m 644 "$tmp/nodesource.gpg" "$D/etc/apt/keyrings/nodesource.gpg"; rm -rf "$tmp"
+  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MIN.x nodistro main" \
+    > "$D/etc/apt/sources.list.d/nodesource.list"
+  printf '%s\n' "# Added by assistant-setup (email-watch): only nodejs comes from NodeSource's repository." \
+    "Package: nodejs" "Pin: origin deb.nodesource.com" "Pin-Priority: 600" "" \
+    "Package: *" "Pin: origin deb.nodesource.com" "Pin-Priority: -1" > "$D/etc/apt/preferences.d/nodesource"
+  DEBIAN_FRONTEND=noninteractive apt-get update -q >/dev/null || die "apt-get update failed with NodeSource's repository"
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -q nodejs >/dev/null || die "apt-get could not install nodejs from NodeSource"
+  v=$(node_major)
+  [ "${v:-0}" -ge "$NODE_MIN" ] || die "Node.js is still ${v:-missing} after installing NodeSource's: look at apt-cache policy nodejs"
+  say "Node.js $(node -v) from NodeSource; it updates with the machine's packages"
+}
 install_email_watch() {
   need_root
-  local v; v=$(node -v 2>/dev/null | sed -n 's/^v\([0-9]*\).*/\1/p')
-  [ "${v:-0}" -ge 24 ] || die "n8n needs Node.js 24 or newer (this machine has ${v:-none}). Install it from https://github.com/nodesource/distributions (or your distribution), then run me again"
-  /usr/local/share/assistant-n8n/install-n8n.sh --timezone "$(conf TIMEZONE)" || die "install-n8n.sh failed"
+  ensure_node
+  "$D/usr/local/share/assistant-n8n/install-n8n.sh" --timezone "$(conf TIMEZONE)" || die "install-n8n.sh failed"
   say "n8n is up. The assistant sets up the email watch with the owner (it asks for a Gmail app password)"
   [ "$(conf RELEASE_WATCH)" = yes ] && do_watch
   true
@@ -300,8 +339,9 @@ watch_n8n() {
   [ -e "$tpl" ] || die "no $tpl: run install.sh --upgrade"
   last="$D$SHARE/watch-n8n.json"   # what was imported last: the template's checksum and the list
   local sum; sum=$(sha256sum "$tpl" | cut -d' ' -f1)
-  if [ -e "$last" ] && [ "$(jq -cS --arg s "$sum" '{s: $s, w: [.[] | {id, installed}]}' <<<"$list")" = \
-       "$(jq -cS 'if type == "object" then {s: .template, w: [.watch[] | {id, installed}]} else null end' "$last" 2>/dev/null)" ]; then
+  # (only what is watched goes into the workflow: a system package that moved on, Node.js say, changes nothing)
+  if [ -e "$last" ] && [ "$(jq -cS --arg s "$sum" '{s: $s, w: [.[] | select(.updates == "watch") | {id, installed}]}' <<<"$list")" = \
+       "$(jq -cS 'if type == "object" then {s: .template, w: [.watch[] | select(.updates == "watch") | {id, installed}]} else null end' "$last" 2>/dev/null)" ]; then
     [ "${QUIET:-}" = 1 ] || say "the n8n watch is already up to date"; return 0
   fi
   listen=$(sed -n 's/^WAKEUP_LISTEN=//p' "$D/etc/assistant-wakeup.env" | tail -1); listen=${listen:-127.0.0.1:8770}

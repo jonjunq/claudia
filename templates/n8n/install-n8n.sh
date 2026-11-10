@@ -3,8 +3,8 @@
 # Run as root, once. Re-running it keeps your settings and only adds what is missing.
 #   install-n8n.sh [--version 2.46.5] [--listen 127.0.0.1] [--host 127.0.0.1] [--timezone Europe/Madrid]
 #                  [--owner-email you@example.com]
-# Needs Node.js 24 or newer and npm. It does not install Node for you: use your distribution's package or
-# NodeSource (https://github.com/nodesource/distributions), whichever you trust.
+# Needs Node.js 24 or newer and npm. It does not install Node itself: assistant-setup install email-watch does (from
+# NodeSource's apt repository, when the machine's is missing or older), or use your distribution's package.
 # DESTDIR=/some/dir writes the files under that prefix (used by the tests).
 set -euo pipefail
 HERE=$(dirname "$(readlink -f "$0")")
@@ -45,9 +45,11 @@ mkdir -p "$D/var/lib/n8n/files"
 # --force: n8n-nodes-base pins prebuilt binaries for the musl build of n8n's Docker image, and npm 11 refuses them
 # on glibc with EBADPLATFORM. They are optional at run time. npm 11 also skips install scripts; n8n does not need
 # them (sqlite3 and isolated-vm load their prebuilt binaries), and the check below proves it.
-npm install -g --force "n8n@$VERSION"
+# Always under /usr/local, whichever npm this is (Debian's installs there, NodeSource's in /usr): one copy, first in
+# PATH, that n8n-admin updates in place.
+npm install -g --prefix /usr/local --force "n8n@$VERSION"
 if [ -z "$D" ]; then
-  root=$(npm root -g)
+  root=$(npm root -g --prefix /usr/local)
   node -e "for (const m of ['sqlite3','isolated-vm']) require(require.resolve(m, {paths: ['$root/n8n']}))" \
     || { echo "n8n installed but its native modules do not load: see docs/n8n.md#troubleshooting" >&2; exit 1; }
 fi

@@ -263,6 +263,40 @@ check "pdf-read: without its venv, it says how to install it" bash -c "env PDF_V
 if pr --worker "$PR/bill.pdf" >/dev/null 2>&1; then ko "pdf-read: the worker cannot be called from outside"; else ok "pdf-read: the worker cannot be called from outside"; fi
 check "pdf-read is allowed in the settings" jq -e '.permissions.allow | index("Bash(python3 -I /usr/local/share/assistant/tools/pdf-read.py *)")' templates/settings.json
 check "install.sh copies pdf-read.py with the tools" test -x "$T/usr/local/share/assistant/tools/pdf-read.py"
+# ---- email-watch brings Node.js 24 from NodeSource's apt repository, only when the machine's is too old ----
+NSB="$T/nsbin"; mkdir -p "$NSB"; echo 20 > "$T/node-major"
+printf '#!/bin/bash\n[ "$1" = -v ] && echo "v$(cat %s).1.0"\nexit 0\n' "$T/node-major" > "$NSB/node"
+printf '#!/bin/bash\necho "apt-get $*" >> "$FAKE_LOG"\n[ "$*" = "install -y -q nodejs" ] && echo 24 > %s\nexit 0\n' "$T/node-major" > "$NSB/apt-get"
+# gpg: --dearmor -o OUT IN copies IN; --show-keys prints the first line of the key file as its fingerprint
+printf '%s\n' '#!/bin/bash' 'out=""; last=""; mode=""' \
+  'while [ $# -gt 0 ]; do case "$1" in -o) out=$2; shift 2 ;; --dearmor) mode=d; shift ;; --show-keys) mode=s; shift ;; *) last=$1; shift ;; esac; done' \
+  '[ "$mode" = d ] && { cp "$last" "$out"; exit 0; }' '[ "$mode" = s ] && echo "fpr:::::::::$(head -1 "$last"):"' 'exit 0' > "$NSB/gpg"
+chmod +x "$NSB/node" "$NSB/apt-get" "$NSB/gpg"
+echo 6F71F525282841EEDAF851B42F59B5F99B1BE0B4 > "$FAROOT/nodesource.key"; echo 0000000000000000000000000000000000000000 > "$FAROOT/other.key"
+INST="$T/usr/local/share/assistant-n8n/install-n8n.sh"; cp "$INST" "$T/install-n8n.orig"
+printf '#!/bin/bash\necho "install-n8n.sh $*" >> "$FAKE_LOG"\n' > "$INST"
+ew() { ienv env PATH="$NSB:$IPATH" NODESOURCE_KEY="$FA/${KEYFILE:-nodesource.key}" "$SET" --user alex install email-watch; }
+APT="$T/etc/apt"
+KEYFILE=other.key; : > "$FAKE_LOG"
+if ew > "$T/o" 2>&1; then ko "email-watch: a NodeSource key with another fingerprint stops it"; else
+  check "email-watch: a NodeSource key with another fingerprint stops it, nothing added" bash -c "grep -q 'not the one expected' '$T/o' && test ! -e '$APT/sources.list.d/nodesource.list' && ! grep -q 'install-n8n' '$FAKE_LOG'"; fi
+KEYFILE=nodesource.key; : > "$FAKE_LOG"; ew > "$T/o" 2>&1; rc=$?
+check "email-watch with Node 20: NodeSource's repository, signed-by its own key, then Node 24 and n8n" bash -c "test $rc = 0 && grep -qx 'deb \[signed-by=/etc/apt/keyrings/nodesource.gpg\] https://deb.nodesource.com/node_24.x nodistro main' '$APT/sources.list.d/nodesource.list' && test -s '$APT/keyrings/nodesource.gpg' && test \$(stat -c %a '$APT/keyrings/nodesource.gpg') = 644 && grep -q 'apt-get install -y -q nodejs' '$FAKE_LOG' && grep -q 'install-n8n.sh --timezone Europe/Madrid' '$FAKE_LOG' && grep -q 'Node.js v24.1.0 from NodeSource' '$T/o'"
+check "email-watch: says why it adds an outside repository" grep -q "n8n needs Node.js 24 or newer (this machine has 20): adding NodeSource's package repository" "$T/o"
+check "email-watch: only nodejs may come from NodeSource" bash -c "grep -A2 '^Package: nodejs' '$APT/preferences.d/nodesource' | grep -q 'Pin-Priority: 600' && grep -A2 '^Package: \*' '$APT/preferences.d/nodesource' | grep -q 'Pin-Priority: -1'"
+check "email-watch: no NodeSource setup script, nothing piped into a shell" bash -c "! grep -q 'nodesource.com/setup' templates/system/assistant-setup && ! sed -n '/^ensure_node()/,/^}/p' templates/system/assistant-setup | grep -qE '[|] *(sudo )?(ba)?sh'"
+[ -n "$T" ] && rm -rf "$T/etc/apt"
+: > "$FAKE_LOG"; ew > "$T/o" 2>&1
+check "email-watch with Node 24 already: no repository added, n8n installed" bash -c "test ! -e '$APT/sources.list.d/nodesource.list' && ! grep -q nodejs '$FAKE_LOG' && grep -q 'install-n8n.sh' '$FAKE_LOG'"
+echo 18 > "$T/node-major"; printf 'ID=arch\n' > "$T/os-release"; : > "$FAKE_LOG"
+if ienv env PATH="$NSB:$IPATH" OS_RELEASE="$T/os-release" "$SET" --user alex install email-watch > "$T/o" 2>&1; then ko "email-watch off Debian and Ubuntu: says to install Node by hand"
+else check "email-watch off Debian and Ubuntu: says to install Node by hand, adds nothing" bash -c "grep -q 'install it with your package manager' '$T/o' && test ! -e '$APT/sources.list.d/nodesource.list' && ! grep -q 'apt-get' '$FAKE_LOG'"; fi
+echo 24 > "$T/node-major"; mkdir -p "$APT/sources.list.d"; touch "$APT/sources.list.d/nodesource.list"; echo n8n >> "$FAKE_UNITS"
+wl=$(ienv env PATH="$NSB:$IPATH" python3 -I "$DOC" --user alex --watch-list)
+jcheck "watch list: Node.js is noted with its version and NodeSource's repository, never notified" '.[] | select(.id == "system:node-js") | .updates == "system" and .installed == "24.1.0" and .apt_source == "/etc/apt/sources.list.d/nodesource.list"' "$wl"
+jcheck "doctor: n8n's line says which Node.js it runs on" '.capabilities[0] | .status == "ok" and (.detail | test("Node.js 24.1.0 from NodeSource"))' "$(ienv env PATH="$NSB:$IPATH" python3 -I "$DOC" --user alex --json --only email-watch)"
+sed -i '/^n8n$/d' "$FAKE_UNITS"; [ -n "$T" ] && rm -rf "$T/etc/apt"; cp "$T/install-n8n.orig" "$INST"
+
 if setup install no-such-thing >/dev/null 2>&1; then ko "install refuses unknown capabilities"; else ok "install refuses unknown capabilities"; fi
 setup decline updates >/dev/null 2>&1
 check "decline updates: off in install.conf" grep -q '^RELEASE_WATCH=no$' "$T/usr/local/share/assistant/install.conf"

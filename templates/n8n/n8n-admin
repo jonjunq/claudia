@@ -55,7 +55,7 @@ update() {
   systemctl stop n8n
   # The database migrates on the first start of the new version: only a copy of the data folder can undo that.
   tar -C "$DATA" -czf "$backup" .n8n || { systemctl start n8n; echo "Backup failed: nothing changed"; return 2; }
-  if npm install -g --force "n8n@$target" >/dev/null 2>&1 && [ "$(installed_version)" = "$target" ] \
+  if npm install -g --prefix /usr/local --force "n8n@$target" >/dev/null 2>&1 && [ "$(installed_version)" = "$target" ] \
      && systemctl start n8n && healthy && [ "$(count_workflows)" = "$before" ]; then
     ls -1t "$BACKUPS"/n8n-*.tar.gz 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm -f
     echo "Updated: n8n $target is up with its $before workflow(s)"
@@ -63,7 +63,7 @@ update() {
   fi
   echo "The update to $target failed its checks: rolling back to $current"
   systemctl stop n8n
-  npm install -g --force "n8n@$current" >/dev/null 2>&1
+  npm install -g --prefix /usr/local --force "n8n@$current" >/dev/null 2>&1
   rm -rf "${DATA:?}/.n8n" && tar -C "$DATA" -xzf "$backup"
   chown -R n8n:n8n "$DATA/.n8n" 2>/dev/null
   if systemctl start n8n && healthy && [ "$(installed_version)" = "$current" ]; then

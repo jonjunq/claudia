@@ -521,7 +521,9 @@ def c_idle_compact(c):
 
 def c_email_watch(c):
     if c.unit("n8n", "is-active"):
-        return R("ok", "n8n is running; its email workflow is the assistant's to set up (n8n.md)")
+        node = version_of(c.run(["node", "-v"], timeout=10)[1]) or "?"
+        src = " from NodeSource" if os.path.exists(P("/etc/apt/sources.list.d/nodesource.list")) else ""
+        return R("ok", f"n8n is running on Node.js {node}{src}; its email workflow is the assistant's to set up (n8n.md)")
     if os.path.exists(P("/usr/local/sbin/n8n-admin")) or os.path.exists(P("/etc/n8n.env")):
         return R("fail", "n8n is installed but not running", asroot("systemctl restart n8n") + "; journalctl -u n8n", True)
     return R("fail", "n8n is not installed", asroot("assistant-setup install email-watch"), False)
@@ -610,12 +612,15 @@ def upstream_entry(c, cap, u):
         e["installed"] = npm_version(u["package"])
         e["id"] = "npm:" + u["package"]
     elif kind == "github":
-        e["installed"] = version_of(c.run(u["version_cmd"], timeout=10)[1]) if "version_cmd" in u else None
         e["id"] = "github:" + u["repo"]
     elif kind == "skill":
         return None   # skills are found by their .installed-from (below), wherever they live
     else:
         e["id"] = kind + ":" + (u.get("repo") or re.sub(r"[^a-z0-9]+", "-", u["name"].lower()).strip("-"))
+    if "version_cmd" in u and "installed" not in e:
+        e["installed"] = version_of(c.run(u["version_cmd"], timeout=10)[1])
+    if "apt_source" in u and os.path.exists(P(u["apt_source"])):
+        e["apt_source"] = u["apt_source"]   # a package repository the kit added for it (noted, never notified)
     return e
 
 

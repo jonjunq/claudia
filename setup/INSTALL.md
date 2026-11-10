@@ -43,7 +43,7 @@ every piece works. This guide is the order to do it in. Two files tell you the r
 
 ```bash
 cat /etc/os-release | head -3; id; sudo -n true 2>/dev/null && echo "sudo: yes"; nproc; free -g | head -2; df -h / | tail -1
-systemctl --version 2>/dev/null | head -1; timedatectl 2>/dev/null | grep -i 'time zone'
+systemctl --version 2>/dev/null | head -1; timedatectl 2>/dev/null | grep -i 'time zone'; node -v 2>/dev/null
 cat /usr/local/share/assistant/install.conf 2>/dev/null
 claude auth status --json 2>/dev/null | jq '{loggedIn, authMethod, subscriptionType}'
 git -C . describe --tags --always; git -C . status --short | head
@@ -74,7 +74,11 @@ it from the manifest, filtered by what Phase 0 found. In this order:
    videos, the browser), how it looks after itself (runs day and night, its nightly memory, notices of new versions
    explained in plain words, never applied without their yes). "Tell me if you do not want any of these."
 2. **Optional, if you want it** — the `ask` capabilities, each with what it gives, its `cost` and its `risk`, in one
-   or two lines. "Tell me the numbers you want."
+   or two lines. "Tell me the numbers you want." Two of them need a word more:
+   - `voice-best`: the best-quality backup for voice notes, on this machine and without the internet (about 4 GB).
+     Voice notes already go Groq → Cloudflare → Parakeet without it; it is for a transcript that came out wrong.
+   - `email-watch`: if Phase 0 found no Node.js or one older than 24, say it adds an outside package repository
+     (NodeSource, the usual source of current Node.js for Debian and Ubuntu), because n8n needs Node 24.
 3. **A few choices**, each with your best guess so "yes" is enough:
    - Where it runs (docs/isolation.md), in plain words. Typical options on one machine: **a separate user just for
      it** (recommended when the machine has anything else on it: it cannot touch the rest, and the scripts that

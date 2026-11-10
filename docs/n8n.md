@@ -30,8 +30,13 @@ You do not need to know n8n. Pick whichever fits how you [run the assistant](iso
 
 ## Install
 
-Needs Node.js 24 or newer and npm (n8n 2.x refuses older Node). The installer does not install Node for you: use
-your distribution's package or [NodeSource](https://github.com/nodesource/distributions).
+Needs Node.js 24 or newer and npm (n8n 2.x refuses older Node). `assistant-setup install email-watch` installs it
+when the machine's is missing or older: it adds [NodeSource](https://github.com/nodesource/distributions)'s apt
+repository (an outside repository, the usual source of current Node.js for Debian and Ubuntu, because their own
+packages are older), with its key checked and used for that repository only, takes only `nodejs` from it, and never
+runs a setup script from the internet. From then on Node updates with the machine's packages. `install-n8n.sh` on
+its own does not install Node: use that, or your distribution's package. n8n goes under `/usr/local` whichever npm
+installs it (NodeSource's would put it in `/usr`).
 
 ```bash
 /usr/local/share/assistant-n8n/install-n8n.sh --owner-email you@example.com
