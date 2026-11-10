@@ -22,7 +22,7 @@ Will be 1.7.0: new code that gets installed.
   model search, the chosen ElevenLabs voice). As root, what runs as the user runs through `runuser`. Declines come
   from `notes/first-days.md` (`- <id>: no`), so neither the installer nor the assistant offers them again.
 - **`assistant-setup`** (`/usr/local/bin`): `install <id>…` (system packages, Claude Code, Bun and the Telegram plugin,
-  the patch and the bot's menu, the services, **the PDF reader** (poppler-utils), **yt-dlp** in its own venv,
+  the patch and the bot's menu, the services, **the PDF reader** (PyMuPDF), **yt-dlp** in its own venv,
   **Parakeet** and **faster-whisper** with their models, **the browser** (Debian), the remote window, the wake-up,
   version notices, idle compaction, n8n), `remove`, `decline`, `accept`, `key` and `set` (from stdin, validated,
   mode 600), `telegram-token` (checked with Telegram first), `telegram-owner` (waits for the owner's first message
@@ -41,7 +41,7 @@ Will be 1.7.0: new code that gets installed.
   strict pattern and links we build; never upstream text.
 - Templates: `CLAUDE.md` runs the doctor when unsure or when asked what it is missing, explains new versions simply
   (what the tool is, what is new for the owner, whether to update), groups plain maintenance instead of nagging,
-  and reads scanned PDFs with `pdftoppm`; `first-days` checks with the doctor before offering and records a no with
+  and reads PDFs with `pdf-read.py`; `first-days` checks with the doctor before offering and records a no with
   `assistant-setup decline`; `updating` covers the tools (how to update each, and why the Telegram plugin waits for
   a kit release unless it is a security fix).
 - **A second Claude Code no longer steals the bot from sessions opened in the repo**: the plugin replaces any poller
@@ -60,6 +60,26 @@ Will be 1.7.0: new code that gets installed.
   and follows a tool installed or removed; the tool notices against fake GitHub, PyPI and npm: one notice, numbers and
   links only, each version once, the wake-up down), `tests/fake-apis.py`, and the n8n Code nodes for the list.
 
+- **PDFs with PyMuPDF**, the reader our own assistant uses, instead of poppler's `pdftotext`: `assistant-setup install
+  pdf` puts PyMuPDF and pymupdf4llm in a venv (`~/pdf`, about 300 MB; AGPL, no obligation for personal use), and
+  `templates/tools/pdf-read.py` (root-owned, allowed in `settings.json`) gives the pages asked for as Markdown
+  (`--pages 1-3,7`; tables and columns kept), says which pages have no text (scans) and saves them as PNGs with
+  `--images DIR` for the assistant to look at (`--every-page` for all). A PDF is untrusted: a child process with a
+  clean environment, a time limit, a CPU limit and a cap on what it writes, at most 200 pages at a time and 200 MB
+  per file, nothing in the PDF opened, run or followed. `poppler-utils` stays, because Claude Code's own Read tool
+  draws PDF pages with `pdftoppm`. The doctor reads a PDF made on the spot (as Markdown with `--deep`); the version
+  watch follows both packages on PyPI; `CLAUDE.md`, the `reader` helper and the guides point to the tool.
+- **`email-watch` installs Node.js 24 itself** when the machine's is missing or older (Debian 13 has 20): from
+  NodeSource's apt repository, with its key checked against its fingerprint and used only for it (`signed-by`, in
+  `/etc/apt/keyrings`), and a pin so that only `nodejs` comes from it; no setup script run from the internet. The
+  installer says in one line that it adds an outside repository and why. n8n now goes under `/usr/local` whichever
+  npm installs it (`install-n8n.sh`, `n8n-admin update`). The version watch notes Node.js as a system package, with
+  its version and NodeSource's repository if it was added; the doctor says which Node n8n runs on.
+- **Faster first answer**: `CLAUDE.md` now says that if answering needs any tool (beyond reading a note or looking at
+  the calendar), the first action is a one-line reply saying what it will do, with no tool before it; small talk and
+  what it can answer at once get a direct answer. Measured on ours: the first answer took a median of 16 s for
+  questions and 28 s for errands, and now takes one model call, about 5-7 s. The Telegram "Working" status shows
+  after 5 s instead of 15 (a short turn still deletes it when it ends).
 - `CLAUDE.md` template: when to continue a helper with `SendMessage` and when to launch a new one (same request vs a new
   one, and a fresh helper once one carries ~150k of context), after a real helper grew to 262k from 7 chained requests.
 

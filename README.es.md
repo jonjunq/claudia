@@ -232,6 +232,10 @@ Lo último (lista completa en [CHANGELOG.md](CHANGELOG.md), en inglés).
 - **`assistant-setup`**: un comando por capacidad (`install pdf`, `install browser`, `key GROQ_API_KEY`,
   `telegram-owner`…), para que ni el instalador ni tu asistente improvisen. El lector de PDF, yt-dlp y los motores
   de voz locales ya se instalan con un script, no solo se explican.
+- **PDF leídos con PyMuPDF**, como hace nuestra asistente: las tablas y las columnas salen bien, en Markdown, y las
+  páginas escaneadas las mira como imagen.
+- **n8n sin buscar Node.js**: si el de la máquina es viejo, la vigilancia del correo instala Node 24 desde el
+  repositorio de NodeSource ella sola (te dice que añade ese repositorio y por qué).
 - **Avisos de versiones nuevas de todo lo que usa**, no solo de sí misma: Bun, el plugin de Telegram, agent-browser,
   yt-dlp, los motores de voz, n8n y las skills de terceros, con n8n o con un temporizador diario, montado por ella
   misma. Te lo explica sencillo (qué es la herramienta, qué trae para ti, si conviene actualizar), junta el

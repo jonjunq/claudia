@@ -228,6 +228,10 @@ The latest changes (full list in [CHANGELOG.md](CHANGELOG.md)).
 - **`assistant-setup`**: one command per capability (`install pdf`, `install browser`, `key GROQ_API_KEY`,
   `telegram-owner`…), so neither the installer nor your assistant improvises. The PDF reader, yt-dlp and the local
   speech engines can now be installed by script, not only read about.
+- **PDFs read with PyMuPDF**, as our own assistant does: tables and columns come out right, as Markdown, and scanned
+  pages are looked at as images.
+- **n8n without hunting for Node.js**: if the machine's is too old, the email watch installs Node 24 from NodeSource's
+  repository by itself (it tells you it adds that repository, and why).
 - **Notices of new versions of everything it uses**, not only of itself: Bun, the Telegram plugin, agent-browser,
   yt-dlp, the speech engines, n8n and third-party skills, with n8n or a small daily timer, set up by itself. It
   explains them simply (what the tool is, what is new for you, whether to update), groups the plain maintenance
