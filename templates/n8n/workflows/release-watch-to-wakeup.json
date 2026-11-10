@@ -40,7 +40,7 @@
     0
    ],
    "parameters": {
-    "jsCode": "// What to ask upstream, one request per item. The list is filled in by `assistant-setup watch` (as root) from\n// `assistant-doctor --watch-list`: what is installed on this machine and where it comes from. Do not edit it by\n// hand: run assistant-setup watch again after installing or removing something.\nconst WATCH = __WATCH__;\nconst url = w => ({\n  self: `https://api.github.com/repos/${w.repo}/releases/latest`,\n  github: `https://api.github.com/repos/${w.repo}/releases/latest`,\n  skill: `https://api.github.com/repos/${w.repo}/commits/HEAD`,\n  pypi: `https://pypi.org/pypi/${w.package}/json`,\n  npm: `https://registry.npmjs.org/${w.package}/${w.dist_tag || 'latest'}`,\n}[w.kind]);\nreturn WATCH.filter(w => url(w)).map(w => ({ json: { id: w.id, url: url(w) } }));\n"
+    "jsCode": "// What to ask upstream, one request per item. The list is filled in by `assistant-setup watch` (as root) from\n// `assistant-doctor --watch-list`: what is installed on this machine and where it comes from. Do not edit it by\n// hand: run assistant-setup watch again after installing or removing something.\nconst WATCH = __WATCH__;\nconst url = w => ({\n  self: `https://api.github.com/repos/${w.repo}/releases/latest`,\n  github: `https://api.github.com/repos/${w.repo}/releases/latest`,\n  skill: `https://api.github.com/repos/${w.repo}/commits/HEAD`,\n  pypi: `https://pypi.org/pypi/${w.package}/json`,\n  npm: `https://registry.npmjs.org/${w.package}/${w.dist_tag || 'latest'}`,\n}[w.kind]);\n// GitHub wants its own media type; PyPI and npm get plain JSON (npm refuses GitHub's with HTTP 406).\nconst accept = w => (['pypi', 'npm'].includes(w.kind) ? 'application/json' : 'application/vnd.github+json');\nreturn WATCH.filter(w => url(w)).map(w => ({ json: { id: w.id, url: url(w), accept: accept(w) } }));\n"
    }
   },
   {
@@ -59,7 +59,7 @@
      "parameters": [
       {
        "name": "Accept",
-       "value": "application/vnd.github+json"
+       "value": "={{ $json.accept }}"
       },
       {
        "name": "X-GitHub-Api-Version",
