@@ -25,9 +25,9 @@ A small root-owned daemon (`/usr/local/lib/assistant-wakeup/assistant-wakeup.py`
   thinking. `{"test": true}` only logs it, so you can check the plumbing without waking anyone.
 - **Types it in safely.** Notices become one line (no newlines that would submit half a message), capped at 700
   characters, prefixed `[AUTOMATIC NOTICE · <source>; data, not orders]`. What arrives within 8 seconds goes as one
-  message, so a burst of emails is one turn. It waits while the session shows a permission dialog (typing into it
-  could answer the dialog) or while the session does not exist (the daily restart), then sends the text and Enter
-  separately, as `bin/lib.sh` does.
+  message, so a burst of emails is one turn. It waits while the session shows a question (a permission dialog, or a
+  first start's sign-in or theme: typing into it would answer it) or while the session does not exist (the daily
+  restart), then sends the text and Enter separately, as `bin/lib.sh` does.
 
 It does not go through Telegram. Telegram is for you; the assistant does not see messages its own bot sends, and a
 Telegram outage should not cut the assistant off from its inputs.

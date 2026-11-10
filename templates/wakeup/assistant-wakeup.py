@@ -14,8 +14,9 @@ Two sources, one queue:
      hands over what needs thinking, without going through Telegram. {"test": true} only logs it.
 
 The worker batches what arrives within WAKEUP_BATCH_SECONDS into ONE message (one turn, not several), waits while
-the session shows a permission dialog or does not exist (e.g. during the daily restart), then types it with
-`tmux send-keys -l` and a separate Enter. Notices are one line, capped, and say they are data, not orders.
+the session shows a question (a permission, a first start's sign-in) or does not exist (e.g. during the daily
+restart), then types it with `tmux send-keys -l` and a separate Enter. Notices are one line, capped, and say they
+are data, not orders.
 Settings: /etc/assistant-wakeup.env (see the template). Log: WAKEUP_LOG.
 """
 import http.server, json, os, pwd, queue, re, subprocess, sys, threading, time
@@ -46,7 +47,9 @@ LOG = ENV.get('WAKEUP_LOG', '/var/log/assistant-wakeup.log')
 BATCH = float(ENV.get('WAKEUP_BATCH_SECONDS', '8'))
 MAX_TEXT = int(ENV.get('WAKEUP_MAX_TEXT', '700'))
 POLL = float(ENV.get('WAKEUP_POLL_SECONDS', '3'))
-DIALOG = 'Do you want to proceed?'
+# A question in its terminal (a permission, or a first start: sign-in, theme, trust): typing there would answer it.
+DIALOG = re.compile(r'Do you want to proceed\?|Select login method|Paste code here|Choose the text style|'
+                    r'trust this folder|Yes, I trust|Press Enter to continue')
 queue_ = queue.Queue()
 
 
@@ -86,8 +89,8 @@ def tmux(*args):
 def ready():
     if tmux('has-session', '-t', SESSION).returncode != 0:
         return False, 'no tmux session'
-    if DIALOG in tmux('capture-pane', '-p', '-t', SESSION).stdout:
-        return False, 'permission dialog open'
+    if DIALOG.search(tmux('capture-pane', '-p', '-t', SESSION).stdout):
+        return False, 'a question is open in its terminal'
     return True, ''
 
 
