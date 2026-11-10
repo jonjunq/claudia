@@ -338,7 +338,7 @@ The pieces, grouped by what they are for. Everything except the core is optional
 |---|---|
 | `templates/telegram/` + hooks in `settings.json` | "⏳ Working" message while it works, quoted messages reach it, permission requests with Allow / Deny buttons, one-time approval of what the classifier blocked, rich messages (headings, tables) with `send-rich.py`, voice notes transcribed before they reach it |
 | `templates/memory/` + `recall` skill | Searches old conversations (`recall`), reviews skills and memory every night, keeps a git history to undo |
-| `.claude/agents/` (`browser`, `reader`, `researcher`, `coder`) | Helpers for heavy work, in the background and on the same model, so it keeps answering you and the conversation stays small |
+| `.claude/agents/` (`browser`, `browser-fast`, `reader`, `researcher`, `coder`) | Helpers for heavy work, in the background and on the same model (`browser-fast`, for reading public pages, on Sonnet), so it keeps answering you and the conversation stays small |
 | `after-compact.py` + Compact Instructions | After a compaction, your last messages and what is pending come back word for word; optional `assistant-idle-compact` for long idle spells |
 | `first-days` skill + `notes/first-days.md` | Its first weeks: offers what it can do, one thing at a time, and remembers your answers |
 | `updating` skill + `install.sh --upgrade` | Updates to a new release with your yes, merging the templates with your changes instead of overwriting them |

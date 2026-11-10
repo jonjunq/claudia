@@ -27,9 +27,15 @@ while true; do
     fi
   fi
   MODEL="${MODEL:-opus}"
-  # Helpers (subagents, .claude/agents/) run on the same model as the session, whatever an agent definition or a
-  # built-in agent (Explore, claude-code-guide…) would pick: SUBAGENT_MODEL in assistant.env, or MODEL.
-  export CLAUDE_CODE_SUBAGENT_MODEL="${SUBAGENT_MODEL:-$MODEL}" CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1
+  # Helpers (subagents): the kit's own say `model: inherit` (the session's model, also after a /model switch), except
+  # browser-fast (sonnet, only for reading public pages). SUBAGENT_MODEL in assistant.env is the model for helpers
+  # that do not name one; SUBAGENT_MODEL_FORCE=yes puts every helper on it (or on MODEL), browser-fast included:
+  # Claude Code's FORCE ignores the model an agent definition or the Agent call asks for, unless it is "inherit".
+  unset CLAUDE_CODE_SUBAGENT_MODEL CLAUDE_CODE_SUBAGENT_MODEL_FORCE
+  if [ -n "${SUBAGENT_MODEL:-}" ]; then export CLAUDE_CODE_SUBAGENT_MODEL="$SUBAGENT_MODEL"; fi
+  if [ "${SUBAGENT_MODEL_FORCE:-}" = yes ]; then
+    export CLAUDE_CODE_SUBAGENT_MODEL="${SUBAGENT_MODEL:-$MODEL}" CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1
+  fi
   CHANNELS=(--channels plugin:telegram@claude-plugins-official)
   if [ -n "${DEV_CHANNELS:-}" ]; then
     # Self-built channels built with a recent MCP SDK may need this to register as a channel (see docs/voice.md).

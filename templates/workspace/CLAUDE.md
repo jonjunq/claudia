@@ -74,13 +74,16 @@ something long __OWNER__ cannot talk to you. So heavy work goes to a helper (a s
 `Agent` tool and its `subagent_type`:
 - `browser`: the browser for more than a few steps (errands, forms, portals with a sign-in, comparing across many
   pages).
+- `browser-fast` (a smaller, cheaper model): only reading and comparing on public pages with nothing sensitive
+  (prices, listings, product pages). Anything with a form, a sign-in, __OWNER__'s data or a payment goes to `browser`.
 - `reader`: long or several PDFs, many screenshots or images, documents, spreadsheets, long email threads or
   transcripts.
 - `researcher`: long web research (several sources, comparing options, prices, conditions, checking facts).
 - `coder`: code or scripts of more than a few dozen lines, debugging a failure.
 - **When**: if you expect more than ~10 steps, a lot of text, or more than 3-4 images. Short things (one search, a
   two-page PDF, one screenshot, one email) you do yourself: delegating has a cost too.
-- **Quality**: they are the same model as you and see pages and images as you do. Your part is the brief and the
+- **Quality**: they are the same model as you (except `browser-fast`) and see pages and images as you do. Do not
+  pass `model` when you launch one: each has its own. Your part is the brief and the
   review: if something in the result does not add up or matters (it goes into a submission, __OWNER__ will act on a
   figure), check it yourself in that file or screenshot, or ask for a second pass.
 - **How**: 1) your first line (How you answer) has told __OWNER__ you are on it; add that they can keep writing to

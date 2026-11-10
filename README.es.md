@@ -347,7 +347,7 @@ Las piezas, agrupadas por para qué sirven. Todo menos lo básico es opcional.
 |---|---|
 | `templates/telegram/` + hooks en `settings.json` | Mensaje «⏳ Trabajando» mientras trabaja, le llegan los mensajes que citas, peticiones de permiso con botones Permitir / Denegar, aprobar una vez lo que bloqueó el clasificador, mensajes ricos (títulos, tablas) con `send-rich.py` y notas de voz transcritas antes de llegarle |
 | `templates/memory/` + skill `recall` | Busca en conversaciones antiguas (`recall`), repasa skills y memoria cada noche y guarda un historial git para deshacer |
-| `.claude/agents/` (`browser`, `reader`, `researcher`, `coder`) | Ayudantes para el trabajo pesado, en segundo plano y con el mismo modelo, para que te siga contestando y la conversación no crezca |
+| `.claude/agents/` (`browser`, `browser-fast`, `reader`, `researcher`, `coder`) | Ayudantes para el trabajo pesado, en segundo plano y con el mismo modelo (`browser-fast`, para leer webs públicas, con Sonnet), para que te siga contestando y la conversación no crezca |
 | `after-compact.py` + Compact Instructions | Tras compactar, tus últimos mensajes y lo pendiente vuelven tal cual; opcional `assistant-idle-compact` para los ratos largos sin actividad |
 | skill `first-days` + `notes/first-days.md` | Sus primeras semanas: ofrece lo que sabe hacer, de una en una, y recuerda lo que contestaste |
 | skill `updating` + `install.sh --upgrade` | Actualiza a una versión nueva con tu OK, fusionando las plantillas con tus cambios en vez de pisarlos |

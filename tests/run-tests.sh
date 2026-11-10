@@ -39,6 +39,7 @@ check "Telegram extras installed" test -x "$T/usr/local/lib/assistant-telegram/p
 check "memory tools installed" test -x "$T/usr/local/lib/assistant-memory/nightly-review.py" -a -x "$T/usr/local/bin/recall" -a -e "$T/usr/local/lib/assistant-memory/review-prompt.txt"
 check "recall skill installed" test -e "$H/assistant/.claude/skills/recall/SKILL.md"
 check "helpers installed, filled in, same model, no Telegram replies" bash -c "for a in browser reader researcher coder; do f='$H/assistant/.claude/agents/'\$a.md; grep -q '^name: '\$a'$' \$f && grep -q '^model: inherit$' \$f && grep -q '^disallowedTools: .*telegram__reply.*CronCreate' \$f && grep -q \"Ada's helper\" \$f || exit 1; done; grep -q '^  - browser$' '$H/assistant/.claude/agents/browser.md'"
+check "browser-fast: Sonnet, the browser skill, no Telegram replies, filled in" bash -c "f='$H/assistant/.claude/agents/browser-fast.md'; grep -q '^model: sonnet$' \$f && grep -q '^  - browser$' \$f && grep -q '^disallowedTools: .*telegram__reply.*CronCreate' \$f && grep -q \"Ada's cheaper helper\" \$f && ! grep -q '__[A-Z]*__' \$f"
 check "CLAUDE.md sends heavy work to helpers and keeps yeses at home" bash -c "grep -q '^## Heavy work: to your helpers' '$H/assistant/CLAUDE.md' && grep -q 'Not delegated' '$H/assistant/CLAUDE.md' && grep -q '^## Compact Instructions' '$H/assistant/CLAUDE.md'"
 check "idle compaction and release watch installed, not enabled" bash -c "test -x '$T/usr/local/sbin/assistant-idle-compact' -a -x '$T/usr/local/sbin/assistant-release-watch' && grep -q 'assistant-idle-compact alex$' '$T/etc/systemd/system/assistant-idle-compact.service' && test -e '$T/etc/systemd/system/assistant-release-watch.timer'"
 check "after-compact hook installed" test -x "$T/usr/local/lib/assistant-memory/after-compact.py"
@@ -378,7 +379,7 @@ chmod +x "$B/claude"
 : > "$FAKE_LOG"; touch "$H/assistant/.new-session"
 timeout 3 "$H/assistant/bin/start.sh" >/dev/null 2>&1
 check "new session: prompt goes before --channels" bash -c "grep '^claude ' '$FAKE_LOG' | head -1 | grep -q '^claude New conversation.* --model opus --channels plugin:telegram@claude-plugins-official$'"
-check "start.sh runs every helper on the session's model" grep -q '^subagents=opus force=1$' "$FAKE_LOG"
+check "start.sh does not force the helpers' model (browser-fast keeps its own)" grep -q '^subagents= force=$' "$FAKE_LOG"
 check "new session: flag file consumed" test ! -e "$H/assistant/.new-session"
 : > "$FAKE_LOG"
 timeout 3 "$H/assistant/bin/start.sh" >/dev/null 2>&1

@@ -93,6 +93,14 @@ Will be 1.7.0: new code that gets installed.
   always points it at its own copy, even when npm has nothing to update; `assistant-doctor` fails with the fix when
   the command is another copy (no `--deep` needed), and `--deep` says when Chromium found no display. Not an
   agent-browser 0.42.0 regression: 0.41.2 and 0.42.0 both open the browser with a window on Debian 13.
+- **`browser-fast`, a cheaper browser helper** (`.claude/agents/browser-fast.md`, Sonnet with medium effort): only
+  reading and comparing on public pages (prices, listings, product pages), with the browser skill; forms, sign-ins,
+  the owner's data and payments stay with `browser`. `CLAUDE.md` says when to use each and not to pass `model`
+  when launching a helper. For it to run on Sonnet, `start.sh` no longer sets `CLAUDE_CODE_SUBAGENT_MODEL_FORCE`:
+  that flag ignores the model an agent definition asks for (anything but `inherit`), so it put `browser-fast` on
+  the session's model too. The other helpers say `model: inherit` and now also follow a `/model` switch;
+  `SUBAGENT_MODEL` sets the model for helpers that name none, and the new `SUBAGENT_MODEL_FORCE=yes` in
+  `assistant.env` brings back the old behaviour (every helper on one model, `browser-fast` included).
 
 ## 1.6.0 — 2026-11-05
 

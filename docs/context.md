@@ -21,17 +21,20 @@ Now `templates/workspace/.claude/agents/` has four [subagents](https://code.clau
 | Helper | For |
 |---|---|
 | `browser` | More than a few steps in the browser: errands, forms, portals with a sign-in, comparing across pages. It preloads the `browser` skill |
+| `browser-fast` | Only reading and comparing on public pages (prices, listings), on Sonnet with medium effort: no forms, no sign-ins, no payments |
 | `reader` | Long or many PDFs, lots of screenshots or images, documents, spreadsheets, long email threads |
 | `researcher` | Long web research: several sources, prices, conditions, checking facts |
 | `coder` | Scripts of more than a few dozen lines, debugging |
 
 How they are set up, and why:
 
-- **Same model, same effort.** `model: inherit` and `effort: high`, and `start.sh` exports
-  `CLAUDE_CODE_SUBAGENT_MODEL` (your `MODEL`, or `SUBAGENT_MODEL` in `assistant.env`) with
-  `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1`, so Claude Code's built-in agents (Explore, claude-code-guide…) do not quietly
-  run on a smaller model either. They see pages and images as well as the session does; the session writes the brief
-  and reviews the result. A smaller model would save little and cost quality.
+- **Same model, same effort.** `model: inherit` and `effort: high`: they see pages and images as well as the session
+  does, and follow it when you switch models with `/model`; the session writes the brief and reviews the result. A
+  smaller model would save little and cost quality, except for `browser-fast`: reading prices and listings off public
+  pages is where Sonnet does as well for less. Claude Code's built-in Explore, Plan and general-purpose inherit the
+  session's model too; claude-code-guide picks Haiku. `SUBAGENT_MODEL` in `assistant.env` is the model for helpers that
+  name none, and `SUBAGENT_MODEL_FORCE=yes` puts every helper on it (`CLAUDE_CODE_SUBAGENT_MODEL_FORCE`): that flag
+  ignores the model an agent definition or the call asks for, so `browser-fast` then runs on it too.
 - **They cannot talk to you or schedule things**: `disallowedTools` removes the Telegram `reply`/`react`/`edit`
   tools, n8n's MCP tools and `CronCreate`/`CronDelete`. Everything goes back to the assistant, which tells you.
 - **`omitClaudeMd: true`**: they do not load the assistant's `CLAUDE.md`; their own file has the rules that apply to
