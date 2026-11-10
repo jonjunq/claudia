@@ -38,7 +38,9 @@ newer() {  # is version $1 newer than $2? (numbers, not text: 1.10.0 > 1.9.0)
   done
   return 1
 }
-get() { curl -fsS --max-time 20 --retry 2 -H 'Accept: application/vnd.github+json' -H 'User-Agent: assistant-release-watch' "$1"; }
+get() {  # url [media type]: GitHub's by default; PyPI and npm get plain JSON (npm refuses GitHub's: HTTP 406)
+  curl -fsS --max-time 20 --retry 2 -H "Accept: ${2:-application/vnd.github+json}" -H 'User-Agent: assistant-release-watch' "$1"
+}
 wake() {  # source text
   local token listen body
   token=$(sed -n 's/^WAKEUP_TOKEN=//p' "$WENV" 2>/dev/null | tail -1)
@@ -100,11 +102,11 @@ while IFS= read -r e; do
       tag=$(jq -r '.tag_name // empty' <<<"$j"); latest=$(ver "$tag")
       [[ $tag =~ ^[A-Za-z0-9._-]{1,40}$ ]] && link="https://github.com/$repo/releases/tag/$tag" ;;
     pypi)
-      latest=$(ver "$(get "$PYPI/pypi/$pkg/json" | jq -r '.info.version // empty')")
+      latest=$(ver "$(get "$PYPI/pypi/$pkg/json" application/json | jq -r '.info.version // empty')")
       link="https://pypi.org/project/$pkg/$latest/" ;;
     npm)
       tagname=$(jq -r '.dist_tag // "latest"' <<<"$e"); [[ $tagname =~ ^[a-z]+$ ]] || tagname=latest
-      latest=$(ver "$(get "$NPM/$pkg/$tagname" | jq -r '.version // empty')")
+      latest=$(ver "$(get "$NPM/$pkg/$tagname" application/json | jq -r '.version // empty')")
       link="https://www.npmjs.com/package/$pkg/v/$latest" ;;
     plugin)
       latest=$(ver "$(jq -r '.latest // empty' <<<"$e")")
