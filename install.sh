@@ -110,7 +110,11 @@ mkdir -p "$D$H/.config/assistant"
   chmod 600 "$D$H/.config/assistant/keys.env"
   echo "  created  $H/.config/assistant/keys.env"
 }
-[ -z "$D" ] && chown -R "$U": "$H/assistant" "$H/.claude" "$H/.config/assistant"
+if [ -z "$D" ]; then
+  chown -R "$U": "$H/assistant" "$H/.claude" "$H/.config/assistant"
+  # ~/.config made just now by mkdir is root's: the user's own tools (yt-dlp, agent-browser...) write there too.
+  [ "$(stat -c %u "$H/.config")" = 0 ] && chown "$U": "$H/.config"
+fi
 
 echo "System:"
 put "$SRC/system/assistant.service" /etc/systemd/system/assistant.service 644
