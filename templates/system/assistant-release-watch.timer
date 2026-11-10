@@ -1,5 +1,5 @@
 [Unit]
-Description=Once a day: is there a new release of the assistant?
+Description=Once a day: are there new versions of the assistant or of its tools?
 
 [Timer]
 OnCalendar=*-*-* 10:00

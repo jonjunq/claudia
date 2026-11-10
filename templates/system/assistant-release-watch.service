@@ -1,5 +1,5 @@
 [Unit]
-Description=Tell the assistant about a new release of its repo (it never updates without its owner's yes)
+Description=Tell the assistant about new versions of itself and of its tools (it never updates without its owner's yes)
 After=network-online.target assistant-wakeup.service
 Wants=network-online.target
 
