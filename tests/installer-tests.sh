@@ -41,6 +41,7 @@ EOF
 printf '#!/bin/bash\nwhile [ "$1" != -- ]; do shift; done; shift; exec "$@"\n' > "$IB/runuser"
 cat > "$IB/tmux" <<'EOF'
 #!/bin/bash
+[ -z "${TMUX:-}" ] || { echo "tmux: TMUX=$TMUX leaked from the caller" >> "$FAKE_LOG"; exit 1; }
 case "$1" in has-session) [ "${FAKE_TMUX_UP:-}" = 1 ] ;; capture-pane) cat "$FAKE_SCREEN" 2>/dev/null ;; *) echo "tmux $*" >> "$FAKE_LOG" ;; esac
 EOF
 printf '#!/bin/bash\necho "apt-get $*" >> "$FAKE_LOG"\n' > "$IB/apt-get"
@@ -136,6 +137,8 @@ printf '> \n' > "$FAKE_SCREEN"
 echo '{"loggedIn": true, "authMethod": "console"}' > "$FAKE_AUTH"
 jcheck "doctor: signed in with an API key is ❌" '.capabilities[0] | .status == "fail" and (.detail | test("API key"))' "$(doc --json --only claude)"
 echo '{"loggedIn": true, "authMethod": "claude.ai", "subscriptionType": "max"}' > "$FAKE_AUTH"
+if (export TMUX=/tmp/tmux-0/default,1,0 TMUX_PANE=%0; test "$(st service)" = ok); then ok "doctor run from inside your own tmux still asks the user's"
+else ko "doctor run from inside your own tmux still asks the user's"; fi
 grep -v '^assistant-release-watch.timer$' "$FAKE_UNITS" > "$T/u2" && cp "$FAKE_UNITS" "$T/u1" && cp "$T/u2" "$FAKE_UNITS"
 check "doctor: the watch is ❌ when its timer is off" test "$(st updates)" = fail
 cp "$T/u1" "$FAKE_UNITS"

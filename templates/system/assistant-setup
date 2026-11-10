@@ -23,6 +23,7 @@
 # stdin, never from the command line, and never printed. DESTDIR=/some/dir works under that prefix and starts
 # nothing (the tests); TELEGRAM_API, ELEVENLABS_API and ASSISTANT_DOCTOR are for the tests too.
 set -uo pipefail
+unset TMUX TMUX_PANE   # run from inside a tmux of yours, the user's tmux would talk to your server, not its own
 D="${DESTDIR:-}"
 SHARE=/usr/local/share/assistant
 CONF="$D$SHARE/install.conf"

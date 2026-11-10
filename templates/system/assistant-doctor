@@ -45,6 +45,10 @@ DIALOG = re.compile(r"Do you want to proceed|Enter to confirm|Yes, I trust|trust
                     r"Select login method|Press Enter to continue|Paste code here|Esc to cancel")
 
 
+for _v in ("TMUX", "TMUX_PANE"):   # run from inside a tmux of yours, tmux would ask your server, not the user's
+    os.environ.pop(_v, None)
+
+
 def P(path):
     return D + path
 
