@@ -126,7 +126,7 @@ install_claude() {
 install_workspace() { die "the workspace comes from the repo: as root, ./install.sh $U (setup/INSTALL.md)"; }
 install_telegram() {
   if [ ! -x "$H/.bun/bin/bun" ]; then
-    asu 'curl -fsSL https://bun.sh/install | bash' >/dev/null || die "the Bun installer failed (it needs unzip)"
+    asu 'curl -fsSL https://bun.sh/install | bash' >/dev/null 2>&1 || die "the Bun installer failed (it needs unzip)"
   fi
   if ! jq -e '.plugins["telegram@claude-plugins-official"]' "$H/.claude/plugins/installed_plugins.json" >/dev/null 2>&1; then
     asu 'claude plugin install telegram@claude-plugins-official --scope user' >/dev/null 2>&1 ||
