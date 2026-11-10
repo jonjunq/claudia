@@ -219,7 +219,7 @@ Then write to your bot. Step by step, with every gotcha we hit: [docs/setup.md](
 
 The latest changes (full list in [CHANGELOG.md](CHANGELOG.md)).
 
-**1.7.0** (not released yet)
+**1.7.0** (2026-11-10)
 
 - **It installs itself** ([above](#install-it)): clone, open Claude Code, say *"install yourself"*. One message
   with what it will set up and what only you can do, step by step; it installs and checks the rest, and hands it

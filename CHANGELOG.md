@@ -1,8 +1,6 @@
 # Changelog
 
-## Unreleased
-
-Will be 1.7.0: new code that gets installed.
+## 1.7.0 — 2026-11-10
 
 - **It installs itself.** A `CLAUDE.md` at the root of the repo (and an `AGENTS.md` pointing to it): a Claude Code
   opened in a clone that is asked to install, update or repair the assistant follows `setup/INSTALL.md`, a guide by

@@ -223,7 +223,7 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 
 Lo último (lista completa en [CHANGELOG.md](CHANGELOG.md), en inglés).
 
-**1.7.0** (sin publicar todavía)
+**1.7.0** (2026-11-10)
 
 - **Se instala sola** ([arriba](#instálala)): clonas, abres Claude Code y le dices *«instálate»*. Un mensaje con lo
   que va a montar y lo que solo puedes hacer tú, paso a paso; instala y comprueba el resto y te la entrega por
