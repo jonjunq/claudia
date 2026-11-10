@@ -47,10 +47,15 @@ EOF
 printf '#!/bin/bash\necho "apt-get $*" >> "$FAKE_LOG"\n' > "$IB/apt-get"
 # The real curl, with its command line written down: no token or key may be on it (any user can read it with ps).
 printf '#!/bin/bash\nprintf "%%s\\n" "$*" >> "$CURL_ARGV"\nexec /usr/bin/curl "$@"\n' > "$IB/curl"
-for x in pdftotext pdftoppm ffmpeg unzip Xvfb; do printf '#!/bin/sh\nexit 0\n' > "$IB/$x"; done
+for x in pdftoppm ffmpeg unzip Xvfb; do printf '#!/bin/sh\nexit 0\n' > "$IB/$x"; done
 mkdir -p "$H/.local/bin" "$H/.bun/bin"
 printf '#!/bin/bash\n[ "$1 $2" = "auth status" ] && { cat "$FAKE_AUTH"; exit 0; }\necho "claude $*" >> "$FAKE_LOG"\n' > "$H/.local/bin/claude"
 printf '#!/bin/sh\necho 1.4.3\n' > "$H/.bun/bin/bun"
+# The PDF reader's venv, with stand-ins for PyMuPDF and pymupdf4llm (tests/fake-pdf) and a pip that only writes down
+mkdir -p "$H/pdf/bin" "$H/pdf/lib/python3.13/site-packages/pymupdf-2.1.dist-info" "$H/pdf/lib/python3.13/site-packages/pymupdf4llm-2.1.dist-info"
+printf '#!/bin/bash\n[ "$1" = -I ] && shift\nPYTHONDONTWRITEBYTECODE=1 PYTHONPATH=%s exec /usr/bin/python3 "$@"\n' "$PWD/tests/fake-pdf" > "$H/pdf/bin/python"
+printf '#!/bin/bash\necho "pip $*" >> "$FAKE_LOG"\n' > "$H/pdf/bin/pip"
+chmod +x "$H/pdf/bin/python" "$H/pdf/bin/pip"
 chmod +x "$IB"/* "$H/.local/bin/claude" "$H/.bun/bin/bun"
 
 FAROOT="$T/fa"; FALOG="$T/fa.log"; mkdir -p "$FAROOT"; : > "$FALOG"; : > "$T/fa.port"
@@ -211,8 +216,53 @@ check "merge-settings keeps a copy and removes the merged file" bash -c "ls '$H'
 DESTDIR="$T" ./install.sh alex --upgrade >/dev/null 2>&1
 check "after merge-settings, an upgrade leaves the merged settings.json alone (no .new to merge by hand)" bash -c "test ! -e '$H/.claude/settings.json.new' && jq -e '.theme == \"dark\"' '$H/.claude/settings.json'"
 cp "$T/kit-settings.json" "$H/.claude/settings.json"
-: > "$FAKE_LOG"; setup install pdf >/dev/null 2>&1
-check "install pdf: poppler-utils from the system's packages" grep -q 'apt-get install -y -q poppler-utils' "$FAKE_LOG"
+: > "$FAKE_LOG"; setup install pdf > "$T/o" 2>&1
+check "install pdf: PyMuPDF and pymupdf4llm in their venv, checked, and the version said" bash -c "grep -q 'pip install -q --upgrade pymupdf>=2.0 pymupdf4llm>=2.0' '$FAKE_LOG' && grep -q 'PyMuPDF 2.1 in ~/pdf' '$T/o'"
+check "install pdf: poppler-utils is left alone when pdftoppm is there (Claude Code's Read uses it)" bash -c "! grep -q poppler '$FAKE_LOG'"
+mv "$IB/pdftoppm" "$T/pdftoppm.off"; : > "$FAKE_LOG"; setup install pdf >/dev/null 2>&1
+check "install pdf: brings poppler-utils for Claude Code's Read when pdftoppm is missing" grep -q 'apt-get install -y -q poppler-utils' "$FAKE_LOG"
+check "doctor: PyMuPDF without pdftoppm is ⚠️" test "$(st pdf)" = warn
+mv "$T/pdftoppm.off" "$IB/pdftoppm"
+jcheck "doctor: the PDF check reads a PDF made on the spot (Markdown too with --deep)" '.capabilities[0] | .status == "ok" and (.detail | test("PyMuPDF 2.1 and pymupdf4llm 2.1; read a test PDF as Markdown"))' "$(doc --json --deep --only pdf)"
+mv "$H/pdf/lib/python3.13/site-packages/pymupdf4llm-2.1.dist-info" "$T/p4.off"
+check "doctor: without pymupdf4llm the PDF reader is ❌" test "$(st pdf)" = fail
+mv "$T/p4.off" "$H/pdf/lib/python3.13/site-packages/pymupdf4llm-2.1.dist-info"
+printf '#!/bin/sh\necho "ImportError: PyMuPDF 2.2 but pymupdf4llm wants 2.1" >&2; exit 1\n' > "$T/badpy"; chmod +x "$T/badpy"
+cp "$H/pdf/bin/python" "$T/goodpy"; cp "$T/badpy" "$H/pdf/bin/python"
+jcheck "doctor: a PDF reader that does not load is ❌, with what it said" '.capabilities[0] | .status == "fail" and (.detail | test("ImportError"))' "$(doc --json --only pdf)"
+cp "$T/goodpy" "$H/pdf/bin/python"
+
+# ---- pdf-read.py, with the stand-ins: pages, scans, images, limits ----
+PR="$T/pdfr"; mkdir -p "$PR"
+pr() { env PDF_VENV="$H/pdf" HOME="$H" python3 -I templates/tools/pdf-read.py "$@"; }
+printf '%%PDF-1.7\nP Invoice 2026-114 total 54.00\nP\nP Terms and conditions\n' > "$PR/bill.pdf"
+out=$(pr "$PR/bill.pdf" 2>&1)
+check "pdf-read: Markdown page by page, a scanned page said so" bash -c 'grep -q "^# bill.pdf · 3 pages" <<<"$1" && grep -q "^\*\*Invoice 2026-114 total 54.00\*\*" <<<"$1" && grep -q "^## Page 3" <<<"$1" && grep -q "no text on this page.*--images" <<<"$1"' _ "$out"
+out=$(pr "$PR/bill.pdf" --pages 2-3 --images "$PR/img" 2>&1)
+check "pdf-read --images: a PNG of the scanned page only, in a private folder" bash -c 'test -e "$2/img/page-2.png" -a ! -e "$2/img/page-3.png" && test $(stat -c %a "$2/img") = 700 && grep -q "image of page 2: $2/img/page-2.png" <<<"$1" && ! grep -q "## Page 1" <<<"$1"' _ "$out" "$PR"
+pr "$PR/bill.pdf" --pages 1,3 --images "$PR/all" --every-page --dpi 150 >/dev/null 2>&1
+check "pdf-read --every-page: a PNG of every page asked for, at the dpi asked" bash -c "test -e '$PR/all/page-1.png' -a -e '$PR/all/page-3.png' -a ! -e '$PR/all/page-2.png' && grep -q 'dpi=150' '$PR/all/page-1.png'"
+{ printf '%%PDF-1.7\n'; for i in $(seq 1 40); do echo "P page $i"; done; echo "P WIDE poster"; } > "$PR/long.pdf"
+out=$(pr "$PR/long.pdf" --max-pages 5 2>&1)
+check "pdf-read: at most --max-pages, and says how many it left out" bash -c 'grep -q "^## Page 5" <<<"$1" && ! grep -q "^## Page 6" <<<"$1" && grep -q "36 more page(s) not shown" <<<"$1"' _ "$out"
+pr "$PR/long.pdf" --pages 41 --images "$PR/wide" --every-page >/dev/null 2>&1
+check "pdf-read: a huge page is drawn smaller (never more than 4000 px a side)" bash -c "grep -q 'dpi=20' '$PR/wide/page-41.png'"
+if pr "$PR/bill.pdf" --pages 7 >/dev/null 2>&1; then ko "pdf-read: pages that do not exist are an error"; else ok "pdf-read: pages that do not exist are an error"; fi
+if pr "$PR/bill.pdf" --pages '1;rm' >/dev/null 2>&1; then ko "pdf-read: a page list that is not one is refused"; else ok "pdf-read: a page list that is not one is refused"; fi
+echo '<html>not a pdf</html>' > "$PR/fake.pdf"
+check "pdf-read: refuses what is not a PDF" bash -c "out=\$(env PDF_VENV='$H/pdf' python3 -I templates/tools/pdf-read.py '$PR/fake.pdf' 2>&1); test \$? = 2 && grep -q 'not a PDF' <<<\"\$out\""
+truncate -s 201M "$PR/huge.pdf"
+check "pdf-read: refuses a file over 200 MB" bash -c "env PDF_VENV='$H/pdf' python3 -I templates/tools/pdf-read.py '$PR/huge.pdf' 2>&1 | grep -q 'at most 200 MB'"
+rm -f "$PR/huge.pdf"
+printf '%%PDF-1.7\nPASSWORD\nP secret\n' > "$PR/locked.pdf"
+check "pdf-read: a PDF with a password says so" bash -c "env PDF_VENV='$H/pdf' python3 -I templates/tools/pdf-read.py '$PR/locked.pdf' 2>&1 | grep -q 'protected with a password'"
+printf '%%PDF-1.7\nSLOW\nP x\n' > "$PR/slow.pdf"
+t0=$(date +%s); out=$(pr "$PR/slow.pdf" --timeout 5 2>&1); rc=$?
+check "pdf-read: a PDF that takes too long is stopped at --timeout" bash -c '[ "$1" = 4 ] && [ $(( $(date +%s) - $2 )) -lt 15 ] && grep -q "stopped after 5 s" <<<"$3"' _ "$rc" "$t0" "$out"
+check "pdf-read: without its venv, it says how to install it" bash -c "env PDF_VENV='$T/nowhere' python3 -I templates/tools/pdf-read.py '$PR/bill.pdf' 2>&1 | grep -q 'assistant-setup install pdf'"
+if pr --worker "$PR/bill.pdf" >/dev/null 2>&1; then ko "pdf-read: the worker cannot be called from outside"; else ok "pdf-read: the worker cannot be called from outside"; fi
+check "pdf-read is allowed in the settings" jq -e '.permissions.allow | index("Bash(python3 -I /usr/local/share/assistant/tools/pdf-read.py *)")' templates/settings.json
+check "install.sh copies pdf-read.py with the tools" test -x "$T/usr/local/share/assistant/tools/pdf-read.py"
 if setup install no-such-thing >/dev/null 2>&1; then ko "install refuses unknown capabilities"; else ok "install refuses unknown capabilities"; fi
 setup decline updates >/dev/null 2>&1
 check "decline updates: off in install.conf" grep -q '^RELEASE_WATCH=no$' "$T/usr/local/share/assistant/install.conf"

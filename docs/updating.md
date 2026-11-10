@@ -39,12 +39,12 @@ installed versions. Installing, removing or declining a capability with `assista
 |---|---|---|
 | The assistant itself | its repo's latest GitHub release (`GITHUB_REPO` in `install.conf`) | this kit |
 | A GitHub release | `/repos/<owner>/<repo>/releases/latest` | Bun |
-| A Python package | PyPI's JSON API, against the version in its venv | yt-dlp, onnx-asr (Parakeet), faster-whisper |
+| A Python package | PyPI's JSON API, against the version in its venv | yt-dlp, onnx-asr (Parakeet), faster-whisper, PyMuPDF and pymupdf4llm |
 | An npm package | the npm registry (n8n: its `stable` tag) | agent-browser, n8n |
 | The Telegram plugin | Claude Code's own copy of the official plugin catalogue, on the machine | telegram@claude-plugins-official |
 | A third-party skill | its repo's latest commit, against the one in the skill's `.installed-from` | diagram-design |
 | Updates itself | not watched, only noted | Claude Code (the daily restart updates it) |
-| The system's packages | not watched, only noted | Chromium, the PDF reader, ffmpeg (the machine's own updates) |
+| The system's packages | not watched, only noted | Chromium, poppler (for Claude Code's Read), ffmpeg (the machine's own updates) |
 
 Once a day it asks each source for its latest version and, for anything newer than what is installed, wakes the
 assistant through the [wake-up](wakeup.md) with at most two lines: one for its own release (source

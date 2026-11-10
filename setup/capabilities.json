@@ -243,14 +243,18 @@
    "id": "pdf",
    "group": "everyday",
    "title": "Reading PDFs",
-   "gives": "It reads the PDFs you send it (bills, contracts, letters), scanned ones too.",
+   "gives": "It reads the PDFs you send it (bills, contracts, letters), tables and columns included, and looks at the scanned ones.",
    "default": "yes",
    "needs": [],
-   "root": true,
+   "root": false,
    "install": "assistant-setup install pdf",
+   "cost": "About 300 MB of disk.",
+   "license": "PyMuPDF is AGPL-licensed (or commercial): no obligation for a personal assistant that you do not offer to others as a service.",
    "guide": "setup.md",
    "upstream": [
-    {"name": "Poppler", "what": "the PDF reader", "kind": "system"}
+    {"name": "PyMuPDF", "what": "the PDF reader", "kind": "pypi", "package": "pymupdf", "venv": "~/pdf"},
+    {"name": "pymupdf4llm", "what": "what turns a PDF into Markdown for it to read", "kind": "pypi", "package": "pymupdf4llm", "venv": "~/pdf"},
+    {"name": "Poppler", "what": "what Claude Code's own Read tool shows PDF pages with", "kind": "system"}
    ]
   },
   {

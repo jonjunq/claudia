@@ -95,7 +95,7 @@ tgapi() {  # method json -> response on stdout
 owner_chat() { jq -r '.allowFrom[0] // empty' "$TG/access.json" 2>/dev/null; }
 mem_gb() { awk '/MemTotal/ {printf "%d", $2 / 1048576 + 0.5}' /proc/meminfo; }
 venv_pip() {  # dir packages...: a venv in the user's home with those packages, upgraded if it exists
-  local dir=$1; shift
+  local dir=$D$1; shift
   asu "set -e; [ -x '$dir/bin/python' ] || python3 -m venv '$dir'; '$dir/bin/pip' install -q --upgrade pip >/dev/null; '$dir/bin/pip' install -q --upgrade $*" ||
     die "pip could not install $* into $dir"
 }
@@ -191,7 +191,16 @@ install_voice_best() {
     die "could not download the large-v3 model"
   say "faster-whisper ready in ~/whisper (best quality: transcribe.sh <file> large-v3)"
 }
-install_pdf() { apt_install poppler-utils; say "pdftotext and pdftoppm"; }
+install_pdf() {
+  # PyMuPDF reads the text (tables and columns too) and pymupdf4llm turns it into Markdown; the tool that runs them
+  # is /usr/local/share/assistant/tools/pdf-read.py. AGPL-licensed: fine for a personal assistant.
+  venv_pip "$HL/pdf" '"pymupdf>=2.0" "pymupdf4llm>=2.0"'
+  asu "\$HOME/pdf/bin/python -I -c 'import pymupdf, pymupdf4llm'" >/dev/null 2>&1 || die "PyMuPDF is in ~/pdf but does not load"
+  # Claude Code's own Read tool draws PDF pages with pdftoppm: poppler-utils stays, for it.
+  if command -v pdftoppm >/dev/null; then :; elif is_root; then apt_install poppler-utils
+  else say "as root, also: apt-get install poppler-utils (Claude Code's own Read tool needs it to show PDF pages)"; fi
+  say "PyMuPDF $(asu "\$HOME/pdf/bin/python -I -c 'import pymupdf; print(pymupdf.__version__)'" 2>/dev/null) in ~/pdf (pdf-read.py)"
+}
 install_links_videos() {
   command -v ffmpeg >/dev/null || install_system
   venv_pip "$HL/yt-dlp" '"yt-dlp[default]"'
@@ -256,6 +265,7 @@ remove_one() {
     voice-local) asu 'rm -rf ~/parakeet' ;;
     voice-best) asu 'rm -rf ~/whisper' ;;
     links-videos) asu 'rm -rf ~/yt-dlp ~/.local/bin/yt-dlp' ;;
+    pdf) asu 'rm -rf ~/pdf' ;;
     voice|voice-backup|voice-reply)
       local k; for k in GROQ_API_KEY CF_AI_TOKEN CF_AI_ACCOUNT_ID ELEVENLABS_API_KEY; do
         case "$1:$k" in voice:GROQ*|voice-backup:CF*|voice-reply:ELEVEN*) sed -i "s/^$k=.*/#$k=/" "$KEYS" ;; esac

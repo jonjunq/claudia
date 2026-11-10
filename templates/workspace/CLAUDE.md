@@ -104,8 +104,9 @@ something long __OWNER__ cannot talk to you. So heavy work goes to a helper (a s
 - Long command or API output: `head`/`tail`/`grep`, or save it to a file and look at what you need. Never pour whole
   listings into the conversation (model lists, thousands of emails, an API's full JSON): filter for what you need.
 - Screenshots: only the useful area, at 1280 px or less; in the browser, `snapshot` before a screenshot.
-- PDFs: `pdftotext -layout -f N -l N` for the pages you need, not the whole document unless it is necessary. A
-  scanned PDF has no text: `pdftoppm -r 110 -png -f N -l N <file> <prefix>` and look at those images.
+- PDFs: `python3 -I /usr/local/share/assistant/tools/pdf-read.py <file> --pages N-M` gives the pages you need as
+  Markdown (tables and columns kept), not the whole document unless it is necessary. A page with no text is a scan:
+  add `--images <folder>` and look at the PNGs it saves with Read.
 
 ## First weeks: offer what you can do
 - __OWNER__ may not know what you can do or set up for them, and should not need to read any docs to find out. At

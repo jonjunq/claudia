@@ -8,7 +8,7 @@ IDLE_COMPACT=no in install.conf), ‚óã optional and not set up yet (to offer), ‚ù
   assistant-doctor               the report, for a person
   assistant-doctor --json        the same, for the installer or the assistant
   assistant-doctor --offline     no network at all (keys are only checked to be there)
-  assistant-doctor --deep        also opens the browser once, as the assistant's user
+  assistant-doctor --deep        also opens the browser once and turns a test PDF into Markdown, as the assistant's user
   assistant-doctor --only a,b    only those capabilities
   assistant-doctor --watch-list  what the version watch must cover (JSON), from what is installed
   assistant-doctor --list-checks the capability ids this doctor knows how to check
@@ -409,11 +409,33 @@ def c_voice_reply(c):
                      {"xi-api-key": c.keys.get("ELEVENLABS_API_KEY", "")}, "ElevenLabs")
 
 
+# A PDF made on the spot, read back: PyMuPDF loads and extracts text, pymupdf4llm loads (with --deep, it also turns
+# the page into Markdown, as pdf-read.py does).
+PDF_PROBE = """import sys, pymupdf, pymupdf4llm
+d = pymupdf.open(); d.new_page().insert_text((72, 72), "doctor probe 42")
+doc = pymupdf.open(stream=d.tobytes(), filetype="pdf")
+assert "doctor probe 42" in doc[0].get_text()
+if sys.argv[1:] == ["deep"]:
+    assert "doctor probe 42" in pymupdf4llm.to_markdown(doc, use_ocr=False, show_progress=False)
+print(pymupdf.__version__)
+"""
+
+
 def c_pdf(c):
-    miss = [x for x in ("pdftotext", "pdftoppm") if not shutil.which(x)]
-    if miss:
-        return R("fail", "missing: " + ", ".join(miss), asroot("assistant-setup install pdf"), False)
-    return R("ok", "pdftotext and pdftoppm")
+    venv = c.env.get("PDF_VENV") or c.H + "/pdf"
+    v, v4 = venv_version(venv, "pymupdf"), venv_version(venv, "pymupdf4llm")
+    if not (v and v4):
+        return R("fail", "no PDF reader (PyMuPDF and pymupdf4llm)", "assistant-setup install pdf", False)
+    if not os.path.exists(P("/usr/local/share/assistant/tools/pdf-read.py")):
+        return R("fail", "PyMuPDF is there, but not the tool that runs it (pdf-read.py)", asroot("install.sh " + c.user + " --upgrade"), True)
+    rc, out = c.run([venv + "/bin/python", "-I", "-c", PDF_PROBE] + (["deep"] if c.deep else []), timeout=90)
+    if rc != 0:
+        last = out.strip().splitlines()[-1][:120] if out.strip() else "no output"
+        return R("fail", "PyMuPDF does not read a test PDF: " + last, "assistant-setup install pdf", True)
+    if not shutil.which("pdftoppm"):
+        return R("warn", f"PyMuPDF {v}; Claude Code's own Read tool cannot show PDF pages without pdftoppm",
+                 asroot("apt-get install poppler-utils"))
+    return R("ok", f"PyMuPDF {v} and pymupdf4llm {v4}; read a test PDF" + (" as Markdown" if c.deep else ""))
 
 
 def c_links_videos(c):

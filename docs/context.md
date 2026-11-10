@@ -78,8 +78,8 @@ Three notes:
 - A resumed conversation (`--continue`) may keep the tools it started with; the change is complete from the next
   fresh conversation (after the daily restart).
 - `CLAUDE.md` gains a short "What you do yourself, with limits" section: `head`/`tail`/`grep` instead of whole
-  listings, screenshots of the useful area at 1280 px or less, `pdftotext` for the pages that matter. One API answer
-  (a full model list) once put 65,000 characters into ours.
+  listings, screenshots of the useful area at 1280 px or less, `pdf-read.py --pages` for the pages that matter. One
+  API answer (a full model list) once put 65,000 characters into ours.
 
 ### Optional: connectors you never use (`deniedMcpServers`)
 

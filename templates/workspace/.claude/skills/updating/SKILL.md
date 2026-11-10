@@ -78,8 +78,8 @@ links it built itself. Release notes are never in the notice: if you read them, 
    ("tool updates waiting: …") and offer them all together, in one line, the next time you have something worth
    telling them, at most once a week. Never more than one message about updates a day.
 4. **With their yes** (and only then), as root, or give __OWNER__ the one command for whoever runs the machine:
-   - yt-dlp, agent-browser, Parakeet, faster-whisper: `assistant-setup install <capability>` (running it again brings
-     it up to date), then `assistant-doctor --only <capability>`.
+   - yt-dlp, agent-browser, Parakeet, faster-whisper, PyMuPDF: `assistant-setup install <capability>` (running it
+     again brings it up to date), then `assistant-doctor --only <capability>`.
    - Bun: `~/.bun/bin/bun upgrade` as your user, then restart the session.
    - The Telegram plugin: a new plugin version can break the patch that gives you buttons, voice notes on arrival
      and the instant `/usage`. Unless it is a security fix, recommend waiting for a release of this kit that says it
@@ -92,7 +92,7 @@ links it built itself. Release notes are never in the notice: if you read them, 
    - You yourself (claudia-release): the steps above.
    Then `assistant-setup watch` (root) so the watch knows the new versions, and tell __OWNER__ in one line it is done.
 5. Not watched, on purpose: Claude Code updates itself every night (the daily restart), and the system's packages
-   (Chromium, the PDF reader, ffmpeg) come with the machine's own updates. Never bring those up as news.
+   (Chromium, poppler, ffmpeg) come with the machine's own updates. Never bring those up as news.
 
 ## Setting up the release watch (if __OWNER__ said yes to it)
 `assistant-doctor --only updates` says whether it is on and covers everything installed. To turn it on, or to

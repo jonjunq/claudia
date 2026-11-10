@@ -353,6 +353,7 @@ The pieces, grouped by what they are for. Everything except the core is optional
 | `.claude/skills/browser` + `templates/browser/` | Uses websites through agent-browser and a full Chromium with a window instead of improvised scripts; optional remote window (noVNC) for captchas and sign-ins |
 | `templates/tools/card-fill.sh` | Stores a limited virtual card for optional payments, without it passing through the chat |
 | `templates/tools/vet-skill.sh` | Scans a third-party skill with SkillSpector before you install it |
+| `templates/tools/pdf-read.py` | Reads a PDF as Markdown with PyMuPDF (tables and columns kept), and saves the scanned pages as images to look at |
 | `templates/tools/unsubscribe.py` | One-click unsubscribe from newsletters, only with the link the sender signed (RFC 8058) |
 | `docs/recipes/` | How to set up everything in [What you can ask it](#what-you-can-ask-it), with the risks; installed for the assistant to read |
 

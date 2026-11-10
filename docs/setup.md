@@ -151,6 +151,12 @@ One gotcha baked into `start.sh`: when you pass a first prompt to `claude`, put 
 
 ## 8. Optional: wake-up and n8n
 
+- **PDFs**: `assistant-setup install pdf` puts [PyMuPDF](https://pymupdf.readthedocs.io) and pymupdf4llm in a venv
+  (`~/pdf`, about 300 MB). The assistant reads a PDF with `python3 -I /usr/local/share/assistant/tools/pdf-read.py
+  <file> --pages 1-3`: Markdown, tables and columns kept; a page with no text (a scan) is saved as a PNG with
+  `--images <folder>` for it to look at. The tool runs with a time limit, at most 200 pages at a time and 200 MB per
+  file, and never opens links, JavaScript or attachments in the PDF. PyMuPDF is AGPL-licensed: no obligation for a
+  personal assistant. `poppler-utils` stays too, because Claude Code's own Read tool draws PDF pages with it.
 - **Wake-up** ([wakeup.md](wakeup.md)): if the assistant should react to things other than your messages (a log
   that gets a new line, an email, a job that fails), `systemctl enable --now assistant-wakeup` lets them reach it as
   one-line notices, without Monitors that cost a turn every 30 minutes.

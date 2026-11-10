@@ -362,6 +362,7 @@ Las piezas, agrupadas por para qué sirven. Todo menos lo básico es opcional.
 | `.claude/skills/browser` + `templates/browser/` | Usa webs con agent-browser y un Chromium completo con ventana en vez de scripts improvisados; ventana remota opcional (noVNC) para captchas e inicios de sesión |
 | `templates/tools/card-fill.sh` | Guarda una tarjeta virtual limitada para los pagos opcionales, sin que pase por el chat |
 | `templates/tools/vet-skill.sh` | Revisa una skill de terceros con SkillSpector antes de instalarla |
+| `templates/tools/pdf-read.py` | Lee un PDF en Markdown con PyMuPDF (tablas y columnas incluidas) y guarda las páginas escaneadas como imagen para mirarlas |
 | `templates/tools/unsubscribe.py` | Bajas de publicidad en un clic, solo con el enlace que firmó el remitente (RFC 8058) |
 | `docs/recipes/` | Cómo montar todo lo de [Qué le puedes pedir](#qué-le-puedes-pedir), con sus riesgos; se instala para que el asistente lo lea |
 

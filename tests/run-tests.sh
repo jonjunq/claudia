@@ -18,7 +18,7 @@ check "settings.json trims the fixed context" jq -e '(.permissions.deny | index(
 check "settings.json re-injects context after a compaction" jq -e '.hooks.SessionStart[0].matcher == "compact" and (.hooks.SessionStart[0].hooks[0].command | test("after-compact.py"))' templates/settings.json
 check "settings.json hard-blocks payments" jq -e '.autoMode.hard_deny[0] == "$defaults" and (.autoMode.hard_deny[1] | test("payment"; "i"))' templates/settings.json
 for j in templates/n8n/workflows/*.json; do check "valid JSON $j" jq -e . "$j"; done
-for p in templates/telegram/*.py templates/memory/*.py templates/wakeup/*.py templates/tools/*.py tests/*.py docs/diagrams/*.py templates/system/assistant-idle-compact templates/system/assistant-doctor; do check "python compiles $p" python3 -m py_compile "$p"; done
+for p in templates/telegram/*.py templates/memory/*.py templates/wakeup/*.py templates/tools/*.py tests/*.py tests/fake-pdf/*.py docs/diagrams/*.py templates/system/assistant-idle-compact templates/system/assistant-doctor; do check "python compiles $p" python3 -m py_compile "$p"; done
 find templates tests docs -name __pycache__ -exec rm -rf {} +
 
 # No EXIT trap for the cleanup: bash runs it in the subshells of pipelines inside functions, too early.
