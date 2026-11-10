@@ -64,6 +64,18 @@ being flagged: the trigger is the **words in the context**, not the model, so it
 is in the conversation, even in a note telling it to stay away from it. Start a fresh conversation (`/clear` or
 `.new-session`) and reword whatever it rereads at start (`notes/todo.md`, `yesterday.md`) in neutral terms.
 
+**Optional: a backup model for flagged turns**
+If you would rather not fall back to another Claude model, start the session with
+`CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK=1` (in `start.sh`): a flagged turn simply ends and the session stays on its
+model, without the dialog. What it could not answer can then go to a backup model of your own: a local LLM
+(llama.cpp, Ollama…) or another provider's API (DeepSeek, OpenRouter…), behind its own Telegram bot. The flag is in
+the session transcript (`stop_reason: "refusal"` on the assistant message, or a `model_refusal_*` system entry), so
+a small watcher can offer a button and copy the last messages across as they are. Two lessons: do not ask the
+assistant to summarise the conversation for the handover (the same safeguards would flag the summary), and keep the
+backup's answers, and any instructions about the safeguards, out of the assistant's context and its `CLAUDE.md`:
+text about getting around them is itself enough to trip them. Not covered further here; if you go this way, you
+will know how to wire it up.
+
 **It retried a blocked action over and over**
 Add (it is in the template): "if the permission system blocks a tool, stop at the first block and tell the owner".
 

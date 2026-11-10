@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `docs/troubleshooting.md`: a short note on an optional backup model for turns the safeguards flag
+  (`CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK=1`, a local LLM or another provider behind its own bot), with the two
+  lessons that matter: hand the conversation over verbatim, and keep anything about the safeguards out of the
+  assistant's context.
+
 ## 1.7.0 — 2026-11-10
 
 - **It installs itself.** A `CLAUDE.md` at the root of the repo (and an `AGENTS.md` pointing to it): a Claude Code
