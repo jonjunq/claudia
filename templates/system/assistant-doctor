@@ -283,14 +283,18 @@ def c_telegram_extras(c):
                  "assistant-setup install telegram-extras", False)
     if "permission-hook.py" not in c.settings:
         return R("fail", "the permission buttons are not in settings.json", asroot("assistant-setup merge-settings"))
+    mark = re.search(r'^MARK = "(// ASSISTANT-PATCH v\d+)"', read(P("/usr/local/lib/assistant-telegram/patch-telegram-plugin.py")), re.M)
+    if mark and mark.group(1) not in read(pdir + "/server.ts"):
+        return R("warn", "patched by an older version (no /model on the bot); the next restart of the session"
+                 " brings " + mark.group(1).split()[-1], "assistant-setup install telegram-extras, then restart the session")
     if not os.path.exists(P("/usr/local/lib/assistant-telegram/send-rich.py")):
         return R("fail", "the rich-message tool is missing", asroot("install.sh " + c.user + " --upgrade"))
     if not c.offline and c.tg_env.get("TELEGRAM_BOT_TOKEN") and c.owner_chat():
         code, js = c.telegram("getMyCommands", scope={"type": "chat", "chat_id": c.owner_chat()})
         if code == 200 and js and js.get("ok"):
             names = {x.get("command") for x in js.get("result") or [] if isinstance(x, dict)}
-            if not {"usage", "clear"} <= names:
-                return R("warn", "patched; /usage and /clear are not in the bot's menu", "assistant-setup install telegram-extras")
+            if not {"usage", "model", "clear"} <= names:
+                return R("warn", "patched; /usage, /model and /clear are not all in the bot's menu", "assistant-setup install telegram-extras")
     return R("ok", "patched; buttons, rich messages and voice notes on arrival")
 
 

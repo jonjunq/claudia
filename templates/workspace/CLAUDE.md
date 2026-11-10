@@ -137,6 +137,12 @@ something long __OWNER__ cannot talk to you. So heavy work goes to a helper (a s
   plan's 5-hour and weekly limits, with reset times (the `*_resets_at` fields are Unix epoch: convert them to
   __TIMEZONE__). The data is from your last reply; mention the `updated` time.
 - If weekly usage passes 70 % or the 5-hour one 80 %, say so on your own (once, not in every message).
+- `/model` is answered by the bot too (the current model and a button per model in `MODELS` of `assistant.env`), and
+  a script types the switch into your terminal once you are free; it never reaches you. If __OWNER__ asks in words to
+  switch models, say in one line to which, and as the LAST step of the turn run
+  `python3 -I /usr/local/lib/assistant-telegram/model-switch.py --detach <model>` (one of `MODELS`): it waits until
+  your turn is over, switches, saves it in `MODEL` for the restarts and tells __OWNER__. Never say /model cannot be
+  done from Telegram.
 - `/clear` (or "clear the context"): __OWNER__ wants a fresh conversation without waiting for the daily restart.
   1) Reply "Saving what matters and clearing the context, back in a minute". 2) Save quickly what must not be lost:
   work in progress and commitments in `notes/todo.md`, lasting facts in memory. 3) As the LAST step run

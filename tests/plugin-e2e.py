@@ -9,7 +9,10 @@ MCP to it over stdio like Claude Code does, and checks:
   3. a download that hangs still delivers the normal notification (without transcript), after the timeouts;
   4. download_attachment with a hung download returns an error instead of hanging forever;
   5. /usage from the allowlisted user is answered by the plugin itself (never reaches Claude), and a stranger's is
-     ignored.
+     ignored;
+  6. /model (patch v4): the current model and a button per model in MODELS; "/model sonnet", "/model opus 4.8" and a
+     button start the switch script (a fake one here) with that model; an unknown model, a stranger's /model or
+     button, or a button for a model outside MODELS start nothing; none of it reaches Claude.
 Steps 3 and 4 wait for the real timeouts: about 1.5 minutes in all."""
 import json, os, shutil, subprocess, sys, tempfile, threading, time
 
@@ -70,7 +73,11 @@ json.dump({"updated": time.strftime("%Y-%m-%d %H:%M"), "model": "Opus", "context
            "five_hour_pct": 85, "five_hour_resets_at": now + 1800, "week_pct": 58, "week_resets_at": now + 4 * 86400},
           open(os.path.join(ws, "state.json"), "w"))
 json.dump({"autoCompactWindow": 300000}, open(os.path.join(home, ".claude", "settings.json"), "w"))
-env = {**os.environ, "HOME": home, "TELEGRAM_BOT_TOKEN": "123:FAKE", "TELEGRAM_STATE_DIR": state, "ASSISTANT_DIR": ws,
+open(os.path.join(ws, "assistant.env"), "w").write('MODEL=opus\nMODELS="opus sonnet claude-opus-4-8"\n')
+started = os.path.join(T, "started.txt")
+fake_switch = os.path.join(T, "fake-model-switch.py")
+open(fake_switch, "w").write(f"import sys\nopen({started!r}, 'a').write(' '.join(sys.argv[1:]) + '\\n')\n")
+env = {**os.environ, "HOME": home, "ASSISTANT_MODEL_SWITCH": fake_switch, "TELEGRAM_BOT_TOKEN": "123:FAKE", "TELEGRAM_STATE_DIR": state, "ASSISTANT_DIR": ws,
        "TG_API_ROOT": f"http://127.0.0.1:{port}"}
 plugin = subprocess.Popen(["bun", "server.ts"], cwd=P, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                           stderr=open(os.path.join(T, "plugin.err"), "w"), text=True)
@@ -169,6 +176,38 @@ check("5. warning past 80 % of the 5-hour limit", "85 % ⚠️" in text and "58 
 check("5. says it is working", "working, for 5 min" in text)
 check("5. nothing for the stranger", not [m for m in sent if str(m.get("chat_id")) == "99"])
 check("5. /usage never reaches Claude", not any("/usage" in p["content"] for _, p in inbox[n_inbox:]))
+
+def button(uid, sender, data):
+    return {"update_id": uid, "callback_query": {"id": f"cb{uid}", "chat_instance": "1", "data": data,
+            "from": {"id": sender, "is_bot": False, "first_name": "U"},
+            "message": {"message_id": 50 + uid, "date": int(time.time()), "text": "pick", "chat": {"id": sender, "type": "private"}}}}
+
+
+def started_with():
+    return open(started).read().split() if os.path.exists(started) else []
+
+
+open(api_log, "w").close(); n_inbox = len(inbox)
+set_scenario(updates=[text_update(20, 99, "/model"), text_update(21, 99, "/model sonnet"), text_update(22, 42, "/model"),
+                      text_update(23, 42, "/model sonnet"), text_update(24, 42, "/model rubbish; rm -rf ~"),
+                      button(25, 42, "md:claude-opus-4-8"), button(26, 99, "md:opus"), button(27, 42, "md:haiku"),
+                      text_update(28, 42, "/model Opus 4.8"), text_update(29, 42, "hello again")])
+check("6. a normal text after /model still reaches Claude", wait(lambda: any(p["content"] == "hello again" for _, p in inbox), 30))
+wait(lambda: len(started_with()) >= 3, 10)
+sent = [json.loads(l) for l in open(api_log)]
+mine = [m for m in sent if m.get("method") == "sendMessage" and str(m.get("chat_id")) == "42"]
+first = mine[0] if mine else {}
+kb = json.dumps(first.get("reply_markup", ""))
+print("     " + str(first.get("text", "")))
+check("6. /model shows the current model", "It is on Opus" in str(first.get("text", "")))
+check("6. /model has a button per model in MODELS", all(f"md:{m}" in kb for m in ("opus", "sonnet", "claude-opus-4-8")) and "md:haiku" not in kb)
+check("6. /model sonnet, the opus-4-8 button and /model Opus 4.8 start the switch", started_with() == ["sonnet", "claude-opus-4-8", "claude-opus-4-8"])
+check("6. an unknown model starts nothing and lists the models", any("do not know" in str(m.get("text", "")) for m in mine))
+check("6. nothing for the stranger", not [m for m in sent if m.get("method") == "sendMessage" and str(m.get("chat_id")) == "99"])
+check("6. a button for a model outside MODELS is refused", any(m.get("method") == "answerCallbackQuery" and m.get("text") == "Unknown model" for m in sent))
+check("6. the stranger's button is refused", any(m.get("method") == "answerCallbackQuery" and m.get("text") == "Not authorized." for m in sent))
+check("6. /model never reaches Claude", not any("/model" in p["content"] for _, p in inbox[n_inbox:]))
+check("6. logged to model.log", os.path.exists(os.path.join(state, "model.log")))
 
 for line in open(os.path.join(state, "voice.log"), errors="replace") if os.path.exists(os.path.join(state, "voice.log")) else []:
     print("     voice.log: " + line.strip())

@@ -17,13 +17,19 @@
     model call and works while the assistant is busy. It reads ~/assistant/state.json (written by statusline.sh),
     autoCompactWindow from ~/.claude/settings.json and ~/.cache/assistant-telegram/turn.json. Only for the allowlist;
     anyone else gets nothing, as before. Logged to $STATE_DIR/usage.log (the time only).
+ 7. (v4) /model is answered by the plugin too (allowlist only): without an argument it shows the current model and a
+    button per model in MODELS of ~/assistant/assistant.env (callback md:<model>); with one (a model of that list or
+    its name, "/model sonnet", "/model opus 4.8") or with a button it starts, detached,
+    /usr/local/lib/assistant-telegram/model-switch.py <model> (ASSISTANT_MODEL_SWITCH only for the tests), which types
+    it into the assistant's terminal once it is free and reports back. Nothing outside MODELS is ever started.
+    Logged to $STATE_DIR/model.log.
 Idempotent: a file that already carries this version's marker is left alone. A file patched by an older version is
 rebuilt from server.ts.orig (the unpatched copy, refreshed whenever a clean plugin file is patched).
 The session must restart to load the patched plugin. Exit 0 = patched or already patched; 1 = anchors not found
 (the plugin changed: adapt the anchors below)."""
 import glob, os, shutil, sys
 
-MARK = "// ASSISTANT-PATCH v3"
+MARK = "// ASSISTANT-PATCH v4"
 FAMILY = "ASSISTANT-PATCH"
 
 VOICE_HELPERS = (
@@ -150,12 +156,82 @@ USAGE_TS = (
     "})\n\n"
 )
 
+MODEL_TS = (
+    MARK + ": /model: the plugin starts model-switch.py, which types it into the assistant's terminal once it is free\n"
+    "const _PATCH_WS = process.env.ASSISTANT_DIR ?? join(homedir(), 'assistant')\n"
+    "function _patchEnvValue(key: string): string {\n"
+    "  try { return (new RegExp(`^${key}=(.*)$`, 'm').exec(readFileSync(join(_PATCH_WS, 'assistant.env'), 'utf8'))?.[1] ?? '').trim().replace(/^[\"']|[\"']$/g, '') }\n"
+    "  catch { return '' }\n"
+    "}\n"
+    "function _patchModels(): string[] {\n"
+    "  const l = _patchEnvValue('MODELS').split(/\\s+/).filter(m => /^[A-Za-z0-9][A-Za-z0-9.\\[\\]-]{1,47}$/.test(m))\n"
+    "  return l.length ? l : ['opus', 'sonnet', 'haiku']\n"
+    "}\n"
+    "// What the status line shows for it, or its start: claude-opus-4-8 -> Opus 4.8, opus -> Opus (as model-switch.py)\n"
+    "function _patchModelName(m: string): string {\n"
+    "  const b = m.split('[')[0]!\n"
+    "  const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1)\n"
+    "  if (!b.startsWith('claude-')) return cap(b)\n"
+    "  const p = b.slice(7).split('-')\n"
+    "  const n = p.slice(1).filter(x => /^\\d{1,2}$/.test(x))\n"
+    "  return cap(p[0] ?? '') + (n.length ? ' ' + n.join('.') : '')\n"
+    "}\n"
+    "function _patchModelPick(arg: string): string | undefined {\n"
+    "  const a = arg.trim().toLowerCase().replace(/\\s+/g, ' ')\n"
+    "  return _patchModels().find(m => m.toLowerCase() === a || _patchModelName(m).toLowerCase() === a)\n"
+    "}\n"
+    "function _patchModelNow(): string {\n"
+    "  try { const e = JSON.parse(readFileSync(join(_PATCH_WS, 'state.json'), 'utf8')); if (e?.model) return String(e.model) } catch {}\n"
+    "  const m = _patchEnvValue('MODEL')\n"
+    "  return m ? _patchModelName(m) : '?'\n"
+    "}\n"
+    "function _patchModelKeyboard(now: string): InlineKeyboard {\n"
+    "  const kb = new InlineKeyboard()\n"
+    "  const l = _patchModels()\n"
+    "  const exact = l.some(m => _patchModelName(m) === now)\n"
+    "  l.forEach((m, i) => {\n"
+    "    const n = _patchModelName(m)\n"
+    "    kb.text(((exact ? n === now : now.startsWith(n)) ? '✅ ' : '') + n, `md:${m}`)\n"
+    "    if (i % 2 === 1) kb.row()\n"
+    "  })\n"
+    "  return kb\n"
+    "}\n"
+    "function _patchModelSwitch(m: string): boolean {\n"
+    "  if (!_patchModels().includes(m)) return false\n"
+    "  try { _patchAppend(join(STATE_DIR, 'model.log'), `${new Date().toISOString()} ${m}\\n`) } catch {}\n"
+    "  try {\n"
+    "    const script = process.env.ASSISTANT_MODEL_SWITCH || '/usr/local/lib/assistant-telegram/model-switch.py'\n"
+    "    const h = _patchSpawn('python3', ['-I', script, m], { detached: true, stdio: 'ignore' })\n"
+    "    h.on('error', () => {})\n"
+    "    h.unref()\n"
+    "    return true\n"
+    "  } catch { return false }\n"
+    "}\n"
+    "const _patchModelSwitching = (m: string) => `🔄 Switching to ${_patchModelName(m)} once the assistant finishes what it is doing; I will tell you.`\n"
+    "bot.command('model', async ctx => {\n"
+    "  const g = dmCommandGate(ctx)\n"
+    "  if (!g || !g.access.allowFrom.includes(g.senderId)) return\n"
+    "  const arg = String(ctx.match ?? '').trim()\n"
+    "  const now = _patchModelNow()\n"
+    "  if (!arg) {\n"
+    "    await ctx.reply(`🧠 It is on ${now}. Pick a model (I switch it in its terminal once it is free):`, { reply_markup: _patchModelKeyboard(now) }).catch(() => {})\n"
+    "    return\n"
+    "  }\n"
+    "  const m = _patchModelPick(arg)\n"
+    "  if (!m) {\n"
+    "    await ctx.reply(`I do not know \"${arg.slice(0, 40)}\". Models: ${_patchModels().map(_patchModelName).join(', ')} (/model ${_patchModels().join(', /model ')}).`, { reply_markup: _patchModelKeyboard(now) }).catch(() => {})\n"
+    "    return\n"
+    "  }\n"
+    "  await ctx.reply(_patchModelSwitch(m) ? _patchModelSwitching(m) : 'I could not start the model switch.').catch(() => {})\n"
+    "})\n\n"
+)
+
 # (mode, anchor, text): "before" inserts the text in front of the anchor; "replace" replaces the anchor with the text.
 # Each anchor must appear exactly once in the plugin's server.ts.
 CHANGES = [
     ("before", "import { homedir } from 'os'\n",
      "import { appendFileSync as _patchAppend, existsSync as _patchExists } from 'fs' " + MARK + "\n"
-     "import { execFile as _patchExecFile } from 'child_process' " + MARK + "\n"),
+     "import { execFile as _patchExecFile, spawn as _patchSpawn } from 'child_process' " + MARK + "\n"),
     ("before", "    for (const chat_id of access.allowFrom) {\n      void bot.api.sendMessage(chat_id, text, { reply_markup: keyboard })",
      "    " + MARK + ": log native relays; stay quiet when permission-hook.py handles them\n"
      "    try { _patchAppend(join(STATE_DIR, 'relay.log'), `${new Date().toISOString()} ${request_id} ${tool_name}\\n`) } catch {}\n"
@@ -172,6 +248,22 @@ CHANGES = [
      "    mkdirSync(dir, { recursive: true, mode: 0o700 })\n"
      "    writeFileSync(join(dir, hk[2]!), hk[1]!, { mode: 0o600 })\n"
      "    await ctx.answerCallbackQuery({ text: hk[1] === 'allow' ? '✅' : '❌' }).catch(() => {})\n"
+     "    return\n"
+     "  }\n"
+     "  " + MARK + ": buttons of /model\n"
+     "  const md = /^md:([A-Za-z0-9.\\[\\]-]{2,48})$/.exec(data)\n"
+     "  if (md) {\n"
+     "    if (!loadAccess().allowFrom.includes(String(ctx.from.id))) {\n"
+     "      await ctx.answerCallbackQuery({ text: 'Not authorized.' }).catch(() => {})\n"
+     "      return\n"
+     "    }\n"
+     "    const m = md[1]!\n"
+     "    if (!_patchModelSwitch(m)) {\n"
+     "      await ctx.answerCallbackQuery({ text: 'Unknown model' }).catch(() => {})\n"
+     "      return\n"
+     "    }\n"
+     "    await ctx.answerCallbackQuery({ text: _patchModelName(m) }).catch(() => {})\n"
+     "    await ctx.editMessageText(_patchModelSwitching(m)).catch(() => {})\n"
      "    return\n"
      "  }\n"),
     ("before", "async function handleInbound(\n",
@@ -225,8 +317,8 @@ CHANGES = [
      "        const res = await _patchFetch(url, 30000) " + MARK + "\n        if (!res.ok)"),
     ("replace", "      const res = await fetch(url)\n      const buf",
      "      const res = await _patchFetch(url, 30000) " + MARK + "\n      const buf"),
-    # v3: /usage without the model (before the text handler, so the command never reaches the assistant)
-    ("before", "bot.on('message:text', async ctx => {\n", USAGE_TS),
+    # v3: /usage without the model (before the text handler, so the command never reaches the assistant); v4: /model
+    ("before", "bot.on('message:text', async ctx => {\n", USAGE_TS + MODEL_TS),
 ]
 
 

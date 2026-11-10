@@ -146,17 +146,18 @@ install_telegram() {
 }
 install_telegram_extras() {
   asu 'python3 -I /usr/local/lib/assistant-telegram/patch-telegram-plugin.py' || say "the patch did not apply (see above)"
-  local chat lang usage clear
+  local chat lang usage clear model
   chat=$(owner_chat)
   [ -n "$(tgtoken)" ] && [ -n "$chat" ] || { say "bot menu: after telegram-token and telegram-owner"; return 0; }
   lang=$(conf LANGUAGE)
   case "$lang" in
-    Spanish|Español|español|Castellano|castellano) usage="Uso del contexto y del plan"; clear="Empezar una conversación nueva" ;;
-    *) usage="Context and plan usage"; clear="Start a fresh conversation" ;;
+    Spanish|Español|español|Castellano|castellano) usage="Uso del contexto y del plan"; clear="Empezar una conversación nueva"
+      model="Ver o cambiar el modelo" ;;
+    *) usage="Context and plan usage"; clear="Start a fresh conversation"; model="See or switch the model" ;;
   esac
-  tgapi setMyCommands "$(jq -cn --arg c "$chat" --arg u "$usage" --arg k "$clear" \
-    '{commands: [{command: "usage", description: $u}, {command: "clear", description: $k}], scope: {type: "chat", chat_id: $c}}')" |
-    jq -e .ok >/dev/null && say "bot menu: /usage and /clear" || say "could not set the bot menu"
+  tgapi setMyCommands "$(jq -cn --arg c "$chat" --arg u "$usage" --arg k "$clear" --arg m "$model" \
+    '{commands: [{command: "usage", description: $u}, {command: "model", description: $m}, {command: "clear", description: $k}], scope: {type: "chat", chat_id: $c}}')" |
+    jq -e .ok >/dev/null && say "bot menu: /usage, /model and /clear" || say "could not set the bot menu"
 }
 install_service() {
   need_root

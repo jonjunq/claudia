@@ -238,6 +238,8 @@ The latest changes (full list in [CHANGELOG.md](CHANGELOG.md)).
   yt-dlp, the speech engines, n8n and third-party skills, with n8n or a small daily timer, set up by itself. It
   explains them simply (what the tool is, what is new for you, whether to update), groups the plain maintenance
   instead of nagging, and never updates without your yes. Only numbers and links reach it, never upstream text.
+- **`/model` from your phone**: the bot shows the model it is on and a button for each one you allow; it switches
+  as soon as your assistant is free, keeps it after restarts, and tells you.
 
 **1.6.0** (2026-11-05)
 

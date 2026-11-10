@@ -62,7 +62,7 @@ FAROOT="$T/fa"; FALOG="$T/fa.log"; mkdir -p "$FAROOT"; : > "$FALOG"; : > "$T/fa.
 python3 -I tests/fake-apis.py 0 "$FAROOT" "$FALOG" > "$T/fa.port" &
 FAPID=$!
 TGLOG="$T/tg.log"; TGSC="$T/tg.json"; : > "$TGLOG"; : > "$T/tg.port"
-echo '{"commands": [{"command": "usage", "description": "u"}, {"command": "clear", "description": "c"}]}' > "$TGSC"
+echo '{"commands": [{"command": "usage", "description": "u"}, {"command": "model", "description": "m"}, {"command": "clear", "description": "c"}]}' > "$TGSC"
 python3 -I tests/fake-telegram.py 0 "$TGLOG" "$TGSC" > "$T/tg.port" &
 TGPID=$!
 for _ in $(seq 1 20); do [ -s "$T/fa.port" ] && [ -s "$T/tg.port" ] && break; sleep 0.3; done
@@ -83,7 +83,7 @@ echo '{"loggedIn": true, "authMethod": "claude.ai", "subscriptionType": "max", "
 printf '> \n' > "$FAKE_SCREEN"
 PL="$H/.claude/plugins"; mkdir -p "$PL/cache/claude-plugins-official/telegram/0.0.7" "$PL/marketplaces/claude-plugins-official/external_plugins/telegram/.claude-plugin"
 echo '{"plugins": {"telegram@claude-plugins-official": [{"installPath": "/home/alex/.claude/plugins/cache/claude-plugins-official/telegram/0.0.7", "version": "0.0.7"}]}}' > "$PL/installed_plugins.json"
-echo '// ASSISTANT-PATCH v3' > "$PL/cache/claude-plugins-official/telegram/0.0.7/server.ts"
+echo '// ASSISTANT-PATCH v4' > "$PL/cache/claude-plugins-official/telegram/0.0.7/server.ts"
 echo '{"name": "telegram", "version": "0.0.8"}' > "$PL/marketplaces/claude-plugins-official/external_plugins/telegram/.claude-plugin/plugin.json"
 echo '{"dmPolicy": "allowlist", "allowFrom": ["4242"], "groups": {}, "pending": {}}' > "$H/.claude/channels/telegram/access.json"
 echo '{"theme": "dark", "claudeAiMcpEverConnected": ["claude.ai Gmail", "claude.ai Google Calendar", "claude.ai Google Drive"]}' > "$H/.claude.json"

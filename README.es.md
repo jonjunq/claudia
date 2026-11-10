@@ -243,6 +243,8 @@ Lo último (lista completa en [CHANGELOG.md](CHANGELOG.md), en inglés).
   misma. Te lo explica sencillo (qué es la herramienta, qué trae para ti, si conviene actualizar), junta el
   mantenimiento en vez de dar la lata y nunca actualiza sin tu sí. Solo le llegan números y enlaces, nunca texto de
   fuera.
+- **`/model` desde el móvil**: el bot te dice en qué modelo está y te da un botón por cada uno que permitas;
+  cambia en cuanto tu asistente queda libre, lo mantiene tras los reinicios y te avisa.
 
 **1.6.0** (05/11/2026)
 

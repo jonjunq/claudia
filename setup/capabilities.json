@@ -166,7 +166,7 @@
    "id": "telegram-extras",
    "group": "base",
    "title": "Telegram extras",
-   "gives": "A 'working' status while it works, Allow / Deny buttons for permissions, tables and headings, quoted messages, voice notes transcribed on arrival, and /usage and /clear in the bot's menu.",
+   "gives": "A 'working' status while it works, Allow / Deny buttons for permissions, tables and headings, quoted messages, voice notes transcribed on arrival, and /usage, /model and /clear in the bot's menu.",
    "default": "required",
    "needs": [],
    "root": false,

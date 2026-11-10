@@ -656,6 +656,14 @@ out=$(tr_run TRANSCRIBE_NO_GROQ=1 FAKE_CF=200)
 check "transcribe: Cloudflare alone works" bash -c "test '$out' = 'hello from cloudflare' && ! grep -q '^groq' '$TR/log'"
 check "transcribe: the keys are never on curl's command line" bash -c "test -s '$TR/argv' && ! grep -qE 'secret_groq|secret_cf' '$TR/argv'"
 
+# model-switch.py (/model): against a fake Claude Code terminal in tmux sessions of its own
+if command -v tmux >/dev/null; then
+  if PATH="/usr/bin:/bin:$PATH" python3 -I tests/model-switch-test.py > "$T/model-switch.out" 2>&1; then ok "model-switch against a fake terminal"
+  else ko "model-switch against a fake terminal"; grep -v '^ok' "$T/model-switch.out" | sed 's/^/    /'; fi
+else
+  echo "skip model-switch (no tmux here)"
+fi
+
 # unsubscribe.py: one-click unsubscription only from signed emails, only https, never to a private address
 check "unsubscribe tool (offline checks)" python3 -I tests/unsubscribe-test.py
 

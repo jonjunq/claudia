@@ -1,4 +1,4 @@
-# Telegram extras: status, quoted messages, permission buttons, rich messages, voice notes, `/usage`
+# Telegram extras: status, quoted messages, permission buttons, rich messages, voice notes, `/usage`, `/model`
 
 Six things the official Telegram plugin does not do well enough for an assistant you only see through your phone,
 and how this repo adds them. They live in [`templates/telegram/`](../templates/telegram/), which `install.sh` copies to
@@ -238,6 +238,29 @@ the assistant still answers from the same file. The idea is Hermes' `quick_comma
 not wake the model. `tests/plugin-e2e.py` checks it against the real plugin: answered by the plugin, a stranger's
 ignored, never delivered to the session, and an ordinary message still delivered.
 
+## 7. `/model` from the phone
+
+Claude Code's `/model` only works in its own terminal: on Telegram it would reach the assistant as plain text. Patch
+v4 makes the bot answer it, like `/usage`, and leaves the switch to a script:
+
+- `/model` alone: "🧠 It is on Opus 5.5" and a button per model in `MODELS` of `assistant.env` (the current one with
+  ✅). `/model sonnet` or `/model opus 4.8` (an entry of `MODELS` or its name) skips the buttons.
+- The bot starts `/usr/local/lib/assistant-telegram/model-switch.py <model>`, detached, and says it will switch once
+  the assistant is free. Nothing outside `MODELS` is ever started, and only the allowlist gets an answer.
+- The script waits (up to 30 min) until the assistant is free: no turn open (`turn.json`), no permission waiting, no
+  work indicator or menu on screen, and nothing half-typed on its input line. Then it types `/model <model>` into the
+  tmux session, confirms Claude Code's "Switch model?" (only when "Yes" is the selected option), and checks the status
+  line. Any other menu, such as one asking to use paid usage credits, is closed with Escape and reported: it never
+  accepts one on its own.
+- On success it writes `MODEL=<model>` in `assistant.env`, so the restarts keep it, and tells you on Telegram;
+  otherwise it says why (busy for too long, something typed, an unknown menu). `~/.cache/assistant-telegram/log`
+  has each step and `$STATE_DIR/model.log` each request.
+- Asked in words ("switch to Sonnet"), the assistant runs the same script with `--detach` as the last step of its turn.
+
+Helpers that say `model: inherit` follow the switch at once (docs/context.md). `tests/model-switch-test.py` drives the
+script against a fake Claude Code terminal in tmux; `tests/plugin-e2e.py` checks the bot's side against the real
+plugin.
+
 ## Check it
 
 - Status: ask it for something that takes a minute ("summarise today's email"); `~/.cache/assistant-telegram/log`
@@ -250,5 +273,6 @@ ignored, never delivered to the session, and an ordinary message still delivered
 - Voice notes: send one; it answers what you said, and `~/.claude/channels/telegram/voice.log` shows
   `ok … engine=groq` (or the engine that did it).
 - `/usage`: send it while the assistant is busy; the answer comes at once, ending "(automatic answer from the bot…)".
+- `/model`: send it, tap the model it is already on (it answers that nothing changed), then another one and back.
 - Rich messages: `printf '# Test\n\n| a | b |\n|---|---|\n| 1 | 2 |\n' | python3 -I /usr/local/lib/assistant-telegram/send-rich.py`
   shows a heading and a small table.

@@ -101,6 +101,17 @@ Will be 1.7.0: new code that gets installed.
   the session's model too. The other helpers say `model: inherit` and now also follow a `/model` switch;
   `SUBAGENT_MODEL` sets the model for helpers that name none, and the new `SUBAGENT_MODEL_FORCE=yes` in
   `assistant.env` brings back the old behaviour (every helper on one model, `browser-fast` included).
+- **`/model` from Telegram** (plugin patch v4, `templates/telegram/model-switch.py`): the bot answers `/model` itself,
+  like `/usage`: the current model and a button per model in the new `MODELS` of `assistant.env` (`opus sonnet
+  haiku` by default; aliases or full ids); `/model sonnet` or `/model opus 4.8` skip the buttons. It starts
+  `model-switch.py`, which waits until the assistant is free (no turn open, no permission waiting, nothing
+  half-typed), types `/model <model>` into its terminal, confirms only Claude Code's "Switch model?" (any other menu,
+  such as one for paid usage credits, is closed and reported), checks the status line, saves `MODEL=` in
+  `assistant.env` for the restarts and tells the owner. Only the allowlist, only models in `MODELS`. Asked in
+  words, the assistant runs it with `--detach` as the last step of its turn (allowed in `settings.json`). `/model`
+  joins the bot's menu; the doctor warns when the plugin carries an older patch or the menu lacks it.
+  `tests/model-switch-test.py` drives the script against a fake Claude Code terminal in tmux, and
+  `tests/plugin-e2e.py` checks the bot's side against the real plugin (0.0.7).
 
 ## 1.6.0 — 2026-11-05
 
