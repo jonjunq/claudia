@@ -208,6 +208,8 @@ setup merge-settings >/dev/null
 check "merge-settings keeps yours and adds the kit's" jq -e '.theme == "dark" and (.permissions.allow | index("Bash(mine:*)") and index("Bash(recall *)")) and ([.permissions.allow[] | select(. == "Read")] | length == 1)
   and (.statusLine.command | test("statusline.sh")) and ([.hooks.Stop[].hooks[].command] | index("my-hook")) and (.hooks.PermissionRequest | length > 0) and (.autoMode.hard_deny | length > 1)' "$H/.claude/settings.json"
 check "merge-settings keeps a copy and removes the merged file" bash -c "ls '$H'/.claude/settings.json.bak-* >/dev/null && test ! -e '$H/.claude/settings.assistant.json'"
+DESTDIR="$T" ./install.sh alex --upgrade >/dev/null 2>&1
+check "after merge-settings, an upgrade leaves the merged settings.json alone (no .new to merge by hand)" bash -c "test ! -e '$H/.claude/settings.json.new' && jq -e '.theme == \"dark\"' '$H/.claude/settings.json'"
 cp "$T/kit-settings.json" "$H/.claude/settings.json"
 : > "$FAKE_LOG"; setup install pdf >/dev/null 2>&1
 check "install pdf: poppler-utils from the system's packages" grep -q 'apt-get install -y -q poppler-utils' "$FAKE_LOG"

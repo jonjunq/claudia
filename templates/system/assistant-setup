@@ -424,7 +424,11 @@ cmd_trust() {
 }
 cmd_merge_settings() {
   local cur=$H/.claude/settings.json new=$H/.claude/settings.assistant.json
+  # The kit's template becomes install.sh's record for settings.json: an --upgrade then merges what changes in it
+  # into the merged file (or says nothing when nothing changed), instead of a settings.json.new on every run.
+  local base="$D$SHARE/installed$HL/.claude/settings.json"
   [ -e "$new" ] || { say "nothing to merge (no settings.assistant.json)"; return 0; }
+  is_root && install -D -m 644 "$new" "$base"
   [ -e "$cur" ] || { mv "$new" "$cur"; own "$cur"; say "settings.json is the assistant's"; return 0; }
   cp -p "$cur" "$cur.bak-$TODAY"
   # The kit's settings win; lists (permissions, hooks, hard_deny) keep the entries of both, in order, once each.
