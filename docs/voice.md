@@ -61,7 +61,9 @@ hung Telegram download returns an error after about a minute instead of leaving 
   fail differently, which is the point of a chain.
 - Be careful with test bursts: a quick series of test calls used up Groq's 20-per-minute limit for a minute.
 
-**Install the local engines** (as the assistant's user; each is optional):
+**Install the local engines**: `assistant-setup install voice-local` (Parakeet, installed by default on machines
+with 4 GB or more) and `assistant-setup install voice-best` (faster-whisper with the large-v3 model, optional) do
+what follows; `assistant-doctor` says whether they are there. By hand, as the assistant's user (each is optional):
 
 ```bash
 # Parakeet (about 640 MB of model, in the venv folder)
@@ -77,6 +79,10 @@ python3 -m venv ~/whisper && ~/whisper/bin/pip install faster-whisper
 Both decode with ffmpeg (`apt install ffmpeg`): recent PyAV releases broke faster-whisper's own decoder. Audio over
 90 s goes to Parakeet in voice-activity chunks, because in one piece its memory grows with the length. Only one
 local model runs at a time (a lock file), since they share the CPU.
+
+Keys: `printf '%s' '<key>' | assistant-setup key GROQ_API_KEY` (also `CF_AI_TOKEN`, `CF_AI_ACCOUNT_ID`,
+`ELEVENLABS_API_KEY`) saves one in `keys.env` and checks that the service accepts it; the doctor checks them again
+any time with one read-only request each.
 
 **Cloudflare**: in the dashboard, create an API token with only the *Workers AI: Read* permission and put it, with
 your account id, in `~/.config/assistant/keys.env`. Do not reuse a broader token you have for other things.

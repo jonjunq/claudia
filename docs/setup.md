@@ -1,5 +1,27 @@
 # Setup
 
+## The easy way: let Claude Code install it
+
+On the machine that will run it, with Claude Code installed and signed in with your subscription:
+
+```bash
+git clone https://github.com/jonjunq/claudia && cd claudia && claude
+```
+
+and say **"install yourself"** (in any language). The repo's `CLAUDE.md` turns that Claude Code into the installer
+([setup/INSTALL.md](../setup/INSTALL.md)): it looks at the machine, sends you **one** message with everything it
+will set up, the optional pieces with their risks, and the few things only you can do, step by step (a Telegram bot
+from @BotFather, a free Groq key for voice notes, connecting Gmail, Calendar and Drive in claude.ai, and optionally
+ElevenLabs or Cloudflare). Then it installs all of it, checks each piece with `assistant-doctor` until everything
+is green, and hands it over on Telegram. An installation that already exists? Same thing: "update yourself" or
+"complete yourself" brings it up to date and offers what is missing.
+
+`assistant-doctor` stays installed: run it (or ask the assistant "what are you missing?") whenever you wonder what
+it has. `assistant-setup install <id>` installs one capability; the list, with what each needs, is
+[setup/capabilities.json](../setup/capabilities.json).
+
+## By hand
+
 About an hour the first time. The steps below are how we do it: one normal user on a machine of its own. Adapt
 them to your layout; [Run it your way](isolation.md) compares the options (its own container, a user on a machine
 you already have, root on a machine that is all its own, a cloud VM).
@@ -36,11 +58,12 @@ It creates, without overwriting anything that exists:
 | `/etc/systemd/system/assistant.service` | Runs `bin/start.sh` inside a tmux session called `assistant` |
 | `/etc/systemd/system/assistant-permission-watch.service` | The permission-prompt watcher |
 | `/usr/local/sbin/assistant-daily-restart` + `/etc/cron.d/assistant` | The nightly end of day (05:45 by default) |
-| `/usr/local/share/assistant/` | `install.conf` (version and settings), the guides for the assistant to read, and a copy of what was installed, for upgrades |
+| `/usr/local/share/assistant/` | `install.conf` (version and settings), `capabilities.json` (everything it can have), the guides for the assistant to read, and a copy of what was installed, for upgrades |
+| `/usr/local/bin/assistant-doctor`, `/usr/local/bin/assistant-setup` | What is installed and working, and the steps that install the rest, one capability at a time |
 
-Nothing starts yet, except what you say yes to. At the end it asks one question: **release notices** (once a day,
-check for a new version and tell the assistant, which tells you what it brings; it never updates without your yes,
-[updating.md](updating.md)). From a script, answer with `--release-watch yes|no`. If you (or the Claude Code you
+Nothing starts yet, except what you say yes to. At the end it asks one question: **version notices** (once a day,
+check for new versions of the assistant and of the tools it was installed with, and tell the assistant, which tells
+you in plain words what they bring; it never updates without your yes, [updating.md](updating.md)). From a script, answer with `--release-watch yes|no`. If you (or the Claude Code you
 asked to install this) skip it, the assistant offers it once in its first days. `--idle-compact yes` turns on the
 optional idle compaction ([context.md](context.md#compacting-while-idle)).
 

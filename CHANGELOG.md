@@ -2,6 +2,59 @@
 
 ## Unreleased
 
+Will be 1.7.0: new code that gets installed.
+
+- **It installs itself.** A `CLAUDE.md` at the root of the repo (and an `AGENTS.md` pointing to it): a Claude Code
+  opened in a clone that is asked to install, update or repair the assistant follows `setup/INSTALL.md`, a guide by
+  phases: look at the machine (an existing install means upgrade and complete); **one** message to the owner with
+  everything that will be set up, the optional pieces with their risk, a few choices with a best guess (where it
+  runs, from `docs/isolation.md`, never imposed) and the numbered list of what only they can do, with the links (the
+  bot from @BotFather, a free Groq key, the claude.ai connectors, optionally ElevenLabs and Cloudflare); install
+  everything else; check with the doctor until it is green; hand it over on Telegram, and offer to delete the
+  installation conversation, which holds the pasted keys. Contributors are sent to `CONTRIBUTING.md` instead.
+- **`setup/capabilities.json`**: one list of every capability (22), what it gives in plain words, its default
+  (`required`, `yes`, `ask` or `later`), what it needs from the owner (with step-by-step instructions), its risk or
+  cost, how it is installed and where its code comes from. The guide, the doctor, `assistant-setup` and the version
+  watch read it; the tests fail if a capability has no check or no install step.
+- **`assistant-doctor`** (`/usr/local/bin`): ✅/⚠️/❌/⏭/○/❔ for each capability with the fix in one line, `--json`,
+  `--offline`, `--deep` (opens the browser once), `--only`. No Claude tokens, never prints a key; keys are checked
+  with one read-only request each (Telegram `getMe` and `getMyCommands`, Groq's model list, Cloudflare's Workers AI
+  model search, the chosen ElevenLabs voice). As root, what runs as the user runs through `runuser`. Declines come
+  from `notes/first-days.md` (`- <id>: no`), so neither the installer nor the assistant offers them again.
+- **`assistant-setup`** (`/usr/local/bin`): `install <id>…` (system packages, Claude Code, Bun and the Telegram plugin,
+  the patch and the bot's menu, the services, **the PDF reader** (poppler-utils), **yt-dlp** in its own venv,
+  **Parakeet** and **faster-whisper** with their models, **the browser** (Debian), the remote window, the wake-up,
+  version notices, idle compaction, n8n), `remove`, `decline`, `accept`, `key` and `set` (from stdin, validated,
+  mode 600), `telegram-token` (checked with Telegram first), `telegram-owner` (waits for the owner's first message
+  to the bot and allowlists only that sender; refuses if two people wrote), `login` / `login-code` (the Claude
+  sign-in for another user, through tmux), `trust` (the first-start questions), `merge-settings`, `voices`,
+  `window-link`, `watch`.
+- **Version notices for everything it uses**, not only for the kit: `assistant-release-watch` and the n8n workflow
+  (now "Versions → wake the assistant", one workflow for a list) follow the upstream of every installed
+  capability, from `assistant-doctor --watch-list`: GitHub releases (Bun), PyPI (yt-dlp, onnx-asr,
+  faster-whisper), npm (agent-browser, n8n's `stable`), the Telegram plugin (against Claude Code's own catalogue)
+  and third-party skills (by commit, from a `.installed-from` file). Claude Code (updates itself) and system packages
+  are noted, never notified. `assistant-setup watch` builds it without asking anything: with n8n it imports the
+  credential and the workflow and publishes it; otherwise the daily timer. It runs at the end of every `install.sh`
+  and after every install, remove or decline; the doctor checks it is on and covers exactly what is installed. At
+  most two notices a day (`claudia-release`, `tool-updates`), with names from our list, version numbers matching a
+  strict pattern and links we build; never upstream text.
+- Templates: `CLAUDE.md` runs the doctor when unsure or when asked what it is missing, explains new versions simply
+  (what the tool is, what is new for the owner, whether to update), groups plain maintenance instead of nagging,
+  and reads scanned PDFs with `pdftoppm`; `first-days` checks with the doctor before offering and records a no with
+  `assistant-setup decline`; `updating` covers the tools (how to update each, and why the Telegram plugin waits for
+  a kit release unless it is a security fix).
+- **A second Claude Code no longer steals the bot from sessions opened in the repo**: the plugin replaces any poller
+  it finds, so a session of the same user would take the assistant's messages. `.claude/settings.json` in the repo
+  turns the plugin off there; troubleshooting says what to do otherwise.
+- `install.sh` installs `assistant-doctor`, `assistant-setup`, `capabilities.json` and the guide; its closing steps
+  point to them.
+- Tests: `tests/installer-tests.sh` (the manifest and the doctor agree; the doctor on a fake machine, keys accepted
+  and rejected, `--offline` asks nobody, no secret in its output, declines and optional ones; `assistant-setup` keys,
+  settings, the bot token and owner, trust, merge-settings, the n8n watch; the watched list matches what is installed
+  and follows a tool installed or removed; the tool notices against fake GitHub, PyPI and npm: one notice, numbers and
+  links only, each version once, the wake-up down), `tests/fake-apis.py`, and the n8n Code nodes for the list.
+
 - `CLAUDE.md` template: when to continue a helper with `SendMessage` and when to launch a new one (same request vs a new
   one, and a fresh helper once one carries ~150k of context), after a real helper grew to 262k from 7 chained requests.
 

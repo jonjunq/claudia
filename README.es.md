@@ -11,6 +11,14 @@ manda un resumen por la mañana, entiende tus notas de voz y puede contestarte c
 Y hasta donde quieras llevarla: tu tele, tu servidor de pelis, tu ordenador, tu dinero (solo para leer), tus
 trámites, citas y viajes. [Qué le puedes pedir](#qué-le-puedes-pedir), con el riesgo de cada cosa.
 
+**Instalarla es una frase.** En una máquina Linux siempre encendida, con Claude Code y tu suscripción iniciada:
+`git clone https://github.com/jonjunq/claudia && cd claudia && claude`, y dile *«instálate»*. Ese Claude Code se
+convierte en su instalador: te manda **un** mensaje con todo lo que va a montar y lo poco que solo puedes hacer tú,
+paso a paso (un bot de Telegram con @BotFather, una clave gratuita de Groq para las notas de voz, conectar Gmail,
+Calendar y Drive en claude.ai; si quieres, ElevenLabs para que tenga voz propia), instala lo demás él solo,
+comprueba que cada pieza funciona y te saluda por Telegram. ¿Ya tienes una? *«Actualízate»* la pone al día y te
+ofrece lo que le falta. [Cómo](#instálala).
+
 [Read in English](README.md)
 
 <p align="center">
@@ -155,7 +163,33 @@ necesite (n8n incluido) sin que tengas que tocar nada. Todo eso funciona con los
 alcance = más útil = más en juego si la engañan o se equivoca) y lo que protege cada opción están en
 [docs/isolation.md](docs/isolation.md). Quédate con lo que te encaje y cambia el resto.
 
-## Empezar
+## Instálala
+
+Lo fácil, en la máquina donde va a vivir (una VM, un contenedor, un mini PC… [tú decides](#móntala-como-quieras)),
+con [Claude Code](https://code.claude.com/docs) instalado y con tu suscripción de Claude iniciada:
+
+```bash
+git clone https://github.com/jonjunq/claudia && cd claudia && claude
+```
+
+Dile **«instálate»**, en tu idioma. El [CLAUDE.md](CLAUDE.md) del repo manda a ese Claude Code a
+[setup/INSTALL.md](setup/INSTALL.md), y:
+
+1. mira la máquina (memoria, disco, si es root, si ya hay una instalación);
+2. te manda un solo mensaje: lo que monta por defecto (Telegram, notas de voz, PDF, vídeos, un navegador de verdad,
+   su memoria nocturna, avisos de versiones nuevas explicados en cristiano…), lo opcional con su riesgo en una
+   línea, unas pocas decisiones con su mejor propuesta (dónde vive, cómo se llama, tu idioma) y la lista numerada de
+   lo que solo puedes hacer tú, con los enlaces;
+3. instala todo lo demás él solo; tus claves van directas a ficheros privados y no las repite nunca;
+4. comprueba cada pieza con `assistant-doctor` hasta que todo esté en ✅ (o ⏭, lo que dijiste que no);
+5. la arranca y te saluda por Telegram. En sus primeras semanas te ofrece lo demás, de una en una.
+
+Todo lo que sabe instalar, con lo que necesita de ti cada cosa, está en una sola lista:
+[setup/capabilities.json](setup/capabilities.json). `assistant-doctor` se queda en la máquina: ejecútalo, o
+pregúntale a tu asistente *«¿qué te falta?»*, cuando tengas dudas. ¿La instalaste a mano antes? Abre Claude Code en
+un clon al día y dile *«actualízate»*.
+
+### Empezar a mano
 
 ```bash
 # En la máquina del asistente, como root
@@ -186,6 +220,23 @@ Y escríbele a tu bot. Paso a paso, con todos los tropiezos que tuvimos: [docs/s
 ## Novedades
 
 Lo último (lista completa en [CHANGELOG.md](CHANGELOG.md), en inglés).
+
+**1.7.0** (sin publicar todavía)
+
+- **Se instala sola** ([arriba](#instálala)): clonas, abres Claude Code y le dices *«instálate»*. Un mensaje con lo
+  que va a montar y lo que solo puedes hacer tú, paso a paso; instala y comprueba el resto y te la entrega por
+  Telegram. Antes, `install.sh` montaba lo básico y las notas de voz, el lector de PDF, el navegador y las claves
+  quedaban para que los descubrieras tú.
+- **`assistant-doctor`**: cada capacidad en ✅, ❌ con el comando que lo arregla, ⏭ rechazada u ○ opcional, gratis y
+  sin enseñar ni una clave. Tu asistente lo usa cuando duda y cuando le preguntas qué le falta.
+- **`assistant-setup`**: un comando por capacidad (`install pdf`, `install browser`, `key GROQ_API_KEY`,
+  `telegram-owner`…), para que ni el instalador ni tu asistente improvisen. El lector de PDF, yt-dlp y los motores
+  de voz locales ya se instalan con un script, no solo se explican.
+- **Avisos de versiones nuevas de todo lo que usa**, no solo de sí misma: Bun, el plugin de Telegram, agent-browser,
+  yt-dlp, los motores de voz, n8n y las skills de terceros, con n8n o con un temporizador diario, montado por ella
+  misma. Te lo explica sencillo (qué es la herramienta, qué trae para ti, si conviene actualizar), junta el
+  mantenimiento en vez de dar la lata y nunca actualiza sin tu sí. Solo le llegan números y enlaces, nunca texto de
+  fuera.
 
 **1.6.0** (05/11/2026)
 
@@ -281,6 +332,8 @@ Las piezas, agrupadas por para qué sirven. Todo menos lo básico es opcional.
 | `autoMode.hard_deny` en `settings.json` | Pagos y dinero bloqueados del todo, lo pida quien lo pida |
 | `bin/clear-context.sh` | `/clear` desde Telegram: conversación nueva a media jornada, después de apuntar lo pendiente |
 | `bin/permission-watch.sh` | Te avisa por Telegram cuando se queda parado en un aviso de permiso de su terminal o cambia de modelo tras un freno de seguridad |
+| `setup/` (`INSTALL.md`, `capabilities.json`) + el `CLAUDE.md` de la raíz | El instalador: un Claude Code abierto en el repo sigue la guía; una sola lista con cada capacidad, su valor por defecto, lo que necesita de ti y de dónde viene su código |
+| `assistant-doctor`, `assistant-setup` | Qué está instalado y funciona, con el arreglo de lo que no; un comando por capacidad para instalarla, apuntar un no o guardar una clave |
 
 **Telegram y memoria**
 
@@ -292,7 +345,7 @@ Las piezas, agrupadas por para qué sirven. Todo menos lo básico es opcional.
 | `after-compact.py` + Compact Instructions | Tras compactar, tus últimos mensajes y lo pendiente vuelven tal cual; opcional `assistant-idle-compact` para los ratos largos sin actividad |
 | skill `first-days` + `notes/first-days.md` | Sus primeras semanas: ofrece lo que sabe hacer, de una en una, y recuerda lo que contestaste |
 | skill `updating` + `install.sh --upgrade` | Actualiza a una versión nueva con tu OK, fusionando las plantillas con tus cambios en vez de pisarlos |
-| `assistant-release-watch` + timer | Sin n8n: una vez al día le avisa de una versión nueva (solo el número), para que te lo cuente |
+| `assistant-release-watch` + timer | Sin n8n: una vez al día le avisa de versiones nuevas de sí misma y de sus herramientas (solo números y enlaces), para que te lo cuente |
 
 **Reaccionar sin gastar tokens**
 
@@ -314,7 +367,8 @@ Las piezas, agrupadas por para qué sirven. Todo menos lo básico es opcional.
 
 ## Documentación (en inglés)
 
-- [Instalación](docs/setup.md): máquina, usuario, Claude Code, plugin de Telegram, servicio, primer arranque.
+- [Instalación](docs/setup.md): lo fácil (se instala sola) y a mano: máquina, usuario, Claude Code, plugin de
+  Telegram, servicio, primer arranque. La guía del propio instalador: [setup/INSTALL.md](setup/INSTALL.md).
 - [Recetas: todo lo que le puedes pedir](docs/recipes/README.md): la tele, pelis y series, tu ordenador, la casa
   domótica, el dinero en solo lectura, redes sociales, cuentas suyas, vídeos, la bandeja limpia, trámites y citas,
   viajes, segunda mano, tus estudios y el trabajo. Qué necesita cada cosa, cómo pedírsela y los riesgos.
@@ -339,8 +393,8 @@ Las piezas, agrupadas por para qué sirven. Todo menos lo básico es opcional.
 - [n8n](docs/n8n.md): avisos y automatizaciones que no gastan tokens, montados por el propio asistente y al día.
 - [Ojos en tu servidor, sin manos](docs/homelab-read-access.md): acceso de solo lectura a Proxmox, copias y paneles, con seguridad.
 - [Revisar skills](docs/vetting-skills.md): comprobar skills de terceros antes de instalarlas (SkillSpector, skill a skill).
-- [Actualizar](docs/updating.md): enterarse de las versiones nuevas y aplicarlas con tu OK sin perder tus cambios, y
-  por qué nunca sola.
+- [Actualizar](docs/updating.md): enterarse de las versiones nuevas suyas y de cada herramienta que usa, aplicarlas
+  con tu OK sin perder tus cambios, y por qué nunca sola.
 - [Problemas frecuentes](docs/troubleshooting.md): los que nos encontramos de verdad.
 - [Comparación](docs/comparison.md): Hermes Agent, un Proyecto de claude.ai y esto.
 

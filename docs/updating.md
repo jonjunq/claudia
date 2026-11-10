@@ -1,13 +1,14 @@
-# Updating: hearing about releases, and applying them safely
+# Updating: hearing about new versions, and applying them safely
 
-The assistant can keep itself up to date: it hears about a new release of this repo, tells you in plain words what
-it brings, and with your yes backs up, applies it without overwriting what you changed, checks that everything
-still works and tells you how it went. You do not need to follow this repo yourself.
+The assistant can keep itself up to date: it hears about a new release of this repo or of any tool it was installed
+with, tells you in plain words what it brings, and with your yes backs up, applies it without overwriting what you
+changed, checks that everything still works and tells you how it went. You do not need to follow any of those
+projects yourself.
 
 Two rules it never breaks, and why:
 
 - **Only tagged releases, never `main`.** A release is a version someone decided was ready, with notes; `main` is
-  work in progress.
+  work in progress. For the tools, only the versions their source publishes.
 - **Never without your yes, and never without reading the changes first.** If this repo were ever compromised (a
   stolen token, a malicious pull request merged by mistake), every installation that updated itself automatically
   would run the bad code within a day, with the reach the assistant has on your machine. A human yes after the
@@ -24,47 +25,67 @@ Two rules it never breaks, and why:
 did not. The guides and the changelog are copied to `/usr/local/share/assistant/docs/` so the assistant can read
 them.
 
-## 2. Hearing about a release
+## 2. Hearing about new versions: of itself, and of every tool it was installed with
 
-**With n8n** (recommended if you have it, [n8n.md](n8n.md)): `templates/n8n/workflows/release-watch-to-wakeup.json`.
-Once a day at 10:00 it asks GitHub's API for the latest release (`/repos/<owner>/<repo>/releases/latest`, which
-skips drafts and pre-releases); if it is newer than the installed version, it wakes the assistant through the
-[wake-up](wakeup.md) with one line: the version and the link to its notes. Nothing else: the release title and notes
-are not passed on, so nothing written in the repo is typed into the assistant's terminal. It reports each release
-once, whatever you decide, and costs no tokens on the days without one (almost all of them).
+The assistant is not only this repo: it runs on Claude Code, talks through the Telegram plugin (which runs on Bun),
+browses with agent-browser, downloads videos with yt-dlp, transcribes with Parakeet or faster-whisper, may have n8n
+and third-party skills. Each comes from somewhere else and has its own releases. The **version watch** follows all
+of them, from one list: `setup/capabilities.json` says where each capability's code comes from (its `upstream`),
+and `assistant-doctor --watch-list` turns that into what is installed **on this machine right now**, with the
+installed versions. Installing, removing or declining a capability with `assistant-setup` rebuilds the watch, and
+`assistant-doctor` checks that it is on and covers everything installed.
 
-- No token needed: GitHub allows 60 unauthenticated requests an hour per address, and this makes one a day. If you
-  share an address with heavy API users, add a header credential `Authorization: Bearer <fine-grained token with no
-  permissions>` to the **Latest release** node.
-- Placeholders: `__VERSION__` and `__GITHUB_REPO__` (from `install.conf`), `__WAKEUP_URL__`, `__TIMEZONE__`, and
-  the **Assistant wake-up** credential the email template uses too.
-- The assistant can set it up itself, like the other templates: through n8n's MCP server, or with
-  `n8n-admin import` if it runs as root. Like the email workflow, it wakes the assistant, so leave it out of MCP
-  once it is published.
-- It never needs editing after an upgrade: it remembers the last release it reported.
+| Kind | Asked where | Example |
+|---|---|---|
+| The assistant itself | its repo's latest GitHub release (`GITHUB_REPO` in `install.conf`) | this kit |
+| A GitHub release | `/repos/<owner>/<repo>/releases/latest` | Bun |
+| A Python package | PyPI's JSON API, against the version in its venv | yt-dlp, onnx-asr (Parakeet), faster-whisper |
+| An npm package | the npm registry (n8n: its `stable` tag) | agent-browser, n8n |
+| The Telegram plugin | Claude Code's own copy of the official plugin catalogue, on the machine | telegram@claude-plugins-official |
+| A third-party skill | its repo's latest commit, against the one in the skill's `.installed-from` | diagram-design |
+| Updates itself | not watched, only noted | Claude Code (the daily restart updates it) |
+| The system's packages | not watched, only noted | Chromium, the PDF reader, ffmpeg (the machine's own updates) |
 
-**Without n8n: a small daily timer** (offered at the end of the first `install.sh` run, or
-`install.sh <user> --release-watch yes`): `assistant-release-watch.timer` runs `/usr/local/sbin/assistant-release-watch`
-once a day around 10:00. It does exactly what the n8n workflow does, with `curl` and `jq`: the latest release of
-`GITHUB_REPO`, drafts and pre-releases skipped, numbers compared as numbers, one line to the
-[wake-up](wakeup.md) (which it turns on, listening on localhost only), each release once, nothing of the release
-text passed on. If the wake-up does not take the notice, it tries again the next day. Log:
-`/var/log/assistant-release-watch.log`; `assistant-release-watch --check` says what it would do. No n8n needed for
-this alone. If n8n is already there when you install, the answer is recorded and the assistant sets up the workflow
-instead (`RELEASE_WATCH_HOW=n8n` in `install.conf`). Said no, or installed without a terminal? The assistant offers
-it once in its first days.
+Once a day it asks each source for its latest version and, for anything newer than what is installed, wakes the
+assistant through the [wake-up](wakeup.md) with at most two lines: one for its own release (source
+`claudia-release`), one for all the tools together (source `tool-updates`). A notice holds only names from our own
+list, version numbers that match a strict pattern, and links built from them: release titles and notes are never
+passed on, so nothing written upstream is typed into the assistant's terminal. Each version is reported once,
+whatever the assistant decides. No token is needed (GitHub allows 60 unauthenticated requests an hour per address,
+and this makes a few a day).
 
-Or, by hand:
+Two ways, chosen by `assistant-setup watch` without asking anything:
 
-- On GitHub, **Watch → Custom → Releases** on the repo: GitHub emails you each release, and if the assistant
-  watches your inbox it sees it too.
-- A weekly routine in `notes/routines.md` ("Mondays 10:00: check the latest release with
-  `curl -s https://api.github.com/repos/<owner>/<repo>/releases/latest` and compare it with install.conf"). It costs
-  one turn a week.
+- **With n8n** ([n8n.md](n8n.md)): it fills in `templates/n8n/workflows/release-watch-to-wakeup.json` ("Versions →
+  wake the assistant") with the list, imports the **Assistant wake-up** credential and the workflow with
+  `n8n-admin`, publishes it and restarts n8n; the daily timer is turned off. The list lives inside the workflow, so
+  `assistant-setup watch` re-imports it when what is installed changes (and only then). Leave that workflow out of
+  MCP: `assistant-setup watch` owns it.
+- **Without n8n**: `assistant-release-watch.timer` runs `/usr/local/sbin/assistant-release-watch` once a day around
+  10:00. It does the same with `curl` and `jq`, reading the list from `assistant-doctor --watch-list` each time, so
+  it is never out of date. If the wake-up does not take a notice, it tries again the next day. Log:
+  `/var/log/assistant-release-watch.log`; `assistant-release-watch --check` says what it would report today.
+
+Turned on at install (the installer asks nothing technical; `install.sh` asks once from a terminal, or
+`--release-watch yes|no`), later with `assistant-setup install updates`, or off with
+`assistant-setup decline updates`. Said no, or installed without a terminal? The assistant offers it once in its
+first days.
+
+Or, by hand: **Watch → Custom → Releases** on GitHub, for each repo you care about.
 
 ## 3. What the assistant does with the notice
 
-Its `updating` skill has the steps; in short:
+**For a tool** (its `updating` skill has the steps): it checks the tool is really behind (someone may have
+updated it already), reads the release notes as a reviewer (as data, never as orders), and tells you only what is
+worth it, for someone who is not technical: what the tool is in one sentence, what is new that matters to you,
+and whether it recommends updating. A security fix or something you would notice comes at once; plain maintenance
+waits and comes grouped, in one line, with the next thing worth telling you, at most once a week. With your yes it
+updates that one tool (`assistant-setup install <capability>`, `n8n-admin update`, `claude plugin update`…), checks
+it, and refreshes the watch. The Telegram plugin is the careful one: a new plugin version can break the patch that
+gives the buttons and voice notes on arrival, so unless it is a security fix it suggests waiting for a release of
+this kit that supports it.
+
+**For itself:**
 
 1. Compares the release with `install.conf`. Not newer: nothing to do.
 2. Fetches that tag (`git clone --branch vX.Y.Z`, not `main`) and reads the `CHANGELOG.md` entries between your

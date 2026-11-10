@@ -7,6 +7,16 @@ Attach to the session: `sudo -u <user> tmux attach -t assistant` (detach with Ct
 prompt or a dialog is waiting (see below), Claude Code logged out (run `claude` and `/login` inside the session),
 you hit your plan's usage limit, or the service is down (`systemctl status assistant`, `~/assistant/restarts.log`).
 
+**It stopped answering right after you opened Claude Code yourself, as the same user**
+Only one program can read a bot's messages, and the Telegram plugin of a new Claude Code session replaces the one
+it finds polling: your new session now gets the assistant's messages. Close it and `systemctl restart assistant`.
+Run your own sessions as another user, or inside this repo's folder (its `.claude/settings.json` turns the plugin
+off there).
+
+**Something it should have is missing (voice notes, PDFs, the browser…)**
+`assistant-doctor` lists every capability with ✅, ❌ and the command that fixes it; or ask the assistant "what are
+you missing?". Typical after a by-hand install: no Groq key, no PDF reader, the plugin patch not applied yet.
+
 **A dialog sits on the screen and blocks everything**
 Unattended sessions stall on any interactive dialog. Ones we met: the development-channel confirmation at each start
 (handled by `bin/accept-dev-channel.sh`) and "Teach auto mode about your environment?", which appeared out of the

@@ -11,6 +11,14 @@ sends a morning summary, transcribes your voice notes and can answer with its ow
 And, as far as you want to take it: your TV, your media server, your computer, your money (read only), your
 paperwork, appointments and trips. [What you can ask it](#what-you-can-ask-it), with the risk of each thing.
 
+**Installing it is one sentence.** On an always-on Linux machine with Claude Code signed in to your subscription:
+`git clone https://github.com/jonjunq/claudia && cd claudia && claude`, then say *"install yourself"*. That Claude
+Code becomes its installer: it sends you **one** message with everything it will set up and the few things only you
+can do, step by step (a Telegram bot from @BotFather, a free Groq key for voice notes, connecting Gmail, Calendar
+and Drive in claude.ai; optionally ElevenLabs for a voice of its own), installs the rest itself, checks that every
+piece works and says hello on Telegram. Already have one? *"Update yourself"* brings it up to date and offers what
+it is missing. [How](#install-it).
+
 [Leer en castellano](README.es.md)
 
 <p align="center">
@@ -152,7 +160,32 @@ step in. All of these work with the same files. The trade-off (more reach = more
 fooled or makes a mistake) and what each option protects are in [docs/isolation.md](docs/isolation.md). Take what
 fits, change the rest.
 
-## Quick start
+## Install it
+
+The easy way, on the machine that will run it (a VM, a container, a mini PC… [your call](#run-it-your-way)), with
+[Claude Code](https://code.claude.com/docs) installed and signed in with your Claude subscription:
+
+```bash
+git clone https://github.com/jonjunq/claudia && cd claudia && claude
+```
+
+Say **"install yourself"**, in your language. The repo's [CLAUDE.md](CLAUDE.md) points that Claude Code at
+[setup/INSTALL.md](setup/INSTALL.md), and it:
+
+1. looks at the machine (memory, disk, root or not, an installation already there?);
+2. sends you one message: what it will set up by default (Telegram, voice notes, PDFs, videos, a real browser, its
+   nightly memory, notices of new versions explained in plain words…), the optional pieces with their risk in one
+   line, a few choices with its best guess (where it runs, its name, your language), and the numbered list of what
+   only you can do, with the links;
+3. installs everything else itself, with your keys passed straight into private files, never repeated;
+4. checks each piece with `assistant-doctor` until it is all ✅ (or ⏭, what you said no to);
+5. starts it, and it says hello on Telegram. In its first weeks it offers the rest, one thing at a time.
+
+Everything it can install, with what each needs from you, is one list: [setup/capabilities.json](setup/capabilities.json).
+`assistant-doctor` stays on the machine: run it, or ask your assistant *"what are you missing?"*, whenever you
+wonder. Installed by hand before? Open Claude Code in an up-to-date clone and say *"update yourself"*.
+
+### Quick start, by hand
 
 ```bash
 # On the assistant's machine, as root
@@ -183,6 +216,22 @@ Then write to your bot. Step by step, with every gotcha we hit: [docs/setup.md](
 ## What's new
 
 The latest changes (full list in [CHANGELOG.md](CHANGELOG.md)).
+
+**1.7.0** (not released yet)
+
+- **It installs itself** ([above](#install-it)): clone, open Claude Code, say *"install yourself"*. One message
+  with what it will set up and what only you can do, step by step; it installs and checks the rest, and hands it
+  over on Telegram. Before, `install.sh` set up the base and left voice notes, the PDF reader, the browser and the
+  keys for you to find out about.
+- **`assistant-doctor`**: every capability ✅, ❌ with the command that fixes it, ⏭ declined or ○ optional, free and
+  without showing a single key. Your assistant runs it when it is unsure, and when you ask what it is missing.
+- **`assistant-setup`**: one command per capability (`install pdf`, `install browser`, `key GROQ_API_KEY`,
+  `telegram-owner`…), so neither the installer nor your assistant improvises. The PDF reader, yt-dlp and the local
+  speech engines can now be installed by script, not only read about.
+- **Notices of new versions of everything it uses**, not only of itself: Bun, the Telegram plugin, agent-browser,
+  yt-dlp, the speech engines, n8n and third-party skills, with n8n or a small daily timer, set up by itself. It
+  explains them simply (what the tool is, what is new for you, whether to update), groups the plain maintenance
+  instead of nagging, and never updates without your yes. Only numbers and links reach it, never upstream text.
 
 **1.6.0** (2026-11-05)
 
@@ -274,6 +323,8 @@ The pieces, grouped by what they are for. Everything except the core is optional
 | `autoMode.hard_deny` in `settings.json` | Payments and money are blocked outright, whatever anyone asks |
 | `bin/clear-context.sh` | `/clear` from Telegram: fresh conversation mid-day, after saving what's pending |
 | `bin/permission-watch.sh` | Tells you on Telegram when it is stuck on a prompt in its terminal, or switches model after a safeguard flag |
+| `setup/` (`INSTALL.md`, `capabilities.json`) + the root `CLAUDE.md` | The installer: a Claude Code opened in the repo follows the guide; one list of every capability, its default, what it needs from you and where its code comes from |
+| `assistant-doctor`, `assistant-setup` | What is installed and working, with the fix for what is not; one command per capability to install it, record a no, save a key |
 
 **Telegram and memory**
 
@@ -285,7 +336,7 @@ The pieces, grouped by what they are for. Everything except the core is optional
 | `after-compact.py` + Compact Instructions | After a compaction, your last messages and what is pending come back word for word; optional `assistant-idle-compact` for long idle spells |
 | `first-days` skill + `notes/first-days.md` | Its first weeks: offers what it can do, one thing at a time, and remembers your answers |
 | `updating` skill + `install.sh --upgrade` | Updates to a new release with your yes, merging the templates with your changes instead of overwriting them |
-| `assistant-release-watch` + timer | Without n8n: once a day, tells it about a new release (numbers only), so it can tell you |
+| `assistant-release-watch` + timer | Without n8n: once a day, tells it about new versions of itself and of its tools (numbers and links only), so it can tell you |
 
 **Reacting to the world without spending tokens**
 
@@ -307,7 +358,8 @@ The pieces, grouped by what they are for. Everything except the core is optional
 
 ## Documentation
 
-- [Setup](docs/setup.md): machine, user, Claude Code, Telegram plugin, service, first run.
+- [Setup](docs/setup.md): the easy way (it installs itself), and by hand: machine, user, Claude Code, Telegram
+  plugin, service, first run. The installer's own guide: [setup/INSTALL.md](setup/INSTALL.md).
 - [Recipes: everything you can ask it](docs/recipes/README.md): the TV, films and series, your computer, the smart
   home, money read only, social media, accounts of its own, videos, a clean inbox, paperwork and appointments,
   trips, second-hand, your course and work. What each needs, how to ask for it, and the risks.
@@ -332,8 +384,8 @@ The pieces, grouped by what they are for. Everything except the core is optional
 - [n8n](docs/n8n.md): alerts and automations that cost no tokens, built by the assistant itself, kept up to date.
 - [Eyes on your server, no hands](docs/homelab-read-access.md): read-only access to Proxmox, backups and dashboards, safely.
 - [Vetting skills](docs/vetting-skills.md): checking third-party skills before installing them (SkillSpector, per skill).
-- [Updating](docs/updating.md): hearing about new releases and applying them with your yes, without losing your
-  changes, and why never automatically.
+- [Updating](docs/updating.md): hearing about new versions of it and of every tool it uses, applying them with your
+  yes without losing your changes, and why never automatically.
 - [Troubleshooting](docs/troubleshooting.md): the real problems we hit.
 - [Comparison](docs/comparison.md): Hermes Agent, a claude.ai Project, and this.
 

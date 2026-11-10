@@ -59,6 +59,9 @@ anti-detection, which we do not do (see the rule below).
 
 ### Install (Debian)
 
+`assistant-setup install browser` does all of this section (the installer runs it by default), and
+`assistant-doctor --deep` opens a page once to check it is a full browser. By hand:
+
 As root:
 
 ```bash
@@ -116,7 +119,9 @@ Some steps need you: a captcha, a sign-in that asks "is it you?", a two-factor p
 the session stays on your phone and the assistant hits the same wall again. With a remote window you see **the
 assistant's own browser** in a web page and do that step there; what you solve or sign in to stays in its profile.
 
-The pieces (templates installed by `install.sh`, not enabled):
+`assistant-setup install browser-window` installs and starts the pieces below on localhost, with a random VNC
+password; how you reach it from your phone is up to you (below), then `assistant-setup window-link <address>` saves
+the link the assistant sends. The pieces (templates installed by `install.sh`, not enabled):
 
 - `assistant-window-vnc.service`: [x11vnc](https://github.com/LibVNC/x11vnc) on `localhost:5900`, started with
   `-display WAIT:cmd=…/current-display`: it opens no display until someone connects, then

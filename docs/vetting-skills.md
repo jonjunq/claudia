@@ -52,7 +52,10 @@ The score is a triage. For anything you are going to install:
    that are fine in context ("edit files", "run the tests"); some are not.
 2. Read the `SKILL.md` and every script it runs, in full. If it is too long to read, it is too long to trust.
 3. Look for hooks (`hooks.json`, settings snippets) and anything that runs on every tool call or at session start.
-4. **Pin the commit you reviewed** and install that commit, not "latest". An update is a new review.
+4. **Pin the commit you reviewed** and install that commit, not "latest". An update is a new review. Leave a
+   `.installed-from` file in the skill's folder with two lines, `repo=<owner>/<repo>` and `commit=<the full sha>`:
+   the [version watch](updating.md#2-hearing-about-new-versions-of-itself-and-of-every-tool-it-was-installed-with)
+   then tells you when the skill changes upstream, and links the comparison with the commit you reviewed.
 5. Ask Claude to review it with you: paste the report and the files, ask what each instruction would make the
    assistant do with your email and files.
 
