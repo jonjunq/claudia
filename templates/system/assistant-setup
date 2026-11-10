@@ -460,7 +460,7 @@ case "$cmd" in
       ( "install_${id//-/_}" ) || exit 1
       [ "$(default_of "$id")" = ask ] && ! grep -q "^- $id: \(yes\|already\)" "$WS/notes/first-days.md" 2>/dev/null && decide "$id" yes "installed"
     done
-    is_root && [ "$(conf RELEASE_WATCH)" = yes ] && [[ " $* " != *" updates "* ]] && QUIET=1 do_watch
+    if is_root && [ "$(conf RELEASE_WATCH)" = yes ] && [[ " $* " != *" updates "* ]]; then QUIET=1 do_watch; fi
     ;;
   remove) check_id "${1:-}"; remove_one "$1"; is_root && [ "$(conf RELEASE_WATCH)" = yes ] && QUIET=1 do_watch; true ;;
   decline)

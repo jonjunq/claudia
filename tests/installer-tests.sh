@@ -105,7 +105,7 @@ printf '%s' 'Ana, Lisbon, n8n.' | setup set TRANSCRIBE_NAMES >/dev/null
 check "set writes a setting the scripts can read" bash -c "HOME='$H'; . '$H/assistant/assistant.env'; test \"\$TRANSCRIBE_NAMES\" = 'Ana, Lisbon, n8n.'"
 if printf '%s' "x'; rm -rf ~" | setup set TRANSCRIBE_NAMES >/dev/null 2>&1; then ko "set refuses quotes"; else ok "set refuses quotes"; fi
 if printf '%s' x | setup set GROQ_API_KEY >/dev/null 2>&1; then ko "set refuses keys and unknown names"; else ok "set refuses keys and unknown names"; fi
-setup install updates idle-compact >/dev/null 2>&1
+check "install updates idle-compact ends with 0 when it worked" setup install updates idle-compact
 check "install updates/idle-compact record the choice and build the watch" bash -c "grep -q '^RELEASE_WATCH=yes$' '$T/usr/local/share/assistant/install.conf' && grep -q '^IDLE_COMPACT=yes$' '$T/usr/local/share/assistant/install.conf' && jq -e '.how == \"timer\"' '$T/usr/local/share/assistant/watch.json'"
 
 : > "$FALOG"; : > "$TGLOG"
