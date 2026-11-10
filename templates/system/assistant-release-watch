@@ -41,14 +41,20 @@ newer() {  # is version $1 newer than $2? (numbers, not text: 1.10.0 > 1.9.0)
 get() {  # url [media type]: GitHub's by default; PyPI and npm get plain JSON (npm refuses GitHub's: HTTP 406)
   curl -fsS --max-time 20 --retry 2 -H "Accept: ${2:-application/vnd.github+json}" -H 'User-Agent: assistant-release-watch' "$1"
 }
+# curl with what is secret in it (a URL with a token, a key header) on stdin, never on its command line, where any
+# user of this machine could read it (ps). curl_secret <url> <header, or ""> [curl options...]; neither holds a quote.
+curl_secret() {
+  local url=$1 hdr=$2; shift 2
+  { printf 'url = "%s"\n' "$url"; [ -z "$hdr" ] || printf 'header = "%s"\n' "$hdr"; } | curl -K - "$@"
+}
 wake() {  # source text
   local token listen body
   token=$(sed -n 's/^WAKEUP_TOKEN=//p' "$WENV" 2>/dev/null | tail -1)
   listen=$(sed -n 's/^WAKEUP_LISTEN=//p' "$WENV" 2>/dev/null | tail -1); listen=${listen:-127.0.0.1:8770}
   [ -n "$token" ] || { say "no WAKEUP_TOKEN in $WENV"; return 1; }
   body=$(jq -cn --arg s "$1" --arg t "$2" '{source: $s, text: $t}')
-  curl -fsS --max-time 10 -o /dev/null -H "Authorization: Bearer $token" -H 'Content-Type: application/json' \
-    -d "$body" "http://$listen/wake"
+  curl_secret "http://$listen/wake" "Authorization: Bearer $token" -fsS --max-time 10 -o /dev/null \
+    -H 'Content-Type: application/json' -d "$body"
 }
 rc=0
 

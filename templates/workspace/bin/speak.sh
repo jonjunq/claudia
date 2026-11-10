@@ -18,12 +18,11 @@ mkdir -p "$out_dir"
 find "$out_dir" -type f -mtime +7 -delete
 out="$out_dir/$(date +%Y%m%d-%H%M%S)"
 body=$(jq -n --arg t "$text" --arg l "${TTS_LANGUAGE:-en}" '{text: $t, model_id: "eleven_multilingual_v2", language_code: $l}')
-code=$(curl -s --max-time 120 -o "$out.mp3" -w '%{http_code}' \
-  "https://api.elevenlabs.io/v1/text-to-speech/$TTS_VOICE_ID?output_format=mp3_44100_128" \
-  -H "xi-api-key: $ELEVENLABS_API_KEY" -H "Content-Type: application/json" -d "$body")
+code=$(curl_secret "https://api.elevenlabs.io/v1/text-to-speech/$TTS_VOICE_ID?output_format=mp3_44100_128" \
+  "xi-api-key: $ELEVENLABS_API_KEY" -s --max-time 120 -o "$out.mp3" -w '%{http_code}' -H "Content-Type: application/json" -d "$body")
 if [ "$code" != 200 ]; then echo "ElevenLabs failed ($code): $(head -c 300 "$out.mp3")" >&2; rm -f "$out.mp3"; exit 1; fi
 # Telegram shows OGG/Opus as a voice note (with waveform) rather than as a music file.
 ffmpeg -nostdin -v error -y -i "$out.mp3" -filter:a "atempo=${TTS_SPEED:-1.0}" -c:a libopus -b:a 48k -ar 48000 "$out.ogg"
 rm -f "$out.mp3"
-curl -sf -F chat_id="$(tg_chat)" -F voice=@"$out.ogg" "https://api.telegram.org/bot$(tg_token)/sendVoice" >/dev/null
+curl_secret "https://api.telegram.org/bot$(tg_token)/sendVoice" "" -sf -F chat_id="$(tg_chat)" -F voice=@"$out.ogg" >/dev/null
 echo "Voice note sent ($out.ogg)"

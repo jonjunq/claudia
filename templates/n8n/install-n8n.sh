@@ -76,9 +76,9 @@ echo "  n8n is up"
 # Owner account without a browser: POST /rest/owner/setup only works while no owner exists.
 if [ -n "$OWNER_EMAIL" ]; then
   pass="$(head -c 18 /dev/urandom | od -An -tx1 | tr -d ' \n')Aa1"
-  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -H 'Content-Type: application/json' \
-    -d "{\"email\":\"$OWNER_EMAIL\",\"firstName\":\"Owner\",\"lastName\":\"Account\",\"password\":\"$pass\"}" \
-    "$health/rest/owner/setup")
+  # (the password goes on stdin: on the command line any user of the machine could read it)
+  code=$(printf '{"email":"%s","firstName":"Owner","lastName":"Account","password":"%s"}' "$OWNER_EMAIL" "$pass" |
+    curl -s -o /dev/null -w '%{http_code}' --max-time 15 -H 'Content-Type: application/json' -d @- "$health/rest/owner/setup")
   if [ "$code" = 200 ]; then
     mkdir -p "$D/root"
     printf 'n8n owner (http://%s:5678)\nuser: %s\npassword: %s\n' "$HOST" "$OWNER_EMAIL" "$pass" > "$D/root/n8n-owner.txt"

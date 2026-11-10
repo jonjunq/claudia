@@ -38,8 +38,8 @@ groq() {
   fi
   out=$(mktemp)
   for i in 1 2; do
-    code=$(curl -s -o "$out" -w '%{http_code}' --connect-timeout 5 --max-time "$MAXT" \
-      https://api.groq.com/openai/v1/audio/transcriptions -H "Authorization: Bearer $GROQ_API_KEY" \
+    code=$(curl_secret https://api.groq.com/openai/v1/audio/transcriptions "Authorization: Bearer $GROQ_API_KEY" \
+      -s -o "$out" -w '%{http_code}' --connect-timeout 5 --max-time "$MAXT" \
       -F model=whisper-large-v3-turbo -F "file=@$src;filename=audio.ogg" -F response_format=text "${prompt[@]}")
     rc=$?
     if [ $rc -eq 0 ] && [ "$code" = 200 ] && grep -q '[^[:space:]]' "$out"; then
@@ -61,9 +61,9 @@ cloudflare() {
 d = {"audio": base64.b64encode(open(sys.argv[1], "rb").read()).decode()}
 if sys.argv[2]: d["initial_prompt"] = sys.argv[2]
 json.dump(d, open(sys.argv[3], "w"))' "$f" "$NAMES" "$body"
-  code=$(curl -s -o "$out" -w '%{http_code}' --connect-timeout 5 --max-time "$MAXT" \
-    -H "Authorization: Bearer $CF_AI_TOKEN" -H "Content-Type: application/json" --data-binary @"$body" \
-    "https://api.cloudflare.com/client/v4/accounts/$CF_AI_ACCOUNT_ID/ai/run/@cf/openai/whisper-large-v3-turbo")
+  code=$(curl_secret "https://api.cloudflare.com/client/v4/accounts/$CF_AI_ACCOUNT_ID/ai/run/@cf/openai/whisper-large-v3-turbo" \
+    "Authorization: Bearer $CF_AI_TOKEN" -s -o "$out" -w '%{http_code}' --connect-timeout 5 --max-time "$MAXT" \
+    -H "Content-Type: application/json" --data-binary @"$body")
   rc=$?
   if [ "$code" = 200 ] && txt=$(python3 -I -c 'import json, sys
 d = json.load(open(sys.argv[1])); t = ((d.get("result") or {}).get("text") or "").strip()

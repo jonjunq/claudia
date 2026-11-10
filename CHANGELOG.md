@@ -47,6 +47,11 @@ Will be 1.7.0: new code that gets installed.
 - **A second Claude Code no longer steals the bot from sessions opened in the repo**: the plugin replaces any poller
   it finds, so a session of the same user would take the assistant's messages. `.claude/settings.json` in the repo
   turns the plugin off there; troubleshooting says what to do otherwise.
+- **No token or key on a command line any more.** The bot token (in Telegram's URLs) and the Groq, Cloudflare,
+  ElevenLabs and wake-up keys (in headers) went to `curl` as arguments, which any user of the machine can read with
+  `ps` while the request lasts. `assistant-setup`, `assistant-release-watch`, `lib.sh` (`tg_send`), `transcribe.sh`
+  and `speak.sh` now give them to curl on stdin (`curl_secret`, a config read with `-K -`), and `install-n8n.sh`
+  sends the n8n owner's password on stdin too. The tests fail if a token or key shows up in curl's arguments.
 - `install.sh` installs `assistant-doctor`, `assistant-setup`, `capabilities.json` and the guide; its closing steps
   point to them.
 - Tests: `tests/installer-tests.sh` (the manifest and the doctor agree; the doctor on a fake machine, keys accepted

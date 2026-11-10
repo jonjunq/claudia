@@ -45,6 +45,8 @@ cat > "$IB/tmux" <<'EOF'
 case "$1" in has-session) [ "${FAKE_TMUX_UP:-}" = 1 ] ;; capture-pane) cat "$FAKE_SCREEN" 2>/dev/null ;; *) echo "tmux $*" >> "$FAKE_LOG" ;; esac
 EOF
 printf '#!/bin/bash\necho "apt-get $*" >> "$FAKE_LOG"\n' > "$IB/apt-get"
+# The real curl, with its command line written down: no token or key may be on it (any user can read it with ps).
+printf '#!/bin/bash\nprintf "%%s\\n" "$*" >> "$CURL_ARGV"\nexec /usr/bin/curl "$@"\n' > "$IB/curl"
 for x in pdftotext pdftoppm ffmpeg unzip Xvfb; do printf '#!/bin/sh\nexit 0\n' > "$IB/$x"; done
 mkdir -p "$H/.local/bin" "$H/.bun/bin"
 printf '#!/bin/bash\n[ "$1 $2" = "auth status" ] && { cat "$FAKE_AUTH"; exit 0; }\necho "claude $*" >> "$FAKE_LOG"\n' > "$H/.local/bin/claude"
@@ -60,6 +62,7 @@ python3 -I tests/fake-telegram.py 0 "$TGLOG" "$TGSC" > "$T/tg.port" &
 TGPID=$!
 for _ in $(seq 1 20); do [ -s "$T/fa.port" ] && [ -s "$T/tg.port" ] && break; sleep 0.3; done
 FA="http://127.0.0.1:$(cat "$T/fa.port")"; TGAPI="http://127.0.0.1:$(cat "$T/tg.port")"
+export CURL_ARGV="$T/curl-argv.log"; : > "$CURL_ARGV"
 export FAKE_UNITS="$T/units" FAKE_AUTH="$T/auth.json" FAKE_LOG="$T/fake.log" FAKE_SCREEN="$T/screen2"
 ienv() { env DESTDIR="$T" PATH="$IPATH" TELEGRAM_API="$TGAPI" GROQ_API="$FA" CLOUDFLARE_API="$FA" ELEVENLABS_API="$FA" \
   ASSISTANT_DOCTOR="$DOC" FAKE_TMUX_UP=1 "$@"; }
@@ -134,11 +137,11 @@ check "accepted but not installed is ❌, not ○" test "$(st voice-reply)" = fa
 printf 'Do you want to proceed?\n ❯ 1. Yes\n' > "$FAKE_SCREEN"
 check "doctor: a session stuck at a question is ⚠️" test "$(st service)" = warn
 printf '> \n' > "$FAKE_SCREEN"
+if (export TMUX=/tmp/tmux-0/default,1,0 TMUX_PANE=%0; test "$(st service)" = ok); then ok "doctor run from inside your own tmux still asks the user's"
+else ko "doctor run from inside your own tmux still asks the user's"; fi
 echo '{"loggedIn": true, "authMethod": "console"}' > "$FAKE_AUTH"
 jcheck "doctor: signed in with an API key is ❌" '.capabilities[0] | .status == "fail" and (.detail | test("API key"))' "$(doc --json --only claude)"
 echo '{"loggedIn": true, "authMethod": "claude.ai", "subscriptionType": "max"}' > "$FAKE_AUTH"
-if (export TMUX=/tmp/tmux-0/default,1,0 TMUX_PANE=%0; test "$(st service)" = ok); then ok "doctor run from inside your own tmux still asks the user's"
-else ko "doctor run from inside your own tmux still asks the user's"; fi
 grep -v '^assistant-release-watch.timer$' "$FAKE_UNITS" > "$T/u2" && cp "$FAKE_UNITS" "$T/u1" && cp "$T/u2" "$FAKE_UNITS"
 check "doctor: the watch is ❌ when its timer is off" test "$(st updates)" = fail
 cp "$T/u1" "$FAKE_UNITS"
@@ -232,7 +235,7 @@ cat > "$RT/list.json" <<'EOF'
  {"id": "system:chromium", "kind": "system", "name": "Chromium", "updates": "system"}]
 EOF
 printf '#!/bin/sh\ncat "%s"\n' "$RT/list.json" > "$RT/doctor"; chmod +x "$RT/doctor"
-rwt() { env PATH=/usr/local/bin:/usr/bin:/bin RELEASE_CONF="$RT/install.conf" RELEASE_STATE="$RT/state/reported" RELEASE_API="$FA" \
+rwt() { env PATH="$IB:/usr/local/bin:/usr/bin:/bin" RELEASE_CONF="$RT/install.conf" RELEASE_STATE="$RT/state/reported" RELEASE_API="$FA" \
   PYPI_API="$FA" NPM_API="$FA" ASSISTANT_DOCTOR="$RT/doctor" WAKEUP_ENV="$RT/wakeup.env" templates/system/assistant-release-watch "$@"; }
 : > "$FAROOT/wake.log"; : > "$FALOG"
 rwt >/dev/null 2>&1
@@ -254,5 +257,7 @@ cp "$RT/state/reported-tools.json" "$RT/before.json"
 printf 'WAKEUP_TOKEN=tok\nWAKEUP_LISTEN=127.0.0.1:9\n' > "$RT/wakeup.env"
 if rwt >/dev/null 2>&1; then ko "tools: fails when the wake-up is down"; else ok "tools: fails when the wake-up is down"; fi
 check "tools: and tries again next time" cmp -s "$RT/before.json" "$RT/state/reported-tools.json"
+printf '%s' 'sk_good_eleven12345' | setup key ELEVENLABS_API_KEY >/dev/null 2>&1; setup voices >/dev/null 2>&1
+check "no token or key is ever on curl's command line" bash -c "test \$(grep -c -- '-K -' '$CURL_ARGV') -ge 10 && ! grep -qE '123456789:A|Bearer tok|xi-api-key|sk_good|gsk_' '$CURL_ARGV'"
 kill "$FAPID" 2>/dev/null
 unset FAKE_UNITS FAKE_AUTH FAKE_SCREEN

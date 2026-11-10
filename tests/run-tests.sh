@@ -117,10 +117,13 @@ exit 0
 EOF
 cat > "$B/curl" <<'EOF'
 #!/bin/bash
-echo "curl $*" >> "$FAKE_LOG"
+# Its command line goes to FAKE_ARGV (where no secret may be); with -K - also the config it reads on stdin.
+echo "curl $*" >> "$FAKE_ARGV"
+cfg=""; [[ " $* " == *" -K - "* ]] && cfg=$(cat)
+echo "curl $* $cfg" >> "$FAKE_LOG"
 EOF
 chmod +x "$B"/*
-export FAKE_LOG="$T/fake.log" FAKE_SCREEN="$T/screen" PATH="$B:$PATH" HOME="$H" ASSISTANT_DIR="$H/assistant"
+export FAKE_ARGV="$T/curl-argv.log" FAKE_LOG="$T/fake.log" FAKE_SCREEN="$T/screen" PATH="$B:$PATH" HOME="$H" ASSISTANT_DIR="$H/assistant"
 mkdir -p "$H/.claude/channels/telegram"
 echo 'TELEGRAM_BOT_TOKEN="123:abc"' > "$H/.claude/channels/telegram/.env"
 echo '{"dmPolicy":"allowlist","allowFrom":["42"]}' > "$H/.claude/channels/telegram/access.json"
@@ -150,6 +153,7 @@ printf 'Tool use\n  gmail send_message Tool: (MCP)\nLatest blocked action: [Exte
 : > "$FAKE_LOG"
 timeout 7 "$H/assistant/bin/permission-watch.sh" >/dev/null 2>&1
 check "permission-watch sends one Telegram message" test "$(grep -c 'api.telegram.org/bot123:abc/sendMessage' "$FAKE_LOG")" = 1
+check "the bot token is never on curl's command line" bash -c "grep -q -- '-K -' '$FAKE_ARGV' && ! grep -q '123:abc' '$FAKE_ARGV'"
 check "permission-watch names the tool" grep -q "gmail send_message" "$FAKE_LOG"
 
 # permission-watch.sh notices a model switch in state.json, once
@@ -543,7 +547,8 @@ exit 0
 EOF2
 cat > "$N/curl" <<'EOF2'
 #!/bin/bash
-for a in "$@"; do case "$a" in *owner/setup) echo 200; exit 0 ;; esac; done
+echo "curl-argv $*" >> "$FAKE_LOG"
+for a in "$@"; do case "$a" in *owner/setup) cat >/dev/null; echo 200; exit 0 ;; esac; done
 exit 0
 EOF2
 cat > "$N/runuser" <<'EOF2'
@@ -556,6 +561,7 @@ chmod +x "$N"/*
 : > "$FAKE_LOG"
 inst=$(PATH="$N:$PATH" FAKE_N8N_VERSION="$NV" DESTDIR="$T/n8nroot" templates/n8n/install-n8n.sh --timezone Europe/Madrid --owner-email owner@example.com 2>&1)
 check "install-n8n installs the stable release with --force" grep -q 'npm install -g --force n8n@2.46.5' "$FAKE_LOG"
+check "install-n8n sends the owner's password on stdin, never on curl's command line" bash -c "grep -q 'curl-argv.*owner/setup' '$FAKE_LOG' && ! grep -q 'password' '$FAKE_LOG'"
 check "install-n8n creates the n8n system user" grep -q 'useradd --system --home-dir /var/lib/n8n' "$FAKE_LOG"
 check "install-n8n writes a private env with a key and no placeholders" bash -c "test \$(stat -c %a '$T/n8nroot/etc/n8n.env') = 600 && grep -qE '^N8N_ENCRYPTION_KEY=[0-9a-f]{64}$' '$T/n8nroot/etc/n8n.env' && ! grep -q '__[A-Z]*__' '$T/n8nroot/etc/n8n.env'"
 check "install-n8n listens on localhost by default" grep -q '^N8N_LISTEN_ADDRESS=127.0.0.1$' "$T/n8nroot/etc/n8n.env"
@@ -591,6 +597,7 @@ TR="$T/transcribe"; mkdir -p "$TR/bin" "$TR/home/.config/assistant" "$TR/home/as
 cat > "$TR/bin/curl" <<'EOF'
 #!/bin/bash
 # FAKE_GROQ / FAKE_CF: comma-separated HTTP codes, one per call (000 = network error). Logs one line per call.
+echo "$*" >> "$TR_ARGV"
 out=""; url=""; prompt=no; data=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -598,6 +605,7 @@ while [ $# -gt 0 ]; do
     -F) [[ $2 == prompt=* ]] && prompt="${2#prompt=}"; shift ;;
     --data-binary) data=${2#@}; shift ;;
     http*) url=$1 ;;
+    -K) [ "$2" = - ] && url=$(sed -n 's/^url = "\(.*\)"$/\1/p'); shift ;;
   esac
   shift
 done
@@ -613,11 +621,12 @@ else echo '{"success":true,"result":{"text":"hello from cloudflare"}}' > "$out";
 printf '%s' "$code"
 EOF
 chmod +x "$TR/bin/curl"
-printf 'GROQ_API_KEY=g\nCF_AI_TOKEN=c\nCF_AI_ACCOUNT_ID=a\n' > "$TR/home/.config/assistant/keys.env"
+printf 'GROQ_API_KEY=gsk_secret_groq\nCF_AI_TOKEN=secret_cf_token\nCF_AI_ACCOUNT_ID=a\n' > "$TR/home/.config/assistant/keys.env"
+: > "$TR/argv"
 echo audio > "$TR/note.oga"
 tr_run() {
   : > "$TR/log"
-  env -u TRANSCRIBE_NAMES HOME="$TR/home" ASSISTANT_DIR="$TR/home/assistant" PATH="$TR/bin:$PATH" TR_LOG="$TR/log" \
+  env -u TRANSCRIBE_NAMES HOME="$TR/home" ASSISTANT_DIR="$TR/home/assistant" PATH="$TR/bin:$PATH" TR_LOG="$TR/log" TR_ARGV="$TR/argv" \
     TRANSCRIBE_NO_LOCAL=1 "$@" templates/workspace/bin/transcribe.sh "$TR/note.oga" 2>"$TR/err"
 }
 out=$(tr_run FAKE_GROQ=200)
@@ -635,6 +644,7 @@ tr_run FAKE_GROQ=500,500 FAKE_CF=500 >/dev/null; rc=$?
 check "transcribe: exit 1 when every engine fails" bash -c "test $rc = 1 && grep -q 'Could not transcribe' '$TR/err'"
 out=$(tr_run TRANSCRIBE_NO_GROQ=1 FAKE_CF=200)
 check "transcribe: Cloudflare alone works" bash -c "test '$out' = 'hello from cloudflare' && ! grep -q '^groq' '$TR/log'"
+check "transcribe: the keys are never on curl's command line" bash -c "test -s '$TR/argv' && ! grep -qE 'secret_groq|secret_cf' '$TR/argv'"
 
 # unsubscribe.py: one-click unsubscription only from signed emails, only https, never to a private address
 check "unsubscribe tool (offline checks)" python3 -I tests/unsubscribe-test.py

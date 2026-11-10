@@ -74,17 +74,23 @@ apt_install() {
     DEBIAN_FRONTEND=noninteractive apt-get update -q >/dev/null; DEBIAN_FRONTEND=noninteractive apt-get install -y -q "$@" >/dev/null; } ||
     die "apt-get could not install: $*"
 }
-enable_units() { if units; then systemctl daemon-reload; systemctl enable --now -q "$@" || die "could not start: $*"; fi; }
 # jq reads the list of capabilities and every JSON file here. A fresh machine may not have it yet (install system
 # brings it): as root, it comes first, on its own.
 if ! command -v jq >/dev/null; then
   { is_root && [ -z "$D" ] && command -v apt-get >/dev/null && apt_install jq; } || die "needs jq: install it, then run me again"
 fi
+enable_units() { if units; then systemctl daemon-reload; systemctl enable --now -q "$@" || die "could not start: $*"; fi; }
 disable_units() { if units; then systemctl disable --now -q "$@" 2>/dev/null; fi; true; }
 doctor() { [ -x "$DOCTOR" ] && "$DOCTOR" --user "$U" "$@"; }
+# curl with what is secret in it (a URL with a token, a key header) on stdin, never on its command line, where any
+# user of this machine could read it (ps). curl_secret <url> <header, or ""> [curl options...]; neither holds a quote.
+curl_secret() {
+  local url=$1 hdr=$2; shift 2
+  { printf 'url = "%s"\n' "$url"; [ -z "$hdr" ] || printf 'header = "%s"\n' "$hdr"; } | curl -K - "$@"
+}
 tgtoken() { sed -n 's/^TELEGRAM_BOT_TOKEN=//p' "$TG/.env" 2>/dev/null | tr -d "\"'" | tail -1; }
 tgapi() {  # method json -> response on stdout
-  curl -sS --max-time "${3:-15}" -H 'Content-Type: application/json' -d "$2" "$TELEGRAM_API/bot$(tgtoken)/$1"
+  curl_secret "$TELEGRAM_API/bot$(tgtoken)/$1" "" -sS --max-time "${3:-15}" -H 'Content-Type: application/json' -d "$2"
 }
 owner_chat() { jq -r '.allowFrom[0] // empty' "$TG/access.json" 2>/dev/null; }
 mem_gb() { awk '/MemTotal/ {printf "%d", $2 / 1048576 + 0.5}' /proc/meminfo; }
@@ -332,7 +338,7 @@ cmd_telegram_token() {
   local t r
   t=$(read_secret)
   [[ $t =~ ^[0-9]{5,12}:[A-Za-z0-9_-]{30,60}$ ]] || die "that does not look like a bot token (123456789:AA...)"
-  r=$(curl -sS --max-time 15 -H 'Content-Type: application/json' -d '{}' "$TELEGRAM_API/bot$t/getMe")
+  r=$(curl_secret "$TELEGRAM_API/bot$t/getMe" "" -sS --max-time 15 -H 'Content-Type: application/json' -d '{}')
   jq -e .ok <<<"$r" >/dev/null 2>&1 || die "Telegram does not accept that token: copy it again from @BotFather"
   mkdir -p "$TG"; chmod 700 "$TG"
   { grep -v '^TELEGRAM_BOT_TOKEN=' "$TG/.env" 2>/dev/null; echo "TELEGRAM_BOT_TOKEN=$t"; } > "$TG/.env.tmp"
@@ -432,7 +438,7 @@ cmd_merge_settings() {
 cmd_voices() {
   local k; k=$(keyval ELEVENLABS_API_KEY)
   [ -n "$k" ] || die "first: assistant-setup key ELEVENLABS_API_KEY"
-  curl -fsS --max-time 20 -H "xi-api-key: $k" "$ELEVENLABS_API/v1/voices" |
+  curl_secret "$ELEVENLABS_API/v1/voices" "xi-api-key: $k" -fsS --max-time 20 |
     jq -r '.voices[] | "\(.name) · \(.voice_id) · \([.labels.gender, .labels.age, .labels.accent, .labels.description] | map(select(.)) | join(", "))"' ||
     die "ElevenLabs did not list the voices (does the key allow reading voices?)"
 }

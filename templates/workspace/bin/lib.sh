@@ -21,12 +21,19 @@ tg_chat() {
   jq -r '.allowFrom[0] // empty' "$TG_DIR/access.json" 2>/dev/null
 }
 
+# curl with what is secret in it (a URL with a token, a key header) on stdin, never on its command line, where any
+# user of this machine could read it (ps). curl_secret <url> <header, or ""> [curl options...]; neither holds a quote.
+curl_secret() {
+  local url=$1 hdr=$2; shift 2
+  { printf 'url = "%s"\n' "$url"; [ -z "$hdr" ] || printf 'header = "%s"\n' "$hdr"; } | curl -K - "$@"
+}
+
 # Send a text message. sendMessage does not interfere with the plugin's getUpdates polling.
 tg_send() {
   local token chat
   token=$(tg_token); chat=$(tg_chat)
   [ -n "$token" ] && [ -n "$chat" ] || { echo "Telegram not configured" >&2; return 1; }
-  curl -s -o /dev/null --max-time 10 "https://api.telegram.org/bot${token}/sendMessage" \
+  curl_secret "https://api.telegram.org/bot${token}/sendMessage" "" -s -o /dev/null --max-time 10 \
     --data-urlencode chat_id="$chat" --data-urlencode text="$1"
 }
 
