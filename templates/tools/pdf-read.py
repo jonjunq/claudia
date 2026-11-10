@@ -192,7 +192,7 @@ def worker():
             md = {}
     scanned = []
     print(f"# {os.path.basename(o['file'])} · {n} page{'s' if n != 1 else ''}"
-          + (f" · pages {', '.join(str(p + 1) for p in pages)}" if len(pages) < n else ""))
+          + (f" · page{'s' if len(pages) > 1 else ''} {', '.join(str(p + 1) for p in pages)}" if len(pages) < n else ""))
     for p in pages:
         page = doc[p]
         plain = page.get_text().strip()
