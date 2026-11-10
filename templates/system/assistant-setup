@@ -464,7 +464,9 @@ case "$cmd" in
     for id in "$@"; do
       check_id "$id"; echo "$id:"
       ( "install_${id//-/_}" ) || exit 1
-      [ "$(default_of "$id")" = ask ] && ! grep -q "^- $id: \(yes\|already\)" "$WS/notes/first-days.md" 2>/dev/null && decide "$id" yes "installed"
+      # Installed means yes: for what is offered (ask), and for what had been declined before.
+      if { [ "$(default_of "$id")" = ask ] || grep -q "^- $id: no" "$WS/notes/first-days.md" 2>/dev/null; } &&
+        ! grep -q "^- $id: \(yes\|already\)" "$WS/notes/first-days.md" 2>/dev/null; then decide "$id" yes "installed"; fi
     done
     if is_root && [ "$(conf RELEASE_WATCH)" = yes ] && [[ " $* " != *" updates "* ]]; then QUIET=1 do_watch; fi
     ;;

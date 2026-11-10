@@ -209,6 +209,8 @@ if setup install no-such-thing >/dev/null 2>&1; then ko "install refuses unknown
 setup decline updates >/dev/null 2>&1
 check "decline updates: off in install.conf" grep -q '^RELEASE_WATCH=no$' "$T/usr/local/share/assistant/install.conf"
 check "decline updates: ⏭ in the doctor" test "$(st updates)" = skip
+setup install updates >/dev/null 2>&1
+check "installing what was declined turns the no into a yes" bash -c "grep -q '^- updates: yes [0-9-]* — installed' '$H/assistant/notes/first-days.md' && ! grep -q '^- updates: no' '$H/assistant/notes/first-days.md' && test \"\$(sed -n 's/^RELEASE_WATCH=//p' '$T/usr/local/share/assistant/install.conf')\" = yes"
 kill "$TGPID" 2>/dev/null
 
 # ---- assistant-release-watch for the tools ----
