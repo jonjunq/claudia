@@ -49,7 +49,7 @@ MAX_TEXT = int(ENV.get('WAKEUP_MAX_TEXT', '700'))
 POLL = float(ENV.get('WAKEUP_POLL_SECONDS', '3'))
 # A question in its terminal (a permission, or a first start: sign-in, theme, trust): typing there would answer it.
 DIALOG = re.compile(r'Do you want to proceed\?|Select login method|Paste code here|Choose the text style|'
-                    r'trust this folder|Yes, I trust|Press Enter to continue')
+                    r'trust this folder|Yes, I trust|Press Enter to continue|Not logged in')
 queue_ = queue.Queue()
 
 

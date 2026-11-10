@@ -136,6 +136,8 @@ setup accept voice-reply >/dev/null
 check "accepted but not installed is ❌, not ○" test "$(st voice-reply)" = fail
 printf 'Do you want to proceed?\n ❯ 1. Yes\n' > "$FAKE_SCREEN"
 check "doctor: a session stuck at a question is ⚠️" test "$(st service)" = warn
+printf '> \n  [Opus] ctx 0%%            Not logged in · Run /login\n' > "$FAKE_SCREEN"
+jcheck "doctor: a session that is not signed in is ⚠️, with the sign-in as the fix" '.capabilities[0] | .status == "warn" and (.fix | test("assistant-setup login"))' "$(doc --json --only service)"
 printf '> \n' > "$FAKE_SCREEN"
 if (export TMUX=/tmp/tmux-0/default,1,0 TMUX_PANE=%0; test "$(st service)" = ok); then ok "doctor run from inside your own tmux still asks the user's"
 else ko "doctor run from inside your own tmux still asks the user's"; fi

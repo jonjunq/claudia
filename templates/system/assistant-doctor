@@ -306,6 +306,9 @@ def c_service(c):
     if rc != 0:
         return R("fail", "no tmux session '" + session + "'", asroot("systemctl restart assistant") + "; then journalctl -u assistant")
     rc, pane = c.run(["tmux", "capture-pane", "-p", "-t", session])
+    if "Not logged in" in pane:
+        return R("warn", "it is running, but Claude Code is not signed in: it cannot answer",
+                 "assistant-setup login (sends you a link), then " + asroot("systemctl restart assistant"))
     hit = next((ln.strip() for ln in pane.splitlines() if DIALOG.search(ln)), "")
     if hit:
         return R("warn", "it is waiting at a question in its terminal: " + hit[:80],
