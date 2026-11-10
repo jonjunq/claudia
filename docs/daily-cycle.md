@@ -36,6 +36,11 @@ and at the start of every conversation the assistant schedules **one-shot** task
 ask for a new routine ("every Monday at 9 remind me to…") it edits `routines.md` itself. One-off reminders go to
 `notes/todo.md` with date and time and are rescheduled each morning while still due.
 
+Other ways to keep reminders, if you prefer: in **Google Tasks** (they show up on your phone too; it needs an OAuth
+client of your own in Google Cloud, since claude.ai's connectors do not include Tasks), or in an **n8n table** that a
+workflow checks every minute and sends on Telegram when due, without the assistant and without spending tokens
+([n8n](n8n.md)). The kit ships neither: ask the assistant to set one up.
+
 Tips from the morning summary we use:
 
 - Order it the way you read: calendar, what is due, email.

@@ -50,7 +50,9 @@ one line, and its guide. **The full list, with what each one needs: [docs/recipe
 **What ours does, every day or whenever it comes up**
 
 - 🎙️ Walking down the street: *"Remind me to call the plumber tomorrow at ten."* A voice note is understood in
-  about a second, and the reminder is there tomorrow.
+  about a second, and the reminder is there tomorrow. Reminders live in its notes (`notes/todo.md`) and are
+  scheduled with Claude Code's CronCreate; Google Tasks or an n8n table that sends them on Telegram at no token cost
+  also work ([Daily cycle](docs/daily-cycle.md#routines)).
   ⚠️ The audio goes to the transcription service you choose (or stays on your machine, slower). · [Voice](docs/voice.md)
 - ☀️ Without asking: every morning, your day in one message (appointments, what is due, the emails that matter),
   ending with a proposal to leave the inbox at zero that you approve with one "yes".

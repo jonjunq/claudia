@@ -51,7 +51,9 @@ cosa en una línea y su guía. **La lista completa, con lo que necesita cada cos
 **Lo que la nuestra hace, a diario o cuando viene a cuento**
 
 - 🎙️ Yendo por la calle: *«Recuérdame mañana a las diez llamar al fontanero.»* Entiende la nota de voz en un
-  segundo y mañana tienes el aviso.
+  segundo y mañana tienes el aviso. Los recordatorios van en sus notas (`notes/todo.md`) y se programan con el
+  CronCreate de Claude Code; también valen Google Tasks o una tabla de n8n que los manda por Telegram sin gastar
+  tokens ([Ciclo diario](docs/daily-cycle.md#routines)).
   ⚠️ El audio va al servicio de transcripción que elijas (o se queda en tu máquina, más lento). · [Voz](docs/voice.md)
 - ☀️ Sin pedírselo: cada mañana, tu día en un mensaje (citas, lo que vence, los correos que importan), y al final una
   propuesta para dejar la bandeja a cero que apruebas con un «sí».

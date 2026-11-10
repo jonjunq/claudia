@@ -82,6 +82,9 @@ Will be 1.7.0: new code that gets installed.
   after 5 s instead of 15 (a short turn still deletes it when it ends).
 - `CLAUDE.md` template: when to continue a helper with `SendMessage` and when to launch a new one (same request vs a new
   one, and a fresh helper once one carries ~150k of context), after a real helper grew to 262k from 7 chained requests.
+- Reminders: the README ("What you can ask it") and `docs/daily-cycle.md` say how the kit keeps them
+  (`notes/todo.md` and CronCreate) and two alternatives you can ask for: Google Tasks (with an OAuth client of your
+  own) or an n8n table that sends them on Telegram without the assistant, at no token cost.
 
 ## 1.6.0 — 2026-11-05
 
