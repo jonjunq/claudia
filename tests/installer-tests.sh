@@ -122,6 +122,16 @@ for id in claude workspace telegram telegram-extras service nightly connectors v
   check "doctor: $id ✅ when it is there" test "$(jq -r --arg i "$id" '.capabilities[] | select(.id == $i) | .status' <<<"$json")" = ok
 done
 jcheck "doctor: optional ones not set up are offered, not failures" '[.capabilities[] | select(.default == "ask") | .status] | unique == ["offer"]' "$json"
+# agent-browser command taken over by n8n's own old copy (what installing n8n does): the doctor says so without --deep
+NAB="$T/usr/local/lib/node_modules/n8n/node_modules/agent-browser"; mkdir -p "$NAB/bin" "$T/usr/local/bin"
+echo '{"name": "agent-browser", "version": "0.26.0"}' > "$NAB/package.json"
+ln -sfn /usr/local/lib/node_modules/n8n/node_modules/agent-browser/bin/agent-browser-linux-x64 "$T/usr/local/bin/agent-browser"
+bjson=$(doc --json --offline --only browser)
+jcheck "doctor: an agent-browser command that is n8n's old copy is a failure, with the fix" '.capabilities[] | select(.id == "browser") | .status == "fail" and (.detail | test("n8n.s own copy \\(0.26.0")) and (.fix | test("assistant-setup install browser"))' "$bjson"
+ln -sfn /usr/local/lib/node_modules/agent-browser/bin/agent-browser-linux-x64 "$T/usr/local/bin/agent-browser"
+bjson=$(doc --json --offline --only browser)
+jcheck "doctor: the agent-browser command of the installed copy is fine" '.capabilities[] | select(.id == "browser") | .status == "ok"' "$bjson"
+rm -f "${T:?}/usr/local/bin/agent-browser"; rm -rf "${T:?}/usr/local/lib/node_modules/n8n"
 jcheck "doctor: the Telegram check names the bot" '.capabilities[] | select(.id == "telegram") | .detail | test("@test_bot")' "$json"
 check "doctor: it asked Groq with the key and Telegram for the bot and its menu" bash -c "grep -q '^GET /openai/v1/models' '$FALOG' && grep -q '\"method\": \"getMe\"' '$TGLOG' && grep -q '\"method\": \"getMyCommands\"' '$TGLOG'"
 text=$(doc)

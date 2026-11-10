@@ -33,6 +33,18 @@ if [ -z "$node_major" ] || [ "$node_major" -lt 24 ]; then
 fi
 command -v npm >/dev/null || { echo "npm not found" >&2; exit 1; }
 
+# n8n carries an old agent-browser of its own (@n8n/mcp-browser), and installing n8n repoints the assistant's
+# /usr/local/bin/agent-browser to it (vercel-labs/agent-browser#2214): that one cannot open the browser with a window.
+# This gives the link back to the copy assistant-setup installed (the same as its browser_link), or removes it.
+keep_agent_browser() {  # [prefix]
+  local l=${1:-}/usr/local/bin/agent-browser dir=/usr/local/lib/node_modules/agent-browser t
+  case "$(readlink "$l" 2>/dev/null)" in */node_modules/n8n/*) ;; *) return 0 ;; esac
+  case $(uname -m) in aarch64|arm64) t=$dir/bin/agent-browser-linux-arm64 ;; *) t=$dir/bin/agent-browser-linux-x64 ;; esac
+  [ -x "${1:-}$t" ] || t=$dir/bin/agent-browser.js
+  if [ -e "${1:-}$t" ]; then ln -sfn "$t" "$l"; else rm -f "$l"; fi
+  echo "  gave /usr/local/bin/agent-browser back to the assistant's copy (n8n had taken it over)"
+}
+
 # The release n8n marks "stable" on npm, unless a version is given.
 [ -n "$VERSION" ] || VERSION=$(npm view n8n@stable version 2>/dev/null)
 [ -n "$VERSION" ] || { echo "Could not ask npm for the stable version; pass --version" >&2; exit 1; }
@@ -48,6 +60,7 @@ mkdir -p "$D/var/lib/n8n/files"
 # Always under /usr/local, whichever npm this is (Debian's installs there, NodeSource's in /usr): one copy, first in
 # PATH, that n8n-admin updates in place.
 npm install -g --prefix /usr/local --force "n8n@$VERSION"
+keep_agent_browser "$D"
 if [ -z "$D" ]; then
   root=$(npm root -g --prefix /usr/local)
   node -e "for (const m of ['sqlite3','isolated-vm']) require(require.resolve(m, {paths: ['$root/n8n']}))" \

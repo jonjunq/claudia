@@ -29,6 +29,17 @@ as_n8n() {
     export HOME="$DATA" N8N_PORT=5690 N8N_RUNNERS_BROKER_PORT=5691
     cd "$DATA" && runuser -u n8n -p -- n8n "$@" )
 }
+# n8n carries an old agent-browser of its own (@n8n/mcp-browser), and installing n8n repoints the assistant's
+# /usr/local/bin/agent-browser to it (vercel-labs/agent-browser#2214): that one cannot open the browser with a window.
+# This gives the link back to the copy assistant-setup installed (the same as its browser_link), or removes it.
+keep_agent_browser() {  # [prefix]
+  local l=${1:-}/usr/local/bin/agent-browser dir=/usr/local/lib/node_modules/agent-browser t
+  case "$(readlink "$l" 2>/dev/null)" in */node_modules/n8n/*) ;; *) return 0 ;; esac
+  case $(uname -m) in aarch64|arm64) t=$dir/bin/agent-browser-linux-arm64 ;; *) t=$dir/bin/agent-browser-linux-x64 ;; esac
+  [ -x "${1:-}$t" ] || t=$dir/bin/agent-browser.js
+  if [ -e "${1:-}$t" ]; then ln -sfn "$t" "$l"; else rm -f "$l"; fi
+  echo "  gave /usr/local/bin/agent-browser back to the assistant's copy (n8n had taken it over)"
+}
 healthy() {
   local t=0
   while [ "$t" -lt "$WAIT" ]; do
@@ -55,7 +66,8 @@ update() {
   systemctl stop n8n
   # The database migrates on the first start of the new version: only a copy of the data folder can undo that.
   tar -C "$DATA" -czf "$backup" .n8n || { systemctl start n8n; echo "Backup failed: nothing changed"; return 2; }
-  if npm install -g --prefix /usr/local --force "n8n@$target" >/dev/null 2>&1 && [ "$(installed_version)" = "$target" ] \
+  if npm install -g --prefix /usr/local --force "n8n@$target" >/dev/null 2>&1 && keep_agent_browser "" >/dev/null \
+     && [ "$(installed_version)" = "$target" ] \
      && systemctl start n8n && healthy && [ "$(count_workflows)" = "$before" ]; then
     ls -1t "$BACKUPS"/n8n-*.tar.gz 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm -f
     echo "Updated: n8n $target is up with its $before workflow(s)"
@@ -63,7 +75,7 @@ update() {
   fi
   echo "The update to $target failed its checks: rolling back to $current"
   systemctl stop n8n
-  npm install -g --prefix /usr/local --force "n8n@$current" >/dev/null 2>&1
+  npm install -g --prefix /usr/local --force "n8n@$current" >/dev/null 2>&1; keep_agent_browser "" >/dev/null
   rm -rf "${DATA:?}/.n8n" && tar -C "$DATA" -xzf "$backup"
   chown -R n8n:n8n "$DATA/.n8n" 2>/dev/null
   if systemctl start n8n && healthy && [ "$(installed_version)" = "$current" ]; then

@@ -85,6 +85,14 @@ Will be 1.7.0: new code that gets installed.
 - Reminders: the README ("What you can ask it") and `docs/daily-cycle.md` say how the kit keeps them
   (`notes/todo.md` and CronCreate) and two alternatives you can ask for: Google Tasks (with an OAuth client of your
   own) or an n8n table that sends them on Telegram without the assistant, at no token cost.
+- **The browser no longer breaks when n8n is installed or updated.** n8n carries an old agent-browser (0.26, in
+  `@n8n/mcp-browser`) and `npm install -g n8n` repointed `/usr/local/bin/agent-browser` to it
+  (vercel-labs/agent-browser#2214, open). That copy predates the automatic Xvfb of 0.31.2, so the headed browser
+  failed with "Missing X server or $DISPLAY" while the doctor still showed the installed version. `install-n8n.sh`
+  and `n8n-admin update` (and its rollback) give the link back after each install; `assistant-setup install browser`
+  always points it at its own copy, even when npm has nothing to update; `assistant-doctor` fails with the fix when
+  the command is another copy (no `--deep` needed), and `--deep` says when Chromium found no display. Not an
+  agent-browser 0.42.0 regression: 0.41.2 and 0.42.0 both open the browser with a window on Debian 13.
 
 ## 1.6.0 — 2026-11-05
 

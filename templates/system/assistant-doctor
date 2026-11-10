@@ -455,6 +455,22 @@ def npm_version(package):
     return None
 
 
+def browser_link_elsewhere():
+    """What /usr/local/bin/agent-browser runs when it is not the copy assistant-setup installed, else None. Installing
+    or updating n8n repoints it to n8n's own old agent-browser (vercel-labs/agent-browser#2214)."""
+    link, top = "/usr/local/bin/agent-browser", "/usr/local/lib/node_modules/agent-browser/"
+    try:
+        target = os.readlink(P(link))
+    except OSError:
+        return None
+    target = os.path.normpath(os.path.join(os.path.dirname(link), target))
+    if target.startswith(top) or not os.path.isdir(P(top)):
+        return None
+    pkg = jload(P(os.path.dirname(os.path.dirname(target)) + "/package.json")) or {}
+    owner = "n8n's own copy" if "/node_modules/n8n/" in target else "another copy"
+    return f"{owner} ({pkg.get('version') or '?'}, {os.path.dirname(os.path.dirname(target))})"
+
+
 def c_browser(c):
     cfg = jload(c.H + "/.agent-browser/config.json") or {}
     exe = cfg.get("executablePath", "")
@@ -469,9 +485,17 @@ def c_browser(c):
         return R("fail", "missing: " + ", ".join(miss), asroot("assistant-setup install browser"), False)
     if not cfg or not os.path.isdir(c.H + "/.browser/clean"):
         return R("fail", "installed, but not set up for " + c.user, asroot("assistant-setup install browser"), True)
+    other = browser_link_elsewhere()
+    if other:
+        return R("fail", f"the agent-browser command is {other}, not the installed "
+                 f"{npm_version('agent-browser') or 'one'} (it cannot open the browser with a window)",
+                 asroot("assistant-setup install browser"), True)
     if c.deep:
         rc, out = c.run(["sh", "-c", "agent-browser open about:blank >/dev/null && agent-browser eval navigator.userAgent;"
                          " agent-browser close >/dev/null 2>&1"], timeout=90)
+        if "Missing X server" in out:
+            return R("fail", "Chromium found no display: agent-browser did not start its Xvfb (it does from 0.31.2,"
+                     " with Xvfb installed and no DISPLAY set)", asroot("assistant-setup install browser"), True)
         if rc != 0 or "Mozilla" not in out:
             return R("fail", "it does not start: " + out[-160:], "docs/browser.md (Install, and the GPU note)", True)
         if "HeadlessChrome" in out:

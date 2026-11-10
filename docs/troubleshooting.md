@@ -47,6 +47,13 @@ Telegram shows the most specific menu: one set for your chat (`scope` `chat`) hi
 Without a browser tool the assistant improvises Playwright scripts with guessed selectors, and custom dropdowns
 make clicks time out. Install agent-browser and the browser skill ([browser.md](browser.md)).
 
+**The browser stopped opening after n8n was installed or updated ("Missing X server or $DISPLAY")**
+n8n carries an old agent-browser of its own (0.26, inside `@n8n/mcp-browser`), and installing n8n repoints
+`/usr/local/bin/agent-browser` to it ([vercel-labs/agent-browser#2214](https://github.com/vercel-labs/agent-browser/issues/2214)).
+That copy predates the automatic Xvfb (0.31.2), so Chromium with a window finds no display. `assistant-doctor` says
+so; `assistant-setup install browser` puts the link back, and `install-n8n.sh` and `n8n-admin update` now do it
+themselves after each install.
+
 **It went silent after "This model's safeguards flagged this message"**
 The safeguards behind Claude's newest models are intentionally broad and sometimes flag normal work (we hit it with
 an errand about installing an app on a smart TV, flagged as `[cyber]`). By default the session then pauses on a

@@ -571,6 +571,15 @@ check "install-n8n creates the owner and keeps the password private" bash -c "te
 key=$(grep ^N8N_ENCRYPTION_KEY= "$T/n8nroot/etc/n8n.env")
 PATH="$N:$PATH" FAKE_N8N_VERSION="$NV" DESTDIR="$T/n8nroot" templates/n8n/install-n8n.sh --version 2.46.5 >/dev/null 2>&1
 check "install-n8n re-run keeps the encryption key" test "$(grep ^N8N_ENCRYPTION_KEY= "$T/n8nroot/etc/n8n.env")" = "$key"
+# n8n's own old agent-browser takes over /usr/local/bin/agent-browser when n8n is installed: install-n8n.sh gives it back
+AB="$T/n8nroot/usr/local/lib/node_modules/agent-browser/bin"; mkdir -p "$AB" "$T/n8nroot/usr/local/bin"
+touch "$AB/agent-browser.js" "$AB/agent-browser-linux-x64" "$AB/agent-browser-linux-arm64"; chmod +x "$AB"/*
+ln -sfn /usr/local/lib/node_modules/n8n/node_modules/agent-browser/bin/agent-browser-linux-x64 "$T/n8nroot/usr/local/bin/agent-browser"
+PATH="$N:$PATH" FAKE_N8N_VERSION="$NV" DESTDIR="$T/n8nroot" templates/n8n/install-n8n.sh --version 2.46.5 >/dev/null 2>&1
+check "install-n8n gives the agent-browser command back to the assistant's copy" bash -c "readlink '$T/n8nroot/usr/local/bin/agent-browser' | grep -q '^/usr/local/lib/node_modules/agent-browser/bin/agent-browser-linux-'"
+ln -sfn /usr/local/lib/node_modules/agent-browser/bin/agent-browser.js "$T/n8nroot/usr/local/bin/agent-browser"
+PATH="$N:$PATH" FAKE_N8N_VERSION="$NV" DESTDIR="$T/n8nroot" templates/n8n/install-n8n.sh --version 2.46.5 >/dev/null 2>&1
+check "install-n8n leaves an agent-browser link that is not n8n's alone" test "$(readlink "$T/n8nroot/usr/local/bin/agent-browser")" = /usr/local/lib/node_modules/agent-browser/bin/agent-browser.js
 [ -n "$inst" ] || ko "install-n8n printed nothing"
 export N8N_DATA="$T/n8ndata" N8N_BACKUPS="$T/n8nbak" N8N_ENV_FILE="$T/n8nroot/etc/n8n.env" N8N_HEALTH_TIMEOUT=2
 mkdir -p "$N8N_DATA/.n8n"; echo original > "$N8N_DATA/.n8n/database.sqlite"

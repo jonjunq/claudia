@@ -209,6 +209,19 @@ install_links_videos() {
   asu '[ -e ~/.config/yt-dlp/config ] || { [ -x ~/.bun/bin/bun ] && mkdir -p ~/.config/yt-dlp && echo "--js-runtimes bun:$HOME/.bun/bin/bun" > ~/.config/yt-dlp/config; }; true'
   say "yt-dlp $(asu '"$HOME/.local/bin/yt-dlp" --version' 2>/dev/null)"
 }
+# /usr/local/bin/agent-browser must be the copy installed above. n8n carries an old one of its own (n8n ->
+# @n8n/mcp-browser -> agent-browser 0.26, from before the automatic Xvfb of 0.31.2), and installing or updating n8n
+# repoints this link to it (vercel-labs/agent-browser#2214): Chromium in headed mode then has no display ("Missing X
+# server or $DISPLAY"). This puts the link back; n8n-admin and install-n8n.sh do the same after each npm install.
+browser_link() {
+  local dir=/usr/local/lib/node_modules/agent-browser arch target
+  [ -d "$D$dir" ] || return 0
+  case $(uname -m) in x86_64) arch=x64 ;; aarch64|arm64) arch=arm64 ;; *) arch=none ;; esac
+  target=$dir/bin/agent-browser-linux-$arch
+  [ -x "$D$target" ] || target=$dir/bin/agent-browser.js
+  [ "$(readlink "$D/usr/local/bin/agent-browser" 2>/dev/null)" = "$target" ] && return 0
+  mkdir -p "$D/usr/local/bin" && ln -sfn "$target" "$D/usr/local/bin/agent-browser"
+}
 install_browser() {
   need_root
   local ID="" ID_LIKE=""
@@ -222,6 +235,7 @@ install_browser() {
   # Always under /usr/local (Debian's npm installs there, NodeSource's in /usr): after n8n brought a newer Node, an
   # update would otherwise land in /usr while /usr/local/bin/agent-browser, first in PATH, stayed the old one.
   npm install -g --prefix /usr/local --silent agent-browser >/dev/null 2>&1 || die "npm could not install agent-browser"
+  browser_link
   asu 'install -d -m 700 ~/.browser/clean ~/.browser/sessions; [ -e ~/.agent-browser/config.json ] || install -D -m 644 /usr/local/lib/assistant-browser/agent-browser-config.json ~/.agent-browser/config.json'
   say "agent-browser $(jq -r .version /usr/local/lib/node_modules/agent-browser/package.json 2>/dev/null) with Debian's Chromium"
 }
