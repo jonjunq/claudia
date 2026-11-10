@@ -101,6 +101,9 @@ Will be 1.7.0: new code that gets installed.
   the session's model too. The other helpers say `model: inherit` and now also follow a `/model` switch;
   `SUBAGENT_MODEL` sets the model for helpers that name none, and the new `SUBAGENT_MODEL_FORCE=yes` in
   `assistant.env` brings back the old behaviour (every helper on one model, `browser-fast` included).
+  Without the flag, Claude Code's own `claude-code-guide` and `web-fetch` helpers would run on their own smaller
+  model, so `templates/settings.json` denies them (like `statusline-setup`): `researcher` and `WebFetch` do that work
+  on the session's model.
 - **`/model` from Telegram** (plugin patch v4, `templates/telegram/model-switch.py`): the bot answers `/model` itself,
   like `/usage`: the current model and a button per model in the new `MODELS` of `assistant.env` (`opus sonnet
   haiku` by default; aliases or full ids); `/model sonnet` or `/model opus 4.8` skip the buttons. It starts
