@@ -17,7 +17,7 @@ except OSError:
 
 TURN = os.path.join(tg.STATE, "turn.json")
 PENDING = os.path.join(tg.STATE, "permission-pending.json")
-DELAY = 15         # s before showing the message: short turns do not need one
+DELAY = 5          # s before showing the message (a short turn deletes it when it ends)
 EVERY = 5          # s between edits
 NO_PROGRESS = 600  # s without any hook event -> warning
 MAX_LIFE = 4 * 3600
