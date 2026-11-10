@@ -74,6 +74,11 @@ apt_install() {
     die "apt-get could not install: $*"
 }
 enable_units() { if units; then systemctl daemon-reload; systemctl enable --now -q "$@" || die "could not start: $*"; fi; }
+# jq reads the list of capabilities and every JSON file here. A fresh machine may not have it yet (install system
+# brings it): as root, it comes first, on its own.
+if ! command -v jq >/dev/null; then
+  { is_root && [ -z "$D" ] && command -v apt-get >/dev/null && apt_install jq; } || die "needs jq: install it, then run me again"
+fi
 disable_units() { if units; then systemctl disable --now -q "$@" 2>/dev/null; fi; true; }
 doctor() { [ -x "$DOCTOR" ] && "$DOCTOR" --user "$U" "$@"; }
 tgtoken() { sed -n 's/^TELEGRAM_BOT_TOKEN=//p' "$TG/.env" 2>/dev/null | tr -d "\"'" | tail -1; }
