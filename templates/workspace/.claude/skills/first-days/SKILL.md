@@ -17,10 +17,16 @@ in `notes/first-days.md` so you never insist on something they declined.
   here"). Say what they gain, what it costs (money, time, a step only they can do) and the risk if there is one.
   End with a yes/no or numbered options, and an example of how to ask for it later.
 - Like this: "💡 Did you know I can … ? It would mean … . It costs … . Shall I set it up? 1 yes · 2 later · 3 no".
-- **Check before offering**: if it is already set up, mark it `already` and offer nothing; if it would be useful to
-  know, mention it in one line the next time it fits ("by the way, you can send me voice notes").
-- They say yes: do it now (or schedule it), following the item's guide; things only they can do, explain step by
-  step. They say no: mark `no` and never offer it again unless they bring it up. "Later": mark `later` with the date;
+- **Check before offering** with `assistant-doctor --json` (free, no tokens): ✅ = already set up, mark it `already`
+  and offer nothing (if it would be useful to know, mention it in one line the next time it fits: "by the way, you
+  can send me voice notes"); ⏭ = they declined it, at install or here: never offer it; ❌ or ○ = it can be offered.
+  For what the doctor cannot see (a TV, a server, an account), check as the item says.
+- They say yes: do it now (or schedule it), following the item's guide: for a capability of the doctor,
+  `assistant-setup install <id>` (root; otherwise the one command for whoever runs the machine), then
+  `assistant-doctor --only <id>` to check it; things only they can do, explain step by step (the `human` steps in
+  `/usr/local/share/assistant/capabilities.json` have the links). They say no: mark `no` (for a capability of the
+  doctor, `assistant-setup decline <id> "<their words>"` writes that line) and never offer it again unless they
+  bring it up. "Later": mark `later` with the date;
   you may ask once more after a week or more, then it is `no`.
 - Things that need something they may not have (a TV, a server, a shop) are offered only when it comes up: if they
   mention it, or you see it in their email or calendar. Do not ask "do you have a smart TV?".
@@ -28,9 +34,11 @@ in `notes/first-days.md` so you never insist on something they declined.
   right), then continue one at a time.
 
 ## The state file: `notes/first-days.md`
-Read it at the start of each conversation; update it after each offer. One line per item:
+Read it at the start of each conversation; update it after each offer. The capability ids of `assistant-doctor`
+(`voice`, `pdf`, `browser`, `email-watch`, `voice-reply`…) are items too, with the same lines. One line per item:
 `- <id>: <already | offered YYYY-MM-DD | yes YYYY-MM-DD | no YYYY-MM-DD | later YYYY-MM-DD> — a few words`.
-- The first time (`started:` is empty): write today's date, check what is already set up and mark it `already`.
+- The first time (`started:` is empty): write today's date, run `assistant-doctor --json` and mark `already` what
+  is set up (lines the installer wrote, `no` for what was declined at install, stay as they are).
   Introduce yourself in 3-4 lines (who you are, that they can write or talk to you any time, one example), with no
   offer in that message. If `notes/diary/` has more than two weeks of pages, they know you: skip the introduction.
 - **The phase ends** when every item of the first two groups has an answer, or 4 weeks after `started` (2 if they
@@ -52,9 +60,11 @@ lines of `notes/first-days.md`.
 - `reminders` — "remind me…" and recurring routines ("every Monday, remind me of the bins"). Nothing to set up:
   tell them the first time they mention a date or a chore.
 - `voice` — voice notes: "you can talk to me instead of typing: send a voice note, I understand it in a second".
-  Check: a key in `~/.config/assistant/keys.env` (`GROQ_API_KEY` uncommented) or a local engine (voice.md). Cost:
-  a free Groq account, or a local engine that is slower. Risk: the audio goes to that service. Replies with my own
-  voice (`speak.sh`, ElevenLabs, paid beyond a small free tier): only if they liked voice notes.
+  Check: the doctor's `voice` (Groq) and `voice-local`. Cost: a free Groq account, or a local engine that is slower.
+  Risk: the audio goes to that service. `voice-reply`, answers with my own voice (ElevenLabs, paid beyond a small
+  free tier): only if they liked voice notes.
+- `pdf` — the first time they mention a bill, a contract or a letter: "send me the PDF and I'll tell you what
+  matters in it". Check: the doctor's `pdf`.
 - `recall` — "ask me about anything we talked about weeks ago, I can look it up". Nothing to set up: say it once.
 - `photo-dates` — the first time they mention a paper with a date (an insurance, a letter, a ticket): "send me a
   photo and I'll put the dates in your calendar". Nothing to set up.
@@ -74,11 +84,11 @@ lines of `notes/first-days.md`.
   for them) and a Gmail app password (needs 2-step verification; revocable any time). Risk: n8n holds a password
   that can read their email: it stays on this machine. Guides: n8n.md, wakeup.md. Check: is n8n running, do you get
   email notices?
-- `updates` — "so I keep improving: once a day it checks whether there is a new version of me, and I tell you what
-  it brings. I never update without your yes." Check `RELEASE_WATCH` in `/usr/local/share/assistant/install.conf`:
-  `yes` = already offered at install (mark `already`; if `RELEASE_WATCH_HOW=n8n`, set up the workflow now, skill
-  `updating`). Empty or `no`: offer it early, in the first days, once (it costs nothing: a small daily check, no
-  n8n needed); a no is final. Skill `updating`.
+- `updates` — "so I keep improving: once a day it checks whether there is a new version of me or of the tools I
+  use, and I tell you in plain words what it brings, only when it is worth it. I never update without your yes."
+  Check: the doctor's `updates` (✅ = on and covering everything installed: mark `already`; ⏭ = declined at
+  install: never offer it). Off and not declined: offer it early, in the first days, once (it costs nothing: a small
+  daily check, no n8n needed); a no is final. Skill `updating`.
 - `filing` — when a payslip, an invoice or a receipt arrives: "I can file these in your Drive as they arrive, and
   remind you before a warranty ends". Needs the email watch. recipes/email-cleanup.md.
 - `page-watch` — when they mention a parcel, an order, a price or something out of stock: "I can watch that page
