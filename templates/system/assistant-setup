@@ -210,7 +210,9 @@ install_browser() {
   fi
   apt_install chromium xvfb fonts-noto fonts-noto-color-emoji
   command -v npm >/dev/null || apt_install nodejs npm
-  npm install -g --silent agent-browser >/dev/null 2>&1 || die "npm could not install agent-browser"
+  # Always under /usr/local (Debian's npm installs there, NodeSource's in /usr): after n8n brought a newer Node, an
+  # update would otherwise land in /usr while /usr/local/bin/agent-browser, first in PATH, stayed the old one.
+  npm install -g --prefix /usr/local --silent agent-browser >/dev/null 2>&1 || die "npm could not install agent-browser"
   asu 'install -d -m 700 ~/.browser/clean ~/.browser/sessions; [ -e ~/.agent-browser/config.json ] || install -D -m 644 /usr/local/lib/assistant-browser/agent-browser-config.json ~/.agent-browser/config.json'
   say "agent-browser $(npm ls -g --depth=0 agent-browser 2>/dev/null | sed -n 's/.*agent-browser@//p') with Debian's Chromium"
 }
