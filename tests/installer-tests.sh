@@ -181,6 +181,10 @@ check "with n8n: the wake-up credential carries the token, and the temp files ar
 check "with n8n: the doctor checks the n8n way" test "$(st updates)" = ok
 : > "$ILOG"; setup watch >/dev/null 2>&1
 check "with n8n: nothing changed, nothing re-imported" bash -c "! grep -q 'import' '$ILOG'"
+WT="$T/usr/local/share/assistant-n8n/workflows/release-watch-to-wakeup.json"; cp "$WT" "$T/wt.orig"
+jq '.name = "Versions (fixed in an upgrade)"' "$T/wt.orig" > "$WT"; : > "$ILOG"; setup watch >/dev/null 2>&1
+check "with n8n: a new workflow template from an upgrade is imported, even with the same list" grep -q 'n8n-admin import ' "$ILOG"
+cp "$T/wt.orig" "$WT"
 rm -f "$T/usr/local/sbin/n8n-admin"; sed -i '/^n8n$/d' "$FAKE_UNITS"; setup watch >/dev/null 2>&1
 check "without n8n again: back to the daily timer" grep -q '^RELEASE_WATCH_HOW=timer$' "$T/usr/local/share/assistant/install.conf"
 

@@ -214,7 +214,7 @@ install_browser() {
   # update would otherwise land in /usr while /usr/local/bin/agent-browser, first in PATH, stayed the old one.
   npm install -g --prefix /usr/local --silent agent-browser >/dev/null 2>&1 || die "npm could not install agent-browser"
   asu 'install -d -m 700 ~/.browser/clean ~/.browser/sessions; [ -e ~/.agent-browser/config.json ] || install -D -m 644 /usr/local/lib/assistant-browser/agent-browser-config.json ~/.agent-browser/config.json'
-  say "agent-browser $(npm ls -g --depth=0 agent-browser 2>/dev/null | sed -n 's/.*agent-browser@//p') with Debian's Chromium"
+  say "agent-browser $(jq -r .version /usr/local/lib/node_modules/agent-browser/package.json 2>/dev/null) with Debian's Chromium"
 }
 install_browser_window() {
   need_root
@@ -288,8 +288,10 @@ do_watch() {
 watch_n8n() {
   local list=$1 tpl="$D/usr/local/share/assistant-n8n/workflows/release-watch-to-wakeup.json" wf cred listen token last
   [ -e "$tpl" ] || die "no $tpl: run install.sh --upgrade"
-  last="$D$SHARE/watch-n8n.json"
-  if [ -e "$last" ] && [ "$(jq -cS '[.[] | {id, installed}]' <<<"$list")" = "$(jq -cS '[.[] | {id, installed}]' "$last")" ]; then
+  last="$D$SHARE/watch-n8n.json"   # what was imported last: the template's checksum and the list
+  local sum; sum=$(sha256sum "$tpl" | cut -d' ' -f1)
+  if [ -e "$last" ] && [ "$(jq -cS --arg s "$sum" '{s: $s, w: [.[] | {id, installed}]}' <<<"$list")" = \
+       "$(jq -cS 'if type == "object" then {s: .template, w: [.watch[] | {id, installed}]} else null end' "$last" 2>/dev/null)" ]; then
     [ "${QUIET:-}" = 1 ] || say "the n8n watch is already up to date"; return 0
   fi
   listen=$(sed -n 's/^WAKEUP_LISTEN=//p' "$D/etc/assistant-wakeup.env" | tail -1); listen=${listen:-127.0.0.1:8770}
@@ -304,7 +306,7 @@ watch_n8n() {
   local admin="$D/usr/local/sbin/n8n-admin"
   "$admin" import-credentials "$cred" >/dev/null && "$admin" import "$wf" >/dev/null && "$admin" publish releaseWatch0001 >/dev/null &&
     "$admin" restart >/dev/null || { rm -f "$wf" "$cred"; die "n8n-admin could not import the watch workflow"; }
-  rm -f "$wf" "$cred"; echo "$list" > "$last"
+  rm -f "$wf" "$cred"; jq -n --arg s "$sum" --argjson w "$list" '{template: $s, watch: $w}' > "$last"
   disable_units assistant-release-watch.timer
   enable_units assistant-wakeup
   [ "${QUIET:-}" = 1 ] || say "the n8n workflow 'Versions → wake the assistant' follows $(jq '[.[] | select(.updates == "watch")] | length' <<<"$list") things"
