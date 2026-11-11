@@ -108,6 +108,20 @@ check("flights command: --nonstop", "stop (" not in out and "07:10" in out)
 code, out = run(g.cmd_flights, "<html></html>", origin="AAA", destination="BBB", date="2027-03-12")
 check("flights command: exit 1 and a way out when nothing is found", code == 1 and "use the browser" in out)
 
+LONG = label("A partir de 359 euros. Vuelo con 1 escala de Shenzhen. Sale de Aeropuerto Alfa el viernes, diciembre 11 a "
+             "las 11:35. Llega a Aeropuerto Beta el domingo, diciembre 13 a las 1:20. Duración total: 31 h 45 min.  "
+             "Esta escala (1 de 1) es una escala de 16 h 10 min en Aeropuerto Internacional de Shenzhen-Bao&#39;an de "
+             "Shenzhen. Seleccionar vuelo")
+lf = g.parse_flights(LONG)
+check("flights: arriving two days later shows +2, not +1",
+      len(lf) == 1 and lf[0]["days_later"] == 2 and lf[0]["layovers"] == ["Shenzhen 16 h 10 min"])
+check("flights: +1 for the next day, nothing on the same day", big["days_later"] == 1 and f48["days_later"] == 0)
+check("days_later: new year, the date line westwards, a label without a date",
+      g.days_later("Thursday, December 31", "Friday, January 1") == 1
+      and g.days_later("Saturday, January 1", "Friday, December 31") == -1
+      and g.days_later("viernes, marzo 12", "jueves, marzo 11") == -1
+      and g.days_later("Friday", "Saturday") == 1)
+
 # Hotels: the dates go in ts. These values were checked against Google Hotels: the page showed those dates and guests.
 d = datetime.date
 check("hotel ts: dates, nights, 2 adults, currency (checked on Google)",

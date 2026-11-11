@@ -88,6 +88,24 @@ def month_day(text):
     return None
 
 
+def days_later(dep_day, arr_day):
+    """Days between departure and arrival as Google writes them: 0 same day, 1 next day, 2 for a long trip east,
+    -1 when crossing the date line westwards. 1 if the days differ but cannot be read."""
+    if dep_day.strip() == arr_day.strip():
+        return 0
+    d, a = month_day(dep_day), month_day(arr_day)
+    if not d or not a:
+        return 1
+    gaps = []   # no year in the label: the arrival in the year before, the same or the next, whichever is closest
+    for year in (1999, 2000, 2001):
+        try:
+            gaps.append((datetime.date(year, *a) - datetime.date(2000, *d)).days)
+        except ValueError:   # 29 February in a year that has none
+            pass
+    n = min(gaps, key=abs, default=1)
+    return n if -2 <= n <= 3 else 1
+
+
 def amount(s):
     return int(re.sub(r"[.,\s\u00a0\u202f]", "", s))
 
@@ -132,6 +150,7 @@ def parse_flights(page):
             "price": amount(m["price"]), "currency": m["cur"].strip(),
             "airline": re.sub(r"\. (Operated by|Operado por) (.+)$", r" (\1 \2)", m["airline"].strip()),
             "departs": dep, "arrives": arr, "next_day": m["dday"].strip() != m["aday"].strip(),
+            "days_later": days_later(m["dday"], m["aday"]),
             "date": month_day(m["dday"]), "duration": re.sub(r"\s+", " ", m["dur"]).strip(), "stops": stops,
             "layovers": layovers, "no_cabin_bag": bool(m["bin"]),
         }
@@ -170,7 +189,7 @@ def cmd_flights(a):
             if f["layovers"]:
                 stops += " (" + ", ".join(f["layovers"]) + ")"
             print(f"  {f['price']} {f['currency']} · {f['airline']} · {f['departs']} → {f['arrives']}"
-                  f"{' +1' if f['next_day'] else ''} · {f['duration']} · {stops}"
+                  f"{' %+d' % f['days_later'] if f['days_later'] else ''} · {f['duration']} · {stops}"
                   f"{' · no cabin bag in this fare' if f['no_cabin_bag'] else ''}")
         if other_day:
             print(f"  ({len(other_day)} result(s) for another day were left out)")

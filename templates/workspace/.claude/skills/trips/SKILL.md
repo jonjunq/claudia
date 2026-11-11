@@ -23,7 +23,7 @@ python3 -I /usr/local/share/assistant/tools/google-travel.py flights MAD LIS 202
 ```
 - One leg and one day per call, one way: a return trip is two calls, three dates are three calls. Each takes a few
   seconds; for a wide search (many dates or airports), hand it to a helper and ask for the best five.
-- Each line: the "from" price per person (the basic fare), airline, times (`+1` = arrives the next day), duration,
+- Each line: the "from" price per person (the basic fare), airline, times (`+1` = arrives the next day, `+2` two days later, `-1` the day before when crossing the date line), duration,
   stops with the layover city, and "no cabin bag in this fare" when Google says so. Results Google mixes in for
   other days are left out. The last line is the Google Flights link.
 - If it finds nothing (no flights, or Google changed its page), use the browser with the link it prints.
