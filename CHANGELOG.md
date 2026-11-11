@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Trips: a `trips` skill and `templates/tools/google-travel.py`**, from the skill our own assistant uses. The tool
+  reads Google Flights (one-way flights for a day, cheapest first: the "from" price per person, times with `+1` for
+  next-day arrivals, stops and layovers, fares without a cabin bag; results for other days are left out) and one
+  hotel's total on Google Hotels, without a browser, and builds Google Hotels links with the dates and guests fixed
+  in the `ts` parameter, so Google cannot quietly show a price for other nights (the `hotel` command says which nights
+  the page really shows, and warns when they are not yours). English and Spanish pages; offline tests with made-up
+  pages, and the `ts` values checked against Google Hotels. The skill: prices per person and for everyone with
+  everything included, re-checked before the links; hotels with the browser and the `browser-fast` helper; booking
+  links (Ryanair's format, the Google Flights link that opens for one passenger, fares that apply to every
+  passenger) and the checks on the owner's screenshot before paying; entry documents only on official sites, with
+  the UK ETA check as the example; after booking, calendar events per flight, check-in and the last day to cancel;
+  and a section where it writes how the owner travels. Allowed in `settings.json`; `docs/recipes/trips.md` now
+  points to both instead of repeating them.
+
 - `docs/troubleshooting.md`: a short note on an optional backup model for turns the safeguards flag
   (`CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK=1`, a local LLM or another provider behind its own bot), with the two
   lessons that matter: hand the conversation over verbatim, and keep anything about the safeguards out of the

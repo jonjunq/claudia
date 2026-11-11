@@ -49,7 +49,7 @@ example to adapt, and you write those, not the assistant ([permissions.md](../pe
 | *"Fill in this government form"*, *"claim what they owe me"* | ✅ | its browser; you approve e-ID sign-ins on your phone | a submission is a legal act: one yes each | [errands-and-appointments](errands-and-appointments.md) |
 | *"Book the car inspection after work"*, with travel time | ✅ | its browser | none worth naming | [errands-and-appointments](errands-and-appointments.md#appointments) |
 | *"When does my passport expire?"*, forms filled with your details | ✅ | your details in a private file | ID scans are the most sensitive thing it can hold | [errands-and-appointments](errands-and-appointments.md#your-documents) |
-| *"Rome the last weekend, flights and hotel, the whole price"* | ✅ | its browser | prices move; you pay, or the limited card with your yes | [trips](trips.md) |
+| *"Rome the last weekend, flights and hotel, the whole price"* | ✅ | the `trips` skill, `google-travel.py`, its browser | prices move; you pay, or the limited card with your yes | [trips](trips.md) |
 | *"How is my portfolio doing?"*, *"anything odd in my account?"*, charts | ✅ | exports, read-only keys or open-banking consent | must be read-only at the provider; your data passes through the model | [money-read-only](money-read-only.md) |
 | *"Buy it"*, a subscription with a reminder before each renewal | ✅ pieces, 🧪 purchase | a virtual card with its own small balance | the card's limit is the real boundary | [permissions](../permissions.md#optional-paying-with-a-limited-card) |
 | *"Find me a used bike, cheap and near"*, price watches | ✅ | its browser or the marketplace's public search | scams; never pay outside the platform | [shopping-and-second-hand](shopping-and-second-hand.md) |

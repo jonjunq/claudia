@@ -368,6 +368,7 @@ Las piezas, agrupadas por para qué sirven. Todo menos lo básico es opcional.
 |---|---|
 | `bin/transcribe.sh`, `bin/speak.sh` | Notas de voz de entrada (las transcribe el plugin al llegar: Groq, luego Cloudflare, luego Parakeet en local) y de salida (ElevenLabs) |
 | `.claude/skills/browser` + `templates/browser/` | Usa webs con agent-browser y un Chromium completo con ventana en vez de scripts improvisados; ventana remota opcional (noVNC) para captchas e inicios de sesión |
+| skill `trips` + `templates/tools/google-travel.py` | Viajes: precios de vuelos de Google Flights y totales de hotel de Google Hoteles sin navegador (con las fechas fijadas, para que Google no las cambie a escondidas), enlaces de compra, lo que revisa antes de que pagues, documentos de entrada, y calendario y check-in cuando reservas |
 | `templates/tools/card-fill.sh` | Guarda una tarjeta virtual limitada para los pagos opcionales, sin que pase por el chat |
 | `templates/tools/vet-skill.sh` | Revisa una skill de terceros con SkillSpector antes de instalarla |
 | `templates/tools/pdf-read.py` | Lee un PDF en Markdown con PyMuPDF (tablas y columnas incluidas) y guarda las páginas escaneadas como imagen para mirarlas |

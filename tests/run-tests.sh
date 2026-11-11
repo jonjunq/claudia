@@ -44,6 +44,8 @@ check "CLAUDE.md sends heavy work to helpers and keeps yeses at home" bash -c "g
 check "idle compaction and release watch installed, not enabled" bash -c "test -x '$T/usr/local/sbin/assistant-idle-compact' -a -x '$T/usr/local/sbin/assistant-release-watch' && grep -q 'assistant-idle-compact alex$' '$T/etc/systemd/system/assistant-idle-compact.service' && test -e '$T/etc/systemd/system/assistant-release-watch.timer'"
 check "after-compact hook installed" test -x "$T/usr/local/lib/assistant-memory/after-compact.py"
 check "first-days and updating skills installed, filled in" bash -c "grep -q 'show Alex what you can do' '$H/assistant/.claude/skills/first-days/SKILL.md' && grep -q \"Alex's yes\" '$H/assistant/.claude/skills/updating/SKILL.md'"
+check "trips skill installed with its references, filled in" bash -c "grep -q \"^# Trips$\" '$H/assistant/.claude/skills/trips/SKILL.md' && grep -q 'How Alex travels' '$H/assistant/.claude/skills/trips/SKILL.md' && test -e '$H/assistant/.claude/skills/trips/references/booking-links.md' -a -e '$H/assistant/.claude/skills/trips/references/entry-documents.md'"
+check "trips tool installed and allowed" bash -c "test -x '$T/usr/local/share/assistant/tools/google-travel.py' && jq -e '.permissions.allow | index(\"Bash(python3 -I /usr/local/share/assistant/tools/google-travel.py *)\")' '$H/.claude/settings.json'"
 check "first-days state starts active" grep -q '^phase: active$' "$H/assistant/notes/first-days.md"
 check "history timer installed" grep -q "history.sh alex hourly" "$T/etc/systemd/system/assistant-history.service"
 check "review prompt filled in" grep -q "of Ada, Alex's personal assistant" "$T/usr/local/lib/assistant-memory/review-prompt.txt"
@@ -666,6 +668,10 @@ fi
 
 # unsubscribe.py: one-click unsubscription only from signed emails, only https, never to a private address
 check "unsubscribe tool (offline checks)" python3 -I tests/unsubscribe-test.py
+
+# google-travel.py: reads Google Flights and Google Hotels pages (copies with made-up data), and the hotel dates it sends
+if python3 -I tests/google-travel-test.py > "$T/google-travel.out" 2>&1; then ok "google-travel tool (offline checks)"
+else ko "google-travel tool (offline checks)"; grep -v '^ok' "$T/google-travel.out" | sed 's/^/    /'; fi
 
 # card-fill.sh: saves the card 600 outside the workspace, checks the last digits, refuses a malformed number
 CF="$T/cardhome"; mkdir -p "$CF"

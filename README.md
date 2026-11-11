@@ -359,6 +359,7 @@ The pieces, grouped by what they are for. Everything except the core is optional
 |---|---|
 | `bin/transcribe.sh`, `bin/speak.sh` | Voice notes in (transcribed by the plugin on arrival: Groq, then Cloudflare, then Parakeet locally) and out (ElevenLabs) |
 | `.claude/skills/browser` + `templates/browser/` | Uses websites through agent-browser and a full Chromium with a window instead of improvised scripts; optional remote window (noVNC) for captchas and sign-ins |
+| `trips` skill + `templates/tools/google-travel.py` | Trips: flight prices from Google Flights and hotel totals from Google Hotels without a browser (dates fixed, so Google cannot change them quietly), booking links, the checks before you pay, entry documents, and the calendar and check-in after you book |
 | `templates/tools/card-fill.sh` | Stores a limited virtual card for optional payments, without it passing through the chat |
 | `templates/tools/vet-skill.sh` | Scans a third-party skill with SkillSpector before you install it |
 | `templates/tools/pdf-read.py` | Reads a PDF as Markdown with PyMuPDF (tables and columns kept), and saves the scanned pages as images to look at |
