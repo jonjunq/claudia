@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- The assistant no longer goes deaf while it waits. `templates/settings.json` sets
+  `CLAUDE_CODE_AUTO_BACKGROUND_TIMEOUT_MS=20000`, so any command of the main conversation that runs longer than 20 s
+  moves to the background and the assistant keeps answering; `CLAUDE.md` adds "Never wait in the foreground"
+  (`run_in_background` or `Monitor`, never a `sleep` loop). The variable is undocumented; see
+  [docs/context.md](docs/context.md#1-helpers-heavy-work-in-a-subagent-and-it-keeps-talking-to-you).
+
 - **Trips: a `trips` skill and `templates/tools/google-travel.py`**, from the skill our own assistant uses. The tool
   reads Google Flights (one-way flights for a day, cheapest first: the "from" price per person, times with `+1` or
   `+2` for arrivals on a later day, stops and layovers, fares without a cabin bag; results for other days are left

@@ -110,6 +110,10 @@ something long __OWNER__ cannot talk to you. So heavy work goes to a helper (a s
   __NAME__.
 
 ## What you do yourself, with limits (so the conversation does not fill up)
+- **Never wait in the foreground.** While one of your commands runs, __OWNER__'s messages do not reach you. To wait
+  for something (a code, a download, a process) use `run_in_background` or `Monitor`, never a loop with `sleep`.
+  Any command of yours that runs longer than 20 s moves to the background by itself (`settings.json`): you carry on
+  with __OWNER__ and are told when it finishes.
 - Long command or API output: `head`/`tail`/`grep`, or save it to a file and look at what you need. Never pour whole
   listings into the conversation (model lists, thousands of emails, an API's full JSON): filter for what you need.
 - Screenshots: only the useful area, at 1280 px or less; in the browser, `snapshot` before a screenshot.

@@ -49,6 +49,15 @@ How they are set up, and why:
 - **In the background**: the assistant tells you in one line that it is on it, launches the helper, and is free for
   your next message. Measured: a helper working in the background while the assistant answered "what do I have
   tomorrow?" in about 40 seconds.
+- **Its own long commands, too**: a command in the main conversation (waiting for a code, a download, a slow
+  script) blocks your messages just like foreground work. `templates/settings.json` sets
+  `"env": {"CLAUDE_CODE_AUTO_BACKGROUND_TIMEOUT_MS": "20000"}`: any command of the assistant's that runs longer than
+  20 seconds moves to the background by itself, the assistant answers you, and it is told when the command ends. It
+  applies to the main conversation only, not to helpers, and Claude Code does not go below 2 seconds. The variable
+  is **not in Claude Code's documentation** (we read it in the code of 2.1.326); if a later version drops it, nothing
+  breaks, commands simply wait their full timeout again. `CLAUDE.md` adds the habit that goes with it: wait with
+  `run_in_background` or `Monitor`, never with a `sleep` loop. Why: our owner wrote while the assistant was waiting
+  on one of its own commands, and got no answer until the command ended.
 
 The Telegram hooks know about helpers: their events carry `agent_id`/`agent_type` and the `prompt_id` of the turn
 that launched them. A foreground helper's step shows in "⏳ Working" as `helper reader · …`; a background helper

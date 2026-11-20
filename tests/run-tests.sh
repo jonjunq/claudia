@@ -16,6 +16,7 @@ check "settings.json has the Telegram hooks" jq -e '.hooks.PermissionRequest[0].
 check "settings.json has the classifier-block hooks" jq -e '(.hooks.PermissionDenied[0].hooks[0].command | test("denied-hook")) and ([.hooks.PreToolUse[].hooks[] | select(.command | test("approved-hook")) | (.async // false)] == [false])' templates/settings.json
 check "settings.json trims the fixed context" jq -e '(.permissions.deny | index("AskUserQuestion") and index("ScheduleWakeup")) and .disableWorkflows == true and .feedbackDrafts == "off" and .autoDreamEnabled == false and .bashOutputMaxChars == 15000 and .skillOverrides["code-review"] == "off"' templates/settings.json
 check "settings.json re-injects context after a compaction" jq -e '.hooks.SessionStart[0].matcher == "compact" and (.hooks.SessionStart[0].hooks[0].command | test("after-compact.py"))' templates/settings.json
+check "settings.json moves long commands to the background" jq -e '.env.CLAUDE_CODE_AUTO_BACKGROUND_TIMEOUT_MS == "20000"' templates/settings.json
 check "settings.json hard-blocks payments" jq -e '.autoMode.hard_deny[0] == "$defaults" and (.autoMode.hard_deny[1] | test("payment"; "i"))' templates/settings.json
 for j in templates/n8n/workflows/*.json; do check "valid JSON $j" jq -e . "$j"; done
 for p in templates/telegram/*.py templates/memory/*.py templates/wakeup/*.py templates/tools/*.py tests/*.py tests/fake-pdf/*.py docs/diagrams/*.py templates/system/assistant-idle-compact templates/system/assistant-doctor; do check "python compiles $p" python3 -m py_compile "$p"; done
