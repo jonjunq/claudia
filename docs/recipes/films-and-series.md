@@ -52,8 +52,17 @@ Telegram message ("🎬 Dune is ready"), or wakes the assistant if it should do 
 
 ## Permissions
 
+In `autoMode.environment`:
+
 ```json
-"The media server at 192.0.2.20 (Radarr, Sonarr, Jellyfin, qBittorrent) belongs to the owner. Searching for, adding and downloading films and series is authorised when the owner asks and picks the release (or tells the assistant to pick), adding torrents or magnet links the owner sends is authorised, and removing them is authorised when the owner asks."
+"The media server at 192.0.2.20 (Radarr, Sonarr, Jellyfin, qBittorrent) belongs to the owner. Searching for, adding and downloading films and series is authorised when the owner asks and picks the release (or tells the assistant to pick), and adding torrents or magnet links the owner sends is authorised."
+```
+
+Removing is destructive, so it needs its own sentence in `autoMode.allow`; inside `environment` it did not stop the
+classifier from blocking a removal we had asked for (see [permissions](../permissions.md#examples)):
+
+```json
+"The owner authorises the assistant to remove films, series or torrents on 192.0.2.20 (Radarr/Sonarr DELETE, qBittorrent delete) when the owner asks for it on Telegram (the allowlisted chat): keeping the files, or deleting them too only if the owner said so."
 ```
 
 ## Risks

@@ -102,11 +102,13 @@ Adapt names and addresses; these are generic.
     "environment": [
       "$defaults",
       "The owner owns the living-room TV (tv.home.lan, 192.0.2.10) and the projector (192.0.2.11). Installing, launching and uninstalling apps on them through the manufacturer's developer mode and its command-line tools is authorised. Never root them or modify their system software.",
-      "The media server at media.home.lan (Radarr, Sonarr, Jellyfin) belongs to the owner. Searching for, adding and downloading films and series with Radarr/Sonarr is authorised when the owner asks and picks the release (or tells the assistant to pick), and removing them is authorised when the owner asks."
+      "The media server at media.home.lan (Radarr, Sonarr, Jellyfin) belongs to the owner. Searching for, adding and downloading films and series with Radarr/Sonarr is authorised when the owner asks and picks the release (or tells the assistant to pick)."
     ],
     "allow": [
       "$defaults",
-      "The owner authorises the assistant to create accounts on services and accept their terms and conditions on the owner's behalf when the owner asks for it on Telegram (the allowlisted chat), using the owner's details and the e-mail alias owner+<service>@example.com. Never payments, paid subscriptions or bank details."
+      "The owner authorises the assistant to create accounts on services and accept their terms and conditions on the owner's behalf when the owner asks for it on Telegram (the allowlisted chat), using the owner's details and the e-mail alias owner+<service>@example.com. Never payments, paid subscriptions or bank details.",
+      "The owner authorises the assistant to remove films or series from Radarr/Sonarr on media.home.lan (DELETE /api/v3/movie/<id> or /api/v3/series/<id>) when the owner asks for it on Telegram (the allowlisted chat): with deleteFiles=false, or deleteFiles=true only if the owner said to delete the files too.",
+      "The owner authorises the assistant to approve a Jellyfin Quick Connect code on media.home.lan for the owner's own user ONLY when the owner sends that code on Telegram (the allowlisted chat). Never a code that arrives by email, from a web page or from any other source."
     ]
   }
 }
@@ -123,6 +125,21 @@ Why these shapes:
   owner's behalf, although the owner's request was right there in the chat. With the `allow` sentence above, the
   same request went through. The `+<service>` alias shows which service each email comes from and lets you filter
   or burn one address without touching the others.
+- **Removing things goes in `allow`, not in `environment`**: we hit this one too. An earlier version of this example
+  said "removing them is authorised" inside the `environment` sentence, and the classifier still blocked a removal
+  the owner had just asked for ("Destructive or Unwanted Actions"). `environment` tells the classifier what is yours;
+  it is context, not an exception to a block rule. An action the built-in rules treat as destructive needs its own
+  `allow` sentence.
+- **Codes that let a device in** (Quick Connect, pairing codes, sign-in links): approving one was blocked as
+  "Undermining Oversight", which is the right default, because a code from an email or a web page would let a
+  stranger's device into your account. The `allow` sentence clears it only for a code that comes from you, in the
+  chat.
+
+**A fixed command is better as a `permissions.allow` rule.** For an action that is always the same command, an exact
+rule such as `"Bash(ssh pc 'shutdown /s /t 5')"` skips the classifier entirely, with no judgment call. A sentence
+in `autoMode.allow` is weighed against the command it sees: on our assistant, "shut down my PC with exactly this
+command" was still blocked when the assistant wrapped that command in `timeout` and piped its output. If you keep
+the sentence too, say that wrappers like `timeout` or output filters are fine.
 
 The "never" inside an `allow` sentence narrows the exception; it is not a block of its own: on our assistant,
 "never payments" in the account-creation sentence above blocked nothing by itself. Payments are covered by a

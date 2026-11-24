@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `docs/permissions.md`: removing films or series now has its own `autoMode.allow` sentence in the example instead of
+  a clause inside `environment` (on our assistant the `environment` wording did not stop the classifier from blocking
+  a removal the owner had asked for), plus an example for Jellyfin Quick Connect codes that only clears codes the
+  owner sends in the chat, and a note on exact `permissions.allow` rules for fixed commands. The films-and-series recipe follows the same split.
+
 - The assistant no longer goes deaf while it waits. `templates/settings.json` sets
   `CLAUDE_CODE_AUTO_BACKGROUND_TIMEOUT_MS=20000`, so any command of the main conversation that runs longer than 20 s
   moves to the background and the assistant keeps answering; `CLAUDE.md` adds "Never wait in the foreground"
